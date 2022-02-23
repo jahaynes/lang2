@@ -1,13 +1,19 @@
-import logo from './logo.svg';
 import './App.css';
 
 function App() {
   return (
     <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>Edit <code>src/App.js</code> and save to reload.</p>
-      </header>
+      <table>
+        <tr>
+          <td><textarea rows='10'></textarea></td>
+          <td><textarea rows='10' readonly='true'></textarea></td>
+        </tr>
+        <tr>
+          <td><textarea rows='10' readonly='true'></textarea></td>
+          <td><textarea rows='10' readonly='true'></textarea></td>
+        </tr>
+      </table>
+
     </div>
   );
 }
