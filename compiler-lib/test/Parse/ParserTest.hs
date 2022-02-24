@@ -32,7 +32,7 @@ prop_simpleExpressionsAreParsed = property $ do
 
     let tokens = asTokens (printf "%d + %d" num1 num2)
     case runParser parseExpr tokens of
-        Right (tokRemainder, (pos,EBinPrimOp AddI (EApp (ETerm (LitInt a)) []) (EApp (ETerm (LitInt b)) []))) -> do
+        Right (tokRemainder, (pos,EBinPrimOp AddI (ETerm (LitInt a)) (ETerm (LitInt b)))) -> do
             pos === SourcePos 1 1
             tokRemainder === []
             a === num1
@@ -44,10 +44,9 @@ prop_divisionLeftAssociative = property $ do
     let tokens = asTokens "8 / 4 / 2"
         Right ([], (SourcePos 1 1, expr)) = runParser parseExpr tokens
     expr ===
-         EBinPrimOp DivI (EBinPrimOp DivI (EApp (ETerm (LitInt 8)) [])
-                                          (EApp (ETerm (LitInt 4)) []))
-                         (EApp (ETerm (LitInt 2)) [])
-    -- TODO reduce these (App x [])
+         EBinPrimOp DivI (EBinPrimOp DivI (ETerm (LitInt 8))
+                                          (ETerm (LitInt 4)))
+                         (ETerm (LitInt 2))
 
 -- TODO
 _prop_negativeNumbersAreParsed :: Property

@@ -39,7 +39,9 @@ apply :: (Eq s, Show s) => Parser [(SourcePos, Token s)] (SourcePos, Expr s)
 apply = do
     (sp, e) <- nonApply
     es      <- map snd <$> many (nonApplyRighterThan sp)
-    pure (sp, EApp e es)
+    pure $ case es of
+               [] -> (sp, e)
+               _  -> (sp, EApp e es)
 
 -- TODO how does this work and the simpler implementation doesn't work? backtracking? try?
 -- TODO dedupe using the impl in Combinators
