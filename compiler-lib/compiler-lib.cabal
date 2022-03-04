@@ -9,7 +9,8 @@ extra-source-files:  CHANGELOG.md
 
 library
   build-depends:    base,
-                    bytestring
+                    bytestring,
+                    containers
   exposed-modules:  Common.State
                     Core.Expression
                     Core.Operator
@@ -21,6 +22,11 @@ library
                     Parse.Parser
                     Parse.Primitives
                     Parse.Token
+                    Parse2.ByteString
+                    Parse2.Expression
+                    Parse2.Lexer2
+                    Parse2.Parse2
+                    Parse2.Token2
   ghc-options:      -Wall -O2
   hs-source-dirs:   src
   default-language: Haskell2010
@@ -31,6 +37,8 @@ test-suite test-compiler-lib
     ghc-options:      -Wall -O2
     other-modules:    Parse.LexerTest
                       Parse.ParserTest
+                      Parse2.ByteStringTest
+                      Parse2.Lexer2Test
     type:             exitcode-stdio-1.0
     main-is:          Tests.hs
     build-depends:    base, containers, hedgehog
