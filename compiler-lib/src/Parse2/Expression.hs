@@ -33,14 +33,28 @@ parseSum = do
 
 parseProduct :: Parser [Pos Token] (Pos (Expr ByteString))
 parseProduct = do
-    Pos b x <- parseTerm
+    Pos b x <- parseApply
     ys      <- many $ do Pos _ op <- mulOp
-                         Pos _  y <- parseTerm
+                         Pos _  y <- parseApply
                          pure (op, y)
     pure $ Pos b (foldl' (\e (o, y) -> EBinPrimOp o e y) x ys)
 
+parseApply :: Parser [Pos Token] (Pos (Expr ByteString))
+parseApply = do
+    Pos b f <- parseNonApply
+    xs      <- many $ do
+                   Pos _ x <- parseNonApply
+                   pure x
+    pure $ Pos b $ if null xs
+                       then f
+                       else EApp f xs
+
+parseNonApply :: Parser [Pos Token] (Pos (Expr ByteString))
+parseNonApply = parseTerm
+
 parseTerm :: Parser [Pos Token] (Pos (Expr ByteString))
 parseTerm = fmap ETerm <$> parseLiteral
+                       <|> parseVariable
 
 parseLiteral :: Parser [Pos Token] (Pos (Term ByteString))
 parseLiteral = Parser f
@@ -49,6 +63,13 @@ parseLiteral = Parser f
     f (Pos b (TLitBool x):ts) = Right (ts, Pos b (LitBool x))
     f (Pos b  (TLitInt i):ts) = Right (ts, Pos b (LitInt i))
     f                       _ = Left "Not a literal"
+
+parseVariable :: Parser [Pos Token] (Pos (Term ByteString))
+parseVariable = Parser f
+    where
+    f                         [] = Left "no more tokens for variable"
+    f (Pos b (TLowerStart x):ts) = Right (ts, Pos b (Var x))
+    f                          _ = Left "Not a literal"
 
 compOp :: Parser [Pos Token] (Pos BinOp)
 compOp = Parser f

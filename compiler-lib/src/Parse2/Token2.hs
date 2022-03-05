@@ -9,6 +9,9 @@ data Token = TBreak
            | TLitInt Integer
            | TLitString ByteString
 
+           | TLowerStart ByteString
+           | TUpperStart ByteString
+
            | TEqEq
            | TGt
            | TGtEq

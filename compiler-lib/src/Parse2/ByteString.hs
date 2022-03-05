@@ -6,7 +6,7 @@ import           Parse2.Parse2
 
 import           Data.ByteString             (ByteString)
 import qualified Data.ByteString.Char8 as C8
-import           Data.Char                   (isDigit)
+import           Data.Char                   (isAlphaNum, isDigit, isLower, isUpper)
 
 eof :: Parser (Pos ByteString) ()
 eof = Parser $ \ps@(Pos _ s) ->
@@ -59,3 +59,21 @@ notFollowedBy p = Parser $ \pos@(Pos _ s) ->
      else if p (C8.head s)
               then errorAt "was followed by predicate" pos
               else pure (pos, ())
+
+lowerStart :: Parser (Pos ByteString) (Pos ByteString)
+lowerStart = alphaNumStartWith isLower
+
+upperStart :: Parser (Pos ByteString) (Pos ByteString)
+upperStart = alphaNumStartWith isUpper
+
+alphaNumStartWith :: (Char -> Bool) -> Parser (Pos ByteString) (Pos ByteString)
+alphaNumStartWith p = Parser $ \pos@(Pos by@(Byte b) s) ->
+    let (some, rest) = C8.span isAlphaNum s
+        len = C8.length some
+    in if len == 0
+           then errorAt "Expected alphaNum for alphaNumStartWith" pos
+           else
+               if p (C8.head some)
+                   then Right (Pos (Byte (b + len)) rest, Pos by some)
+                   else errorAt "Unexpected alphaNumStartWith" pos
+

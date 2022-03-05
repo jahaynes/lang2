@@ -6,13 +6,13 @@ import qualified Parse2.ByteString as B
 import           Parse2.Parse2
 import           Parse2.Token2
 
-import           Data.ByteString             (ByteString)
-import qualified Data.ByteString       as BS
-import           Data.Char                   (isAlphaNum, isPunctuation, isSpace)
-import           Data.List                   (foldl')
-import           Data.IntSet                 (IntSet)
+import           Data.ByteString         (ByteString)
+import qualified Data.ByteString as BS
+import           Data.Char               (isAlphaNum, isPunctuation, isSpace)
+import           Data.List               (foldl')
+import           Data.IntSet             (IntSet)
 import qualified Data.IntSet as IS
-import           Data.Word                   (Word8)
+import           Data.Word               (Word8)
 
 runLexer :: ByteString -> [Pos Token]
 runLexer source =
@@ -42,6 +42,8 @@ token = keyword
     <|> operator
     <|> litBool
     <|> litInt
+    <|> variable
+    <|> constructor
 
     where
     keyword = positioned TLet (B.string "let" <* B.notFollowedBy alphaNumOrPunc)
@@ -57,6 +59,10 @@ token = keyword
           <|> positioned (TLitBool False) (B.string "False" <* B.notFollowedBy alphaNumOrPunc)
 
     litInt = (\(Pos b i) -> Pos b (TLitInt i)) <$> B.integer -- TODO not followed by ., etc.
+
+    variable = fmap TLowerStart <$> B.lowerStart
+
+    constructor = fmap TUpperStart <$> B.upperStart
 
     alphaNumOrPunc c = isAlphaNum c || isPunctuation c
 
