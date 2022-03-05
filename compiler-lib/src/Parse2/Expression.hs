@@ -30,13 +30,17 @@ parseSum = do
                          Pos _  y <- parseProduct
                          pure (op, y)
     pure $ Pos b (foldl' (\e (o, y) -> EBinPrimOp o e y) x ys)
-    where
 
 parseProduct :: Parser [Pos Token] (Pos (Expr ByteString))
-parseProduct = fmap ETerm <$> parseTerm
+parseProduct = do
+    Pos b x <- parseTerm
+    ys      <- many $ do Pos _ op <- mulOp
+                         Pos _  y <- parseTerm
+                         pure (op, y)
+    pure $ Pos b (foldl' (\e (o, y) -> EBinPrimOp o e y) x ys)
 
-parseTerm :: Parser [Pos Token] (Pos (Term ByteString))
-parseTerm = parseLiteral
+parseTerm :: Parser [Pos Token] (Pos (Expr ByteString))
+parseTerm = fmap ETerm <$> parseLiteral
 
 parseLiteral :: Parser [Pos Token] (Pos (Term ByteString))
 parseLiteral = Parser f
@@ -64,4 +68,12 @@ sumOp = Parser f
     f (Pos b TPlus:ts)  = Right (ts, Pos b AddI)
     f (Pos b TMinus:ts) = Right (ts, Pos b SubI)
     f                 _ = Left "Not summish"
+
+mulOp :: Parser [Pos Token] (Pos BinOp)
+mulOp = Parser f
+    where
+    f              [] = Left "no more tokens for mulOp"
+    f (Pos b TMul:ts) = Right (ts, Pos b MulI)
+    f (Pos b TDiv:ts) = Right (ts, Pos b DivI)
+    f               _ = Left "Not mullish"
 

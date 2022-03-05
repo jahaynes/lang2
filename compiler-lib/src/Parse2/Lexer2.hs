@@ -50,6 +50,8 @@ token = keyword
     operator = positioned TEqEq (B.string "==")
            <|> positioned TEq   (B.string "=")
            <|> positioned TPlus (B.string "+")
+           <|> positioned TMul  (B.string "*")
+           <|> positioned TDiv  (B.string "/")
 
     litBool = positioned (TLitBool True)  (B.string "True"  <* B.notFollowedBy alphaNumOrPunc)
           <|> positioned (TLitBool False) (B.string "False" <* B.notFollowedBy alphaNumOrPunc)
