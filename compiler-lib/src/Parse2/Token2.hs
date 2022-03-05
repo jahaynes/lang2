@@ -20,4 +20,4 @@ data Token = TBreak
            | TMinus
            | TMul
            | TDiv
-               deriving (Eq, Show)
+               deriving (Eq, Read, Show)
