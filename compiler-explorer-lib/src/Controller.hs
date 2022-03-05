@@ -1,20 +1,47 @@
 {-# LANGUAGE DataKinds,
              OverloadedStrings,
+             ScopedTypeVariables,
              TypeOperators #-}
 
 module Controller (runController) where
 
-import Control.Monad.IO.Class   (liftIO)
-import Data.Text                (Text)
-import Network.Wai.Handler.Warp (run)
-import Servant
+import Parse2.Expression
+import Parse2.Lexer2
+import Parse2.Parse2
+import Parse2.Token2
 
-type Api = "foo" :> Get '[JSON] Text
+import           Data.Text                   (Text)
+import qualified Data.Text as T
+import           Data.Text.Encoding          (encodeUtf8)
+import           Network.Wai.Handler.Warp    (run)
+import           Network.Wai.Middleware.Cors (simpleCors)
+import           Servant
+
+type Api = "lex" :> ReqBody '[PlainText] Text
+                 :> Post '[PlainText] Text
+
+      :<|> "parse" :> ReqBody '[PlainText] Text
+                   :> Post '[PlainText] Text
 
 server :: Server Api
-server = do
-    liftIO $ putStrLn "Hi route"
-    pure "Hi"
+server = routeLex :<|> routeParse
+
+    where
+    routeLex = pure . T.unlines
+                    . map (T.pack . show)
+                    . runLexer
+                    . encodeUtf8
+
+    routeParse strTokens = do
+
+        let tokens :: [Pos Token] = map (read . T.unpack) 
+                                  . T.lines
+                                  $ strTokens
+
+        pure . T.pack $
+            case runParser parseExpr tokens of
+                Left e -> show e
+                Right (_, Pos _ e) -> show e
 
 runController :: Int -> IO ()
-runController port = run port $ serve (Proxy :: Proxy Api) server 
+runController port = run port . simpleCors $ serve (Proxy :: Proxy Api) server 

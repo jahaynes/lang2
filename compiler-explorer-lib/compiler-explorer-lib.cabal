@@ -10,8 +10,10 @@ extra-source-files:  CHANGELOG.md
 library
   build-depends:    aeson,
                     base,
+                    compiler-lib,
                     servant-server,
                     text,
+                    wai-cors,
                     warp
   exposed-modules:  Controller
   ghc-options:      -Wall -O2

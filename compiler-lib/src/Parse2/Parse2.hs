@@ -11,7 +11,7 @@ import           Text.Printf                 (printf)
 
 newtype Byte =
     Byte Int
-        deriving Show
+        deriving (Read, Show)
 
 class PosInfo a where
     byte :: a -> Byte
@@ -64,7 +64,7 @@ runParser' p s = runParser p (Pos (Byte 0) s)
 
 data Pos a =
     Pos !Byte !a
-        deriving Show
+        deriving (Read, Show)
 
 instance PosInfo (Pos a) where
     byte (Pos b _) = b

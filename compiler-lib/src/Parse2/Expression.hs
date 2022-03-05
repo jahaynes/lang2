@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Parse2.Expression where
+module Parse2.Expression (parseExpr) where
 
 import Core.Expression
 import Core.Operator
@@ -10,6 +10,9 @@ import Parse2.Token2
 
 import Data.ByteString (ByteString)
 import Data.List       (foldl')
+
+parseExpr :: Parser [Pos Token] (Pos (Expr ByteString))
+parseExpr = parseComp
 
 parseComp :: Parser [Pos Token] (Pos (Expr ByteString))
 parseComp = sumExpr <|> parseSum

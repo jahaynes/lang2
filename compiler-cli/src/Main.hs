@@ -13,7 +13,7 @@ main = do
     let tokens = runLexer "2 == 2 + 2"
     mapM_ print tokens
     
-    case runParser parseComp tokens of
+    case runParser parseExpr tokens of
         Left e -> error $ show e
         Right (_, Pos _ e) -> do
             print e
