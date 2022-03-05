@@ -81,6 +81,13 @@ errorAt msg x =
         at    = printf " at byte %d\n" b
     in Left (msg <> C8.pack at)
 
+satisfy :: (a -> Bool) -> Parser [Pos a] (Pos a)
+satisfy p = Parser f
+    where
+    f                       [] = Left "no more tokens for satisfy"
+    f (Pos b t:ts) | p t       = Right (ts, Pos b t)
+                   | otherwise = Left "unsatisfied"
+
 many :: Parser s a -> Parser s [a]
 many p = Parser $
     let loop acc s =
@@ -88,3 +95,11 @@ many p = Parser $
             Left _        -> Right (s, reverse acc)
             Right (s', x) -> loop (x:acc) s'
     in loop []
+
+many1 :: Parser s a -> Parser s [a]
+many1 p = do
+    xs <- many p
+    if null xs
+      then Parser $ \_ -> Left "Could not find 1 match"
+      else pure xs
+

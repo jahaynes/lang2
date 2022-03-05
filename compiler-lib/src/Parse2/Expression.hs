@@ -50,7 +50,21 @@ parseApply = do
                        else EApp f xs
 
 parseNonApply :: Parser [Pos Token] (Pos (Expr ByteString))
-parseNonApply = parseTerm
+parseNonApply = parseLet
+            <|> parseTerm
+
+parseLet :: Parser [Pos Token] (Pos (Expr ByteString))
+parseLet = do
+    Pos b _  <- satisfy (==TLet)
+    negs     <- many1 parseVariable
+    _        <- satisfy (==TEq)
+    Pos _ e1 <- parseExpr
+    _        <- satisfy (==TIn)
+    Pos _ e2 <- parseExpr
+    let (f:xs) = map (\(Pos _ (Var v)) -> v) negs
+    pure $ Pos b $ case xs of
+        [] -> ELet f          e1  e2
+        _  -> ELet f (ELam xs e1) e2
 
 parseTerm :: Parser [Pos Token] (Pos (Expr ByteString))
 parseTerm = fmap ETerm <$> parseLiteral
