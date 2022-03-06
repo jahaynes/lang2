@@ -54,6 +54,7 @@ parseNonApply = parseLet
             <|> parseIfThenElse
             <|> parseLambda
             <|> parseTerm
+            <|> parseParen
 
 parseLet :: Parser [Pos Token] (Pos (Expr ByteString))
 parseLet = do
@@ -89,6 +90,9 @@ parseLambda = do
 parseTerm :: Parser [Pos Token] (Pos (Expr ByteString))
 parseTerm = fmap ETerm <$> parseLiteral
                        <|> parseVariable
+
+parseParen :: Parser [Pos Token] (Pos (Expr ByteString))
+parseParen = satisfy (==TLParen) *> parseExpr <* satisfy (==TRParen)
 
 parseLiteral :: Parser [Pos Token] (Pos (Term ByteString))
 parseLiteral = Parser f

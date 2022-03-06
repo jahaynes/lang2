@@ -59,6 +59,9 @@ token = keyword
            <|> positioned TDiv    (B.string "/")
            <|> positioned TLambda (B.string "\\")
            <|> positioned TDot    (B.string ".")
+           <|> positioned TLParen (B.string "(")
+           <|> positioned TRParen (B.string ")")
+
 
     litBool = positioned (TLitBool True)  (B.string "True"  <* B.notFollowedBy alphaNumOrPunc)
           <|> positioned (TLitBool False) (B.string "False" <* B.notFollowedBy alphaNumOrPunc)
