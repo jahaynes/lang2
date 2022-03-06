@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Parse2.Expression (parseExpr) where
+module Parse2.Expression (parseExpr, parseVariable) where
 
 import Core.Expression
 import Core.Operator

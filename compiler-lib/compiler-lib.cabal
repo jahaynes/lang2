@@ -12,6 +12,7 @@ library
                     bytestring,
                     containers
   exposed-modules:  Common.State
+                    Core.Definition
                     Core.Expression
                     Core.Operator
                     Core.Term
@@ -23,6 +24,7 @@ library
                     Parse.Primitives
                     Parse.Token
                     Parse2.ByteString
+                    Parse2.Definition
                     Parse2.Expression
                     Parse2.Lexer2
                     Parse2.Parse2

@@ -5,11 +5,12 @@
 
 module Controller (runController) where
 
-import Parse2.Expression
+import Parse2.Definition
 import Parse2.Lexer2
 import Parse2.Parse2
 import Parse2.Token2
 
+import           Data.List                   (intercalate)
 import           Data.Text                   (Text)
 import qualified Data.Text as T
 import           Data.Text.Encoding          (encodeUtf8)
@@ -39,9 +40,9 @@ server = routeLex :<|> routeParse
                                   $ strTokens
 
         pure . T.pack $
-            case runParser parseExpr tokens of
+            case runParser parseDefns tokens of
                 Left e -> show e
-                Right (_, Pos _ e) -> show e
+                Right (_, defns) -> intercalate "\n\n" $ map (\(Pos _ defn) -> show defn) defns
 
 runController :: Int -> IO ()
 runController port = run port . simpleCors $ serve (Proxy :: Proxy Api) server 
