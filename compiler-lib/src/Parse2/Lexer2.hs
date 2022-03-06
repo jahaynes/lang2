@@ -52,11 +52,13 @@ token = keyword
           <|> positioned TThen (B.string "then" <* B.notFollowedBy alphaNumOrPunc)
           <|> positioned TElse (B.string "else" <* B.notFollowedBy alphaNumOrPunc)
 
-    operator = positioned TEqEq (B.string "==")
-           <|> positioned TEq   (B.string "=")
-           <|> positioned TPlus (B.string "+")
-           <|> positioned TMul  (B.string "*")
-           <|> positioned TDiv  (B.string "/")
+    operator = positioned TEqEq   (B.string "==")
+           <|> positioned TEq     (B.string "=")
+           <|> positioned TPlus   (B.string "+")
+           <|> positioned TMul    (B.string "*")
+           <|> positioned TDiv    (B.string "/")
+           <|> positioned TLambda (B.string "\\")
+           <|> positioned TDot    (B.string ".")
 
     litBool = positioned (TLitBool True)  (B.string "True"  <* B.notFollowedBy alphaNumOrPunc)
           <|> positioned (TLitBool False) (B.string "False" <* B.notFollowedBy alphaNumOrPunc)

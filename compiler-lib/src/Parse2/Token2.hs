@@ -11,6 +11,9 @@ data Token = TBreak
            | TThen
            | TElse
 
+           | TLambda
+           | TDot
+
            | TLitBool Bool
            | TLitInt Integer
            | TLitString ByteString

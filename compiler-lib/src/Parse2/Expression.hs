@@ -52,6 +52,7 @@ parseApply = do
 parseNonApply :: Parser [Pos Token] (Pos (Expr ByteString))
 parseNonApply = parseLet
             <|> parseIfThenElse
+            <|> parseLambda
             <|> parseTerm
 
 parseLet :: Parser [Pos Token] (Pos (Expr ByteString))
@@ -76,6 +77,14 @@ parseIfThenElse = do
     _       <- satisfy (==TElse)
     Pos _ f <- parseExpr
     pure $ Pos b $ IfThenElse p t f
+
+parseLambda :: Parser [Pos Token] (Pos (Expr ByteString))
+parseLambda = do
+    Pos b _    <- satisfy (==TLambda)
+    params     <- fmap (\(Pos _ (Var v)) -> v) <$> many1 parseVariable
+    _          <- satisfy (==TDot)
+    Pos _ body <- parseExpr
+    pure $ Pos b $ ELam params body
 
 parseTerm :: Parser [Pos Token] (Pos (Expr ByteString))
 parseTerm = fmap ETerm <$> parseLiteral
