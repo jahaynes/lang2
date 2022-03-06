@@ -8,6 +8,9 @@ import           Parse2.Token2
 
 import           Data.ByteString         (ByteString)
 import qualified Data.ByteString as BS
+import           Data.ByteString.Builder (Builder)
+import qualified Data.ByteString.Builder as BB
+import qualified Data.ByteString.Lazy as LBS
 import           Data.Char               (isAlphaNum, isPunctuation, isSpace)
 import           Data.List               (foldl')
 import           Data.IntSet             (IntSet)
@@ -42,6 +45,7 @@ token = keyword
     <|> operator
     <|> litBool
     <|> litInt
+    <|> litString
     <|> variable
     <|> constructor
 
@@ -62,7 +66,6 @@ token = keyword
            <|> positioned TLParen (B.string "(")
            <|> positioned TRParen (B.string ")")
 
-
     litBool = positioned (TLitBool True)  (B.string "True"  <* B.notFollowedBy alphaNumOrPunc)
           <|> positioned (TLitBool False) (B.string "False" <* B.notFollowedBy alphaNumOrPunc)
 
@@ -73,6 +76,34 @@ token = keyword
     constructor = fmap TUpperStart <$> B.upperStart
 
     alphaNumOrPunc c = isAlphaNum c || isPunctuation c
+
+litString :: Parser (Pos ByteString) (Pos Token)
+litString = Parser f
+    where
+    f p@(Pos by@(Byte b) s)
+        | BS.null s       = errorAt "Out of litString" p
+        | BS.head s /= 34 = errorAt "Doesn't start with \"" p
+        | otherwise       =
+            case findEnd 1 (BS.length s) False mempty of
+                Left l         -> Left l
+                Right (end, x) -> let s' = BS.drop end s
+                                      b' = Byte (b + end + 1)
+                                  in Right ( Pos b' (BS.tail s')
+                                           , Pos by (TLitString x))
+
+        where
+        findEnd :: Int -> Int -> Bool -> Builder -> Either ByteString (Int, ByteString)
+        findEnd i j esc acc
+            | i == j    = Left "Ran off the end"
+            | otherwise =
+                let c = s `BS.index` i
+                in
+                if esc
+                    then findEnd (i+1) j False (acc <> BB.word8 c)
+                    else case c of
+                             92 -> findEnd (i+1) j True acc
+                             34 -> Right (i, LBS.toStrict $ BB.toLazyByteString acc)
+                             _  -> findEnd (i+1) j False (acc <> BB.word8 c)
 
 data LineState =
     LineState { newLines :: ![Int]
