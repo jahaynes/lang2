@@ -97,10 +97,11 @@ parseParen = satisfy (==TLParen) *> parseExpr <* satisfy (==TRParen)
 parseLiteral :: Parser [Pos Token] (Pos (Term ByteString))
 parseLiteral = Parser f
     where
-    f                      [] = Left "no more tokens for literal"
-    f (Pos b (TLitBool x):ts) = Right (ts, Pos b (LitBool x))
-    f (Pos b  (TLitInt i):ts) = Right (ts, Pos b (LitInt i))
-    f                       _ = Left "Not a literal"
+    f                        [] = Left "no more tokens for literal"
+    f (Pos b (TLitBool x):ts)   = Right (ts, Pos b (LitBool x))
+    f (Pos b (TLitInt i):ts)    = Right (ts, Pos b (LitInt i))
+    f (Pos b (TLitString s):ts) = Right (ts, Pos b (LitString s))
+    f                         _ = Left "Not a literal"
 
 parseVariable :: Parser [Pos Token] (Pos (Term ByteString))
 parseVariable = Parser f
