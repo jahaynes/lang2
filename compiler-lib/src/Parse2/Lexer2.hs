@@ -46,8 +46,11 @@ token = keyword
     <|> constructor
 
     where
-    keyword = positioned TLet (B.string "let" <* B.notFollowedBy alphaNumOrPunc)
-          <|> positioned TIn  (B.string "in"  <* B.notFollowedBy alphaNumOrPunc)
+    keyword = positioned TLet  (B.string "let"  <* B.notFollowedBy alphaNumOrPunc)
+          <|> positioned TIn   (B.string "in"   <* B.notFollowedBy alphaNumOrPunc)
+          <|> positioned TIf   (B.string "if"   <* B.notFollowedBy alphaNumOrPunc)
+          <|> positioned TThen (B.string "then" <* B.notFollowedBy alphaNumOrPunc)
+          <|> positioned TElse (B.string "else" <* B.notFollowedBy alphaNumOrPunc)
 
     operator = positioned TEqEq (B.string "==")
            <|> positioned TEq   (B.string "=")

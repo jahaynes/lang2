@@ -3,8 +3,14 @@ module Parse2.Token2 where
 import Data.ByteString (ByteString)
 
 data Token = TBreak
+
            | TLet
            | TIn
+
+           | TIf
+           | TThen
+           | TElse
+
            | TLitBool Bool
            | TLitInt Integer
            | TLitString ByteString
