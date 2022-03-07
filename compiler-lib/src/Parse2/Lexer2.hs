@@ -59,6 +59,7 @@ token = keyword
     operator = positioned TEqEq   (B.string "==")
            <|> positioned TEq     (B.string "=")
            <|> positioned TPlus   (B.string "+")
+           <|> positioned TMinus  (B.string "-")
            <|> positioned TMul    (B.string "*")
            <|> positioned TDiv    (B.string "/")
            <|> positioned TLambda (B.string "\\")

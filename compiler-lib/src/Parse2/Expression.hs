@@ -15,7 +15,7 @@ parseExpr :: Parser [Pos Token] (Pos (Expr ByteString))
 parseExpr = parseComp
 
 parseComp :: Parser [Pos Token] (Pos (Expr ByteString))
-parseComp = sumExpr <|> parseSum
+parseComp = sumExpr <|> parseSum <|> parseNegate
     where
     sumExpr = do
         Pos b x <- parseSum
@@ -93,6 +93,12 @@ parseTerm = fmap ETerm <$> parseLiteral
 
 parseParen :: Parser [Pos Token] (Pos (Expr ByteString))
 parseParen = satisfy (==TLParen) *> parseExpr <* satisfy (==TRParen)
+
+parseNegate :: Parser [Pos Token] (Pos (Expr ByteString))
+parseNegate = do
+    Pos b _ <- satisfy (==TMinus)
+    Pos _ e <- parseExpr
+    pure $ Pos b $ Negate e
 
 parseLiteral :: Parser [Pos Token] (Pos (Term ByteString))
 parseLiteral = Parser f
