@@ -2,9 +2,9 @@
 
 module Main where
 
-import Parse2.Expression
-import Parse2.Lexer2
-import Parse2.Parse2
+import Parse.Expression
+import Parse.Lexer
+import Parse.Parser
 
 main :: IO ()
 main = do

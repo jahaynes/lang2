@@ -1,8 +1,8 @@
 {-# LANGUAGE OverloadedStrings, InstanceSigs, ScopedTypeVariables #-}
 
-module Parse2.Parse2 where
+module Parse.Parser where
 
-import           Parse2.Token2
+import           Parse.Token
 
 import           Data.ByteString             (ByteString)
 import qualified Data.ByteString.Char8 as C8

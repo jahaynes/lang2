@@ -1,12 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Parse2.Expression (parseExpr, parseLowerStart) where
+module Parse.Expression (parseExpr, parseLowerStart) where
 
 import Core.Expression
 import Core.Operator
 import Core.Term
-import Parse2.Parse2
-import Parse2.Token2
+import Parse.Parser
+import Parse.Token
 
 import Data.ByteString (ByteString)
 import Data.List       (foldl')

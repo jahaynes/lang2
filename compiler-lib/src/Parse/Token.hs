@@ -1,4 +1,4 @@
-module Parse2.Token2 where
+module Parse.Token where
 
 import Data.ByteString (ByteString)
 

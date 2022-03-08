@@ -1,19 +1,19 @@
 {-# LANGUAGE OverloadedStrings, ScopedTypeVariables #-}
 
-module Parse2.Lexer2Test where
+module Parse.LexerTest where
 
-import           Parse2.Lexer2
-import qualified Parse2.Parse2 as P
-import           Parse2.Token2
+import           Parse.Lexer
+import qualified Parse.Parser as P
+import           Parse.Token
 
 import qualified Data.ByteString.Char8 as C8
 import           Hedgehog
 import qualified Hedgehog.Gen          as G
 
-lexer2Tests :: Group
-lexer2Tests =
-    Group "Lexer2" [ ("can lex tokens", prop_canLexTokens)
-                   ]
+lexerTests :: Group
+lexerTests =
+    Group "Lexer" [ ("can lex tokens", prop_canLexTokens)
+                  ]
 
 prop_canLexTokens :: Property
 prop_canLexTokens = property $ do
