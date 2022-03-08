@@ -2,7 +2,6 @@
 
 module Main where
 
-import Core.Expression
 import Parse2.Expression
 import Parse2.Lexer2
 import Parse2.Parse2
