@@ -16,13 +16,6 @@ library
                     Core.Expression
                     Core.Operator
                     Core.Term
-                    Parse.Combinator
-                    Parse.ExpressionParser
-                    Parse.Lexer
-                    Parse.LexState
-                    Parse.Parser
-                    Parse.Primitives
-                    Parse.Token
                     Parse2.ByteString
                     Parse2.Definition
                     Parse2.Expression
@@ -37,9 +30,7 @@ test-suite test-compiler-lib
     build-depends:    bytestring,
                       compiler-lib
     ghc-options:      -Wall -O2
-    other-modules:    Parse.LexerTest
-                      Parse.ParserTest
-                      Parse2.ByteStringTest
+    other-modules:    Parse2.ByteStringTest
                       Parse2.Lexer2Test
     type:             exitcode-stdio-1.0
     main-is:          Tests.hs
