@@ -1,6 +1,7 @@
 module Core.Operator where
 
-data UnOp = EShow
+data UnOp = Negate
+          | EShow
           | Err
               deriving (Eq, Show)
 

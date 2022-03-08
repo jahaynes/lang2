@@ -22,16 +22,17 @@ runLexer source =
     let lineStarts = findLineStarts source
     in
     case runParser' (lexer lineStarts) source of
-        Left e -> error $ show e
+        Left e -> error $ show e -- TODO error
         Right (_, xs) -> xs
 
 lexer :: IntSet -> Parser (Pos ByteString) [Pos Token]
-lexer lineStarts = reverse . snd . foldl' insertBreaks (-1, []) <$> many nextToken
+lexer lineStarts = disambiguateNegation . reverse . snd . foldl' insertBreaks (-1, []) <$> many nextToken
     where
+    -- If a token is not further right than its predecessor, a break is inserted
     insertBreaks :: (Int, [Pos Token]) -> (Int, Pos Token) -> (Int, [Pos Token])
     insertBreaks (lastCol, acc) (col, t)
         | col > lastCol = (col, t:acc)
-        | otherwise     = (col, t:Pos (Byte (-66)) TBreak:acc)
+        | otherwise     = (col, t:Pos (Byte (-66)) TBreak:acc) -- TODO -66
 
     nextToken :: Parser (Pos ByteString) (Int, Pos Token)
     nextToken = do
@@ -39,6 +40,46 @@ lexer lineStarts = reverse . snd . foldl' insertBreaks (-1, []) <$> many nextTok
         let Just lineStart = IS.lookupLE b lineStarts
             col = b - lineStart
         pure (col, t)
+
+    -- Split '-' into binary minus and unary negation, based on its preceding token
+    disambiguateNegation :: [Pos Token] -> [Pos Token]
+    disambiguateNegation = go [] TBreak
+        where
+        go acc    _                [] = reverse acc
+        go acc prev (Pos b TMinus:ts) =
+            let x = f prev
+            in go (Pos b x:acc) x ts
+        go acc _ (pt@(Pos _ t):ts) = go (pt:acc) t ts
+
+        f TBreak  = TNegate
+        f TIn     = TNegate
+        f TIf     = TNegate
+        f TThen   = TNegate
+        f TElse   = TNegate
+        f TDot    = TNegate
+        f TLParen = TNegate
+        f TEqEq   = TNegate
+        f TGt     = TNegate
+        f TGtEq   = TNegate
+        f TLt     = TNegate
+        f TLtEq   = TNegate
+        f TEq     = TNegate
+        f TPlus   = TNegate
+        f TMinus  = TNegate
+        f TMul    = TNegate
+        f TDiv    = TNegate
+        f TNegate = TNegate
+
+        f TRParen         = TMinus
+        f (TLitInt _)     = TMinus
+        f (TLowerStart _) = TMinus
+
+        f TLet            = TAmbiguous
+        f TLambda         = TAmbiguous
+        f (TLitBool _)    = TAmbiguous
+        f (TLitString _)  = TAmbiguous
+        f (TUpperStart _) = TAmbiguous
+        f TAmbiguous      = TAmbiguous
 
 token :: Parser (Pos ByteString) (Pos Token)
 token = keyword

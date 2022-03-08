@@ -32,7 +32,10 @@ data Token = TBreak
 
            | TEq
            | TPlus
-           | TMinus
            | TMul
            | TDiv
+
+           | TMinus
+           | TNegate
+           | TAmbiguous
                deriving (Eq, Read, Show)

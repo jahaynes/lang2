@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Parse2.Expression (parseExpr, parseVariable) where
+module Parse2.Expression (parseExpr, parseLower) where
 
 import Core.Expression
 import Core.Operator
@@ -15,7 +15,7 @@ parseExpr :: Parser [Pos Token] (Pos (Expr ByteString))
 parseExpr = parseComp
 
 parseComp :: Parser [Pos Token] (Pos (Expr ByteString))
-parseComp = sumExpr <|> parseSum <|> parseNegate
+parseComp = sumExpr <|> parseSum
     where
     sumExpr = do
         Pos b x <- parseSum
@@ -59,12 +59,12 @@ parseNonApply = parseLet
 parseLet :: Parser [Pos Token] (Pos (Expr ByteString))
 parseLet = do
     Pos b _  <- satisfy (==TLet)
-    negs     <- many1 parseVariable
+    negs     <- many1 parseLower
     _        <- satisfy (==TEq)
     Pos _ e1 <- parseExpr
     _        <- satisfy (==TIn)
     Pos _ e2 <- parseExpr
-    let (f:xs) = map (\(Pos _ (Var v)) -> v) negs
+    let (f:xs) = map (\(Pos _ v) -> v) negs
     pure $ Pos b $ case xs of
         [] -> ELet f          e1  e2
         _  -> ELet f (ELam xs e1) e2
@@ -82,39 +82,41 @@ parseIfThenElse = do
 parseLambda :: Parser [Pos Token] (Pos (Expr ByteString))
 parseLambda = do
     Pos b _    <- satisfy (==TLambda)
-    params     <- fmap (\(Pos _ (Var v)) -> v) <$> many1 parseVariable
+    params     <- fmap (\(Pos _ v) -> v) <$> many1 parseLower
     _          <- satisfy (==TDot)
     Pos _ body <- parseExpr
     pure $ Pos b $ ELam params body
 
 parseTerm :: Parser [Pos Token] (Pos (Expr ByteString))
-parseTerm = fmap ETerm <$> parseLiteral
-                       <|> parseVariable
+parseTerm = parseLiteral <|> parseVariable
 
 parseParen :: Parser [Pos Token] (Pos (Expr ByteString))
 parseParen = satisfy (==TLParen) *> parseExpr <* satisfy (==TRParen)
 
-parseNegate :: Parser [Pos Token] (Pos (Expr ByteString))
-parseNegate = do
-    Pos b _ <- satisfy (==TMinus)
-    Pos _ e <- parseExpr
-    pure $ Pos b $ Negate e
-
-parseLiteral :: Parser [Pos Token] (Pos (Term ByteString))
+parseLiteral :: Parser [Pos Token] (Pos (Expr ByteString))
 parseLiteral = Parser f
     where
-    f                        [] = Left "no more tokens for literal"
-    f (Pos b (TLitBool x):ts)   = Right (ts, Pos b (LitBool x))
-    f (Pos b (TLitInt i):ts)    = Right (ts, Pos b (LitInt i))
-    f (Pos b (TLitString s):ts) = Right (ts, Pos b (LitString s))
-    f                         _ = Left "Not a literal"
+    f                                      [] = Left "no more tokens for literal"
+    f (Pos b               (TLitBool x):ts)   = Right (ts, Pos b (ETerm (LitBool x)))
+    f (Pos b               (TLitInt i):ts)    = Right (ts, Pos b (ETerm (LitInt i)))
+    f (Pos b TNegate:Pos _ (TLitInt i):ts)    = Right (ts, Pos b (EUnPrimOp Negate (ETerm (LitInt i))))
+    f (Pos b               (TLitString s):ts) = Right (ts, Pos b (ETerm (LitString s)))
+    f                                       _ = Left "Not a literal"
 
-parseVariable :: Parser [Pos Token] (Pos (Term ByteString))
+parseVariable :: Parser [Pos Token] (Pos (Expr ByteString))
 parseVariable = Parser f
     where
-    f                         [] = Left "no more tokens for variable"
-    f (Pos b (TLowerStart x):ts) = Right (ts, Pos b (Var x))
-    f                          _ = Left "Not a literal"
+    f                                       [] = Left "no more tokens for variable"
+    f (Pos b               (TLowerStart x):ts) = Right (ts, Pos b (ETerm (Var x)))
+    f (Pos b TNegate:Pos _ (TLowerStart x):ts) = Right (ts, Pos b (EUnPrimOp Negate (ETerm (Var x))))
+    f                                        _ = Left "Not a variable"
+
+parseLower :: Parser [Pos Token] (Pos ByteString)
+parseLower = Parser f
+    where
+    f                         [] = Left "no more tokens for parseLower"
+    f (Pos b (TLowerStart x):ts) = Right (ts, Pos b x)
+    f                          _ = Left "Not a parseLower" 
 
 compOp :: Parser [Pos Token] (Pos BinOp)
 compOp = Parser f
