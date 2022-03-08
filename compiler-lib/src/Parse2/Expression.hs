@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Parse2.Expression (parseExpr, parseLower) where
+module Parse2.Expression (parseExpr, parseLowerStart) where
 
 import Core.Expression
 import Core.Operator
@@ -59,7 +59,7 @@ parseNonApply = parseLet
 parseLet :: Parser [Pos Token] (Pos (Expr ByteString))
 parseLet = do
     Pos b _  <- satisfy (==TLet)
-    negs     <- many1 parseLower
+    negs     <- many1 parseLowerStart
     _        <- satisfy (==TEq)
     Pos _ e1 <- parseExpr
     _        <- satisfy (==TIn)
@@ -82,7 +82,7 @@ parseIfThenElse = do
 parseLambda :: Parser [Pos Token] (Pos (Expr ByteString))
 parseLambda = do
     Pos b _    <- satisfy (==TLambda)
-    params     <- fmap (\(Pos _ v) -> v) <$> many1 parseLower
+    params     <- fmap (\(Pos _ v) -> v) <$> many1 parseLowerStart
     _          <- satisfy (==TDot)
     Pos _ body <- parseExpr
     pure $ Pos b $ ELam params body
@@ -111,12 +111,12 @@ parseVariable = Parser f
     f (Pos b TNegate:Pos _ (TLowerStart x):ts) = Right (ts, Pos b (EUnPrimOp Negate (ETerm (Var x))))
     f                                        _ = Left "Not a variable"
 
-parseLower :: Parser [Pos Token] (Pos ByteString)
-parseLower = Parser f
+parseLowerStart :: Parser [Pos Token] (Pos ByteString)
+parseLowerStart = Parser f
     where
-    f                         [] = Left "no more tokens for parseLower"
+    f                         [] = Left "no more tokens for parseLowerStart"
     f (Pos b (TLowerStart x):ts) = Right (ts, Pos b x)
-    f                          _ = Left "Not a parseLower" 
+    f                          _ = Left "Not a parseLowerStart" 
 
 compOp :: Parser [Pos Token] (Pos BinOp)
 compOp = Parser f

@@ -79,6 +79,7 @@ lexer lineStarts = disambiguateNegation . reverse . snd . foldl' insertBreaks (-
         f (TLitBool _)    = TAmbiguous
         f (TLitString _)  = TAmbiguous
         f (TUpperStart _) = TAmbiguous
+        f TPipe           = TAmbiguous
         f TAmbiguous      = TAmbiguous
 
 token :: Parser (Pos ByteString) (Pos Token)
@@ -107,6 +108,7 @@ token = keyword
            <|> positioned TDot    (B.string ".")
            <|> positioned TLParen (B.string "(")
            <|> positioned TRParen (B.string ")")
+           <|> positioned TPipe   (B.string "|")
 
     litBool = positioned (TLitBool True)  (B.string "True"  <* B.notFollowedBy alphaNumOrPunc)
           <|> positioned (TLitBool False) (B.string "False" <* B.notFollowedBy alphaNumOrPunc)

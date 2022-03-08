@@ -13,6 +13,7 @@ data Token = TBreak
 
            | TLambda
            | TDot
+           | TPipe
 
            | TLParen
            | TRParen
