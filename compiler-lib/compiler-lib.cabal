@@ -16,12 +16,12 @@ library
                     Core.Expression
                     Core.Operator
                     Core.Term
-                    Parse2.ByteString
-                    Parse2.Definition
-                    Parse2.Expression
-                    Parse2.Lexer2
-                    Parse2.Parse2
-                    Parse2.Token2
+                    Parse.ByteString
+                    Parse.Definition
+                    Parse.Expression
+                    Parse.Lexer
+                    Parse.Parser
+                    Parse.Token
   ghc-options:      -Wall -O2
   hs-source-dirs:   src
   default-language: Haskell2010
@@ -30,8 +30,8 @@ test-suite test-compiler-lib
     build-depends:    bytestring,
                       compiler-lib
     ghc-options:      -Wall -O2
-    other-modules:    Parse2.ByteStringTest
-                      Parse2.Lexer2Test
+    other-modules:    Parse.ByteStringTest
+                      Parse.LexerTest
     type:             exitcode-stdio-1.0
     main-is:          Tests.hs
     build-depends:    base, containers, hedgehog

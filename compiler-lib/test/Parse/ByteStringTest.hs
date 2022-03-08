@@ -1,9 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Parse2.ByteStringTest (byteStringTests) where
+module Parse.ByteStringTest (byteStringTests) where
 
-import qualified Parse2.ByteString as B
-import           Parse2.Parse2
+import qualified Parse.ByteString as B
+import           Parse.Parser
 
 import qualified Data.ByteString.Char8 as C8
 import           Hedgehog
@@ -13,14 +13,14 @@ import           Text.Printf                 (printf)
 
 byteStringTests :: Group
 byteStringTests =
-    Group "Parser2" [ ("dropWhile True drops everything", prop_dropWhileTrueDropsEverything)
-                    , ("dropWhile False drops nothing", prop_dropWhileFalseDropsNothing)
-                    , ("takeWhile True takes everything", prop_takeWhileTrueTakesEverything)
-                    , ("takeWhile False takes nothing", prop_takeWhileFalseTakesNothing)
-                    , ("string can prefix match", prop_stringCanPrefixMatch)
-                    , ("string rejects mismatch", prop_stringRejectsMismatch)
-                    , ("string handles running out", prop_stringHandlesRunningOut)
-                    ]
+    Group "Parser" [ ("dropWhile True drops everything", prop_dropWhileTrueDropsEverything)
+                   , ("dropWhile False drops nothing", prop_dropWhileFalseDropsNothing)
+                   , ("takeWhile True takes everything", prop_takeWhileTrueTakesEverything)
+                   , ("takeWhile False takes nothing", prop_takeWhileFalseTakesNothing)
+                   , ("string can prefix match", prop_stringCanPrefixMatch)
+                   , ("string rejects mismatch", prop_stringRejectsMismatch)
+                   , ("string handles running out", prop_stringHandlesRunningOut)
+                   ]
 
 prop_dropWhileTrueDropsEverything :: Property
 prop_dropWhileTrueDropsEverything = property $ do

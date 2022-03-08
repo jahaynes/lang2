@@ -1,9 +1,9 @@
 import Hedgehog (checkParallel)
 
-import Parse2.ByteStringTest (byteStringTests)
-import Parse2.Lexer2Test     (lexer2Tests)
+import Parse.ByteStringTest (byteStringTests)
+import Parse.LexerTest      (lexerTests)
 
 main :: IO ()
 main = mapM_ checkParallel [ byteStringTests
-                           , lexer2Tests
+                           , lexerTests
                            ]

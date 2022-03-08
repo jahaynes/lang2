@@ -5,10 +5,10 @@
 
 module Controller (runController) where
 
-import Parse2.Definition
-import Parse2.Lexer2
-import Parse2.Parse2
-import Parse2.Token2
+import Parse.Definition
+import Parse.Lexer
+import Parse.Parser
+import Parse.Token
 
 import           Data.List                   (intercalate)
 import           Data.Text                   (Text)

@@ -1,10 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Parse2.Lexer2 where
+module Parse.Lexer where
 
-import qualified Parse2.ByteString as B
-import           Parse2.Parse2
-import           Parse2.Token2
+import qualified Parse.ByteString as B
+import           Parse.Parser
+import           Parse.Token
 
 import           Data.ByteString         (ByteString)
 import qualified Data.ByteString as BS
