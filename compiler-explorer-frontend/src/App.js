@@ -25,9 +25,9 @@ class App extends React.Component {
     return (
       <div className="App">
         <div>
-          <textarea id='text' rows='10' onChange={e => this.tokenise()}></textarea>
-          <textarea id='tokens' rows='10' onChange={e => this.parse()}></textarea>
-          <textarea id='expressions' rows='10'></textarea>
+          <textarea id='text' class='editor' rows='14' onChange={e => this.tokenise()}></textarea>
+          <textarea id='tokens' class='editor' rows='14' onChange={e => this.parse()}></textarea>
+          <textarea id='expressions' class='editor' rows='14'></textarea>
         </div>
 
       </div>
