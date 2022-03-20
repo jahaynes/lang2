@@ -11,49 +11,43 @@ import Parse.Token
 
 import Data.ByteString (ByteString)
 
-parseDefns :: Parser [Pos Token] [Pos (Defn ByteString)]
-parseDefns = (:) <$> parseDefn
-                 <*> many (satisfy (==TBreak) *> parseDefn)
+parseDefns :: Parser ParseState [Defn ByteString]
+parseDefns = many' parseDefn
 
-parseDefn :: Parser [Pos Token] (Pos (Defn ByteString))
-parseDefn = parseFunDefn <|> parseDataDefn
+parseDefn :: Parser ParseState (Defn ByteString)
+parseDefn = assertLineStart *> (parseFunDefn <|> parseDataDefn)
 
-parseFunDefn :: Parser [Pos Token] (Pos (Defn ByteString))
+assertLineStart :: Parser ParseState ()
+assertLineStart = Parser $ \ps ->
+    case getColumn ps of
+        Just 0 -> Right (ps, ())
+        _      -> Left "Not a line start"
+
+parseFunDefn :: Parser ParseState (Defn ByteString)
 parseFunDefn = do
-    Pos b name <- parseLowerStart
-    vars       <- many ((\(Pos _ v) -> v) <$> parseLowerStart)
-    _          <- satisfy (==TEq)
-    Pos _ expr <- parseExpr
-    pure $ Pos b $ FunDefn name $
+    (name, vars) <- parseWhileColumns1 MoreRight parseLowerStart
+    token TEq
+    expr <- parseExpr
+    pure $ FunDefn name $
         case vars of
             [] -> expr
             _  -> ELam vars expr
 
-parseDataDefn :: Parser [Pos Token] (Pos (Defn ByteString))
+parseDataDefn :: Parser ParseState (Defn ByteString)
 parseDataDefn = do
-    Pos b name   <- parseUpperStart
-    tyVars       <- many ((\(Pos _ v) -> v) <$> parseTypeVariable)
-    _            <- satisfy (==TEq)
+    name         <- parseUpperStart
+    tyVars       <- parseWhileColumns MoreRight parseTypeVariable
+    _            <- token TEq
     constructors <- (:) <$> parseConstructor
-                        <*> many (many (satisfy (==TBreak)) *> satisfy (==TPipe) *> parseConstructor)
-    pure $ Pos b $ TypeDefn name tyVars constructors
+                        <*> many' (token TPipe *> parseConstructor)
+    pure $ TypeDefn name tyVars constructors
 
-parseConstructor :: Parser [Pos Token] (DataCon ByteString)
-parseConstructor = do
-    Pos _ n <- parseUpperStart
-    ms      <- many ((\(Pos _ v) -> v) <$> parseMember)
-    pure $ DataCon n ms
+parseConstructor :: Parser ParseState (DataCon ByteString)
+parseConstructor = DataCon <$> parseUpperStart <*> parseWhileColumns NotLeft parseMember
 
-parseMember :: Parser [Pos Token] (Pos (Member ByteString))
-parseMember = (fmap MemberType <$> parseUpperStart)
-          <|> (fmap MemberVar  <$> parseLowerStart)
+parseMember :: Parser ParseState (Member ByteString)
+parseMember = (MemberType <$> parseUpperStart)
+          <|> (MemberVar  <$> parseLowerStart)
 
-parseTypeVariable :: Parser [Pos Token] (Pos (TyVar ByteString))
-parseTypeVariable = fmap TyVar <$> parseLowerStart
-
-parseUpperStart :: Parser [Pos Token] (Pos ByteString)
-parseUpperStart = Parser f
-    where
-    f                         [] = Left "no more tokens for parseUpperStart"
-    f (Pos b (TUpperStart x):ts) = Right (ts, Pos b x)
-    f                          _ = Left "Not a parseUpperStart"
+parseTypeVariable :: Parser ParseState (TyVar ByteString)
+parseTypeVariable = TyVar <$> parseLowerStart

@@ -2,9 +2,7 @@ module Parse.Token where
 
 import Data.ByteString (ByteString)
 
-data Token = TBreak
-
-           | TLet
+data Token = TLet
            | TIn
 
            | TIf

@@ -13,6 +13,7 @@ library
                     compiler-lib,
                     servant-server,
                     text,
+                    vector,
                     wai-cors,
                     warp
   exposed-modules:  Controller

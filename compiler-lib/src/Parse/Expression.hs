@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Parse.Expression (parseExpr, parseLowerStart) where
+module Parse.Expression where
 
 import Core.Expression
 import Core.Operator
@@ -8,140 +8,184 @@ import Core.Term
 import Parse.Parser
 import Parse.Token
 
-import Data.ByteString (ByteString)
-import Data.List       (foldl')
+import           Data.ByteString       (ByteString)
+import           Data.ByteString.Char8 (pack)
+import           Data.List             (foldl')
+import           Data.Vector           ((!?))
 
-parseExpr :: Parser [Pos Token] (Pos (Expr ByteString))
+parseExpr :: Parser ParseState (Expr ByteString)
 parseExpr = parseComp
 
-parseComp :: Parser [Pos Token] (Pos (Expr ByteString))
+parseComp :: Parser ParseState (Expr ByteString)
 parseComp = sumExpr <|> parseSum
     where
     sumExpr = do
-        Pos b x <- parseSum
-        Pos _ o <- compOp
-        Pos _ y <- parseComp
-        pure $ Pos b (EBinPrimOp o x y)
+        x <- parseSum
+        o <- compOp
+        y <- parseComp
+        pure $ EBinPrimOp o x y
 
-parseSum :: Parser [Pos Token] (Pos (Expr ByteString))
+    compOp :: Parser ParseState BinOp
+    compOp = parseSatisfy "compOp" $ \t ->
+        case t of
+            TEqEq -> Just EqI
+            TGt   -> Just GtI
+            TGtEq -> Just GtEqI
+            TLt   -> Just LtI
+            TLtEq -> Just LtEqI
+            _     -> Nothing
+
+parseSum :: Parser ParseState (Expr ByteString)
 parseSum = do
-    Pos b x <- parseProduct
-    ys      <- many $ do Pos _ op <- sumOp
-                         Pos _  y <- parseProduct
-                         pure (op, y)
-    pure $ Pos b (foldl' (\e (o, y) -> EBinPrimOp o e y) x ys)
+    x  <- parseProduct
+    ys <- many $ do op <- sumOp
+                    y  <- parseProduct
+                    pure (op, y)
+    pure $ foldl' (\e (o, y) -> EBinPrimOp o e y) x ys
 
-parseProduct :: Parser [Pos Token] (Pos (Expr ByteString))
+    where
+    sumOp :: Parser ParseState BinOp
+    sumOp = parseSatisfy "sumOp" $ \t ->
+        case t of
+            TPlus  -> Just AddI
+            TMinus -> Just SubI
+            _      -> Nothing
+
+parseProduct :: Parser ParseState (Expr ByteString)
 parseProduct = do
-    Pos b x <- parseApply
-    ys      <- many $ do Pos _ op <- mulOp
-                         Pos _  y <- parseApply
-                         pure (op, y)
-    pure $ Pos b (foldl' (\e (o, y) -> EBinPrimOp o e y) x ys)
+    x  <- parseApply
+    ys <- many $ do op <- mulOp
+                    y  <- parseApply
+                    pure (op, y)
+    pure $ foldl' (\e (o, y) -> EBinPrimOp o e y) x ys
 
-parseApply :: Parser [Pos Token] (Pos (Expr ByteString))
+    where
+    mulOp :: Parser ParseState BinOp
+    mulOp = parseSatisfy "mulOp" $ \t ->
+        case t of
+            TMul -> Just MulI
+            TDiv -> Just DivI
+            _    -> Nothing
+
+parseApply :: Parser ParseState (Expr ByteString)
 parseApply = do
-    Pos b f <- parseNonApply
-    xs      <- many $ do
-                   Pos _ x <- parseNonApply
-                   pure x
-    pure $ Pos b $ if null xs
-                       then f
-                       else EApp f xs
+    (f, xs) <- parseWhileColumns1 MoreRight parseNonApply
+    pure $ if null xs
+               then f
+               else EApp f xs
 
-parseNonApply :: Parser [Pos Token] (Pos (Expr ByteString))
+parseNonApply :: Parser ParseState (Expr ByteString)
 parseNonApply = parseLet
             <|> parseIfThenElse
             <|> parseLambda
             <|> parseTerm
             <|> parseParen
 
-parseLet :: Parser [Pos Token] (Pos (Expr ByteString))
+parseLet :: Parser ParseState (Expr ByteString)
 parseLet = do
-    Pos b _  <- satisfy (==TLet)
-    negs     <- many1 parseLowerStart
-    _        <- satisfy (==TEq)
-    Pos _ e1 <- parseExpr
-    _        <- satisfy (==TIn)
-    Pos _ e2 <- parseExpr
-    let (f:xs) = map (\(Pos _ v) -> v) negs
-    pure $ Pos b $ case xs of
+    (f,xs) <- token TLet *> parseWhileColumns1 MoreRight parseLowerStart
+    e1     <- token TEq  *> parseExpr
+    e2     <- token TIn  *> parseExpr
+    pure $ case xs of
         [] -> ELet f          e1  e2
         _  -> ELet f (ELam xs e1) e2
 
-parseIfThenElse :: Parser [Pos Token] (Pos (Expr ByteString))
+parseIfThenElse :: Parser ParseState (Expr ByteString)
 parseIfThenElse = do
-    Pos b _ <- satisfy (==TIf)
-    Pos _ p <- parseExpr
-    _       <- satisfy (==TThen)
-    Pos _ t <- parseExpr
-    _       <- satisfy (==TElse)
-    Pos _ f <- parseExpr
-    pure $ Pos b $ IfThenElse p t f
+    p <- token TIf   *> parseExpr
+    t <- token TThen *> parseExpr
+    f <- token TElse *> parseExpr
+    pure $ IfThenElse p t f
 
-parseLambda :: Parser [Pos Token] (Pos (Expr ByteString))
+parseLambda :: Parser ParseState (Expr ByteString)
 parseLambda = do
-    Pos b _    <- satisfy (==TLambda)
-    params     <- fmap (\(Pos _ v) -> v) <$> many1 parseLowerStart
-    _          <- satisfy (==TDot)
-    Pos _ body <- parseExpr
-    pure $ Pos b $ ELam params body
+    (v, vs) <- token TLambda *> parseWhileColumns1 NotLeft parseLowerStart
+    body    <- token TDot    *> parseExpr
+    pure $ ELam (v:vs) body
 
-parseTerm :: Parser [Pos Token] (Pos (Expr ByteString))
+parseParen :: Parser ParseState (Expr ByteString)
+parseParen = token TLParen *> parseExpr <* token TRParen
+
+parseTerm :: Parser ParseState (Expr ByteString)
 parseTerm = parseLiteral <|> parseVariable
 
-parseParen :: Parser [Pos Token] (Pos (Expr ByteString))
-parseParen = satisfy (==TLParen) *> parseExpr <* satisfy (==TRParen)
+parseLiteral :: Parser ParseState (Expr ByteString)
+parseLiteral = ETerm <$> parseLitString
+                     <|> parseLitBool
+                     <|> parseLitInt
 
-parseLiteral :: Parser [Pos Token] (Pos (Expr ByteString))
-parseLiteral = Parser f
+parseLitString :: Parser ParseState (Term ByteString)
+parseLitString = parseSatisfy "string" f
     where
-    f                                      [] = Left "no more tokens for literal"
-    f (Pos b               (TLitBool x):ts)   = Right (ts, Pos b (ETerm (LitBool x)))
-    f (Pos b               (TLitInt i):ts)    = Right (ts, Pos b (ETerm (LitInt i)))
-    f (Pos b TNegate:Pos _ (TLitInt i):ts)    = Right (ts, Pos b (EUnPrimOp Negate (ETerm (LitInt i))))
-    f (Pos b               (TLitString s):ts) = Right (ts, Pos b (ETerm (LitString s)))
-    f                                       _ = Left "Not a literal"
+    f (TLitString s) = Just (LitString s)
+    f _              = Nothing
 
-parseVariable :: Parser [Pos Token] (Pos (Expr ByteString))
-parseVariable = Parser f
+parseLitBool :: Parser ParseState (Term ByteString)
+parseLitBool = parseSatisfy "boolean" f
     where
-    f                                       [] = Left "no more tokens for variable"
-    f (Pos b               (TLowerStart x):ts) = Right (ts, Pos b (ETerm (Var x)))
-    f (Pos b TNegate:Pos _ (TLowerStart x):ts) = Right (ts, Pos b (EUnPrimOp Negate (ETerm (Var x))))
-    f                                        _ = Left "Not a variable"
+    f (TLitBool b) = Just (LitBool b)
+    f _            = Nothing
 
-parseLowerStart :: Parser [Pos Token] (Pos ByteString)
-parseLowerStart = Parser f
+parseLitInt :: Parser ParseState (Term ByteString)
+parseLitInt = pos <|> neg
+
     where
-    f                         [] = Left "no more tokens for parseLowerStart"
-    f (Pos b (TLowerStart x):ts) = Right (ts, Pos b x)
-    f                          _ = Left "Not a parseLowerStart" 
+    pos = parseSatisfy "integer" isInt
+    neg = do
+        parseNegate
+        ji <- parseSatisfy "integer" isInt
+        case ji of
+            LitInt i -> pure $ LitInt (-i)
+            _        -> error "isInt returned non-int"
+            
+    isInt (TLitInt i) = Just (LitInt i)
+    isInt           _ = Nothing
 
-compOp :: Parser [Pos Token] (Pos BinOp)
-compOp = Parser f
+parseVariable :: Parser ParseState (Expr ByteString)
+parseVariable = pos <|> neg
     where
-    f               [] = Left "no more tokens for compOp"
-    f (Pos b TEqEq:ts) = Right (ts, Pos b EqI)
-    f (Pos b TGt:ts)   = Right (ts, Pos b GtI)
-    f (Pos b TGtEq:ts) = Right (ts, Pos b GtEqI)
-    f (Pos b TLt:ts)   = Right (ts, Pos b LtI)
-    f (Pos b TLtEq:ts) = Right (ts, Pos b LtEqI)
-    f                _ = Left "Not a comparator"
+    pos = ETerm . Var <$> parseLowerStart
+    neg = EUnPrimOp Negate . ETerm . Var <$> (parseNegate *> parseLowerStart)
 
-sumOp :: Parser [Pos Token] (Pos BinOp)
-sumOp = Parser f
+parseSatisfy :: ByteString
+             -> (Token -> Maybe a)
+             -> Parser ParseState a
+parseSatisfy n p = Parser f
     where
-    f                [] = Left "no more tokens for sumOp"
-    f (Pos b TPlus:ts)  = Right (ts, Pos b AddI)
-    f (Pos b TMinus:ts) = Right (ts, Pos b SubI)
-    f                 _ = Left "Not summish"
+    f ps@(ParseState tokens pos _ _)
 
-mulOp :: Parser [Pos Token] (Pos BinOp)
-mulOp = Parser f
+        | pos == length tokens =
+            Left $ "no more tokens for " <> n
+
+        | otherwise =
+            case tokens !? pos of
+                Nothing -> Left "Failed index"
+                Just t  ->
+                    case p t of
+                        Nothing -> Left $ "Not a " <> n
+                        Just r  -> Right (ps {ps_pos = pos + 1}, r)
+
+parseLowerStart :: Parser ParseState ByteString
+parseLowerStart = parseSatisfy "lowerStart" f
     where
-    f              [] = Left "no more tokens for mulOp"
-    f (Pos b TMul:ts) = Right (ts, Pos b MulI)
-    f (Pos b TDiv:ts) = Right (ts, Pos b DivI)
-    f               _ = Left "Not mullish"
+    f (TLowerStart x) = Just x
+    f               _ = Nothing
 
+parseUpperStart :: Parser ParseState ByteString
+parseUpperStart = parseSatisfy "upperStart" f
+    where
+    f (TUpperStart x) = Just x
+    f               _ = Nothing
+
+parseNegate :: Parser ParseState ()
+parseNegate = parseSatisfy "negate" f
+    where
+    f TNegate = Just ()
+    f       _ = Nothing
+
+token :: Token -> Parser ParseState ()
+token tok =
+    parseSatisfy (pack $ show tok) $ \t ->
+        if t == tok
+            then Just ()
+            else Nothing

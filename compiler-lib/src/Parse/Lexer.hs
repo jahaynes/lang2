@@ -2,169 +2,223 @@
 
 module Parse.Lexer where
 
-import qualified Parse.ByteString as B
 import           Parse.Parser
 import           Parse.Token
 
-import           Data.ByteString         (ByteString)
+import           Data.ByteString       (ByteString)
 import qualified Data.ByteString as BS
-import           Data.ByteString.Builder (Builder)
-import qualified Data.ByteString.Builder as BB
-import qualified Data.ByteString.Lazy as LBS
-import           Data.Char               (isAlphaNum, isPunctuation, isSpace)
-import           Data.List               (foldl')
-import           Data.IntSet             (IntSet)
-import qualified Data.IntSet as IS
-import           Data.Word               (Word8)
+import qualified Data.ByteString.Char8 as C8
+import           Data.Char             (isAlphaNum, isDigit, isLower, isPunctuation, isSpace, isUpper)
+import           Data.Vector           (Vector)
+import qualified Data.Vector as V
 
-runLexer :: ByteString -> [Pos Token]
-runLexer source =
-    let lineStarts = findLineStarts source
+
+-- TODO applicative
+lex'' :: ByteString -> Either ByteString (Vector Int, Vector Token)
+lex'' s = lex' s $ do
+    (positions, tokens) <- V.unzip <$> many nextPositionedToken
+    pDropWhile isSpace
+    pure (positions, V.fromList . disambiguateNegation $ V.toList tokens)
+
+-- Split '-' into binary minus and unary negation, based on its preceding token
+-- TODO vectorise
+disambiguateNegation :: [Token] -> [Token]
+disambiguateNegation = go [] TAmbiguous
+    where
+    go acc    _          [] = reverse acc
+    go acc prev (TMinus:ts) =
+        let x = f prev
+        in go (x:acc) x ts
+    go acc _ (t:ts) = go (t:acc) t ts
+
+    f TIn     = TNegate
+    f TIf     = TNegate
+    f TThen   = TNegate
+    f TElse   = TNegate
+    f TDot    = TNegate
+    f TLParen = TNegate
+    f TEqEq   = TNegate
+    f TGt     = TNegate
+    f TGtEq   = TNegate
+    f TLt     = TNegate
+    f TLtEq   = TNegate
+    f TEq     = TNegate
+    f TPlus   = TNegate
+    f TMinus  = TNegate
+    f TMul    = TNegate
+    f TDiv    = TNegate
+    f TNegate = TNegate
+
+    f TRParen         = TMinus
+    f (TLitInt _)     = TMinus
+    f (TLowerStart _) = TMinus
+
+    f TLet            = TAmbiguous
+    f TLambda         = TAmbiguous
+    f (TLitBool _)    = TAmbiguous
+    f (TLitString _)  = TAmbiguous
+    f (TUpperStart _) = TAmbiguous
+    f TPipe           = TAmbiguous
+    f TAmbiguous      = TAmbiguous
+
+lex' :: ByteString -> Parser LexState a -> Either ByteString a
+lex' s p =
+    let ps = LexState { ls_source = s
+                      , ls_pos    = 0
+                      }
     in
-    case runParser' (lexer lineStarts) source of
-        Left e -> error $ show e -- TODO error
-        Right (_, xs) -> xs
+    case runParser p ps of
+        Left l -> Left l
+        Right (s', x) | ls_pos s' == BS.length (ls_source s') -> Right x
+                      | otherwise                             -> Left $ "Leftover input: " <> C8.pack (show s')
 
-lexer :: IntSet -> Parser (Pos ByteString) [Pos Token]
-lexer lineStarts = disambiguateNegation . reverse . snd . foldl' insertBreaks (-1, []) <$> many nextToken
+data LexState =
+    LexState { ls_source     :: !ByteString
+             , ls_pos        :: !Int
+             } deriving Show
+
+nextPositionedToken :: Parser LexState (Int, Token)
+nextPositionedToken = do
+    pDropWhile isSpace
+    pos <- getPosition
+    t   <- parseToken
+    pure (pos, t)
+
+pDropWhile :: (Char -> Bool) -> Parser LexState ()
+pDropWhile p = Parser $ \ls -> f ls (ls_pos ls)
     where
-    -- If a token is not further right than its predecessor, a break is inserted
-    insertBreaks :: (Int, [Pos Token]) -> (Int, Pos Token) -> (Int, [Pos Token])
-    insertBreaks (lastCol, acc) (col, t)
-        | col > lastCol = (col, t:acc)
-        | otherwise     = (col, t:Pos (Byte (-66)) TBreak:acc) -- TODO -66
+    f ls pos
+        | pos >= BS.length (ls_source ls) = Right (ls {ls_pos = pos}, ())
+        | p (C8.index (ls_source ls) pos) = f ls (pos + 1)
+        | otherwise                       = Right (ls {ls_pos = pos}, ())
 
-    nextToken :: Parser (Pos ByteString) (Int, Pos Token)
-    nextToken = do
-        t@(Pos (Byte b) _) <- B.dropWhile isSpace *> token
-        let Just lineStart = IS.lookupLE b lineStarts
-            col = b - lineStart
-        pure (col, t)
-
-    -- Split '-' into binary minus and unary negation, based on its preceding token
-    disambiguateNegation :: [Pos Token] -> [Pos Token]
-    disambiguateNegation = go [] TBreak
-        where
-        go acc    _                [] = reverse acc
-        go acc prev (Pos b TMinus:ts) =
-            let x = f prev
-            in go (Pos b x:acc) x ts
-        go acc _ (pt@(Pos _ t):ts) = go (pt:acc) t ts
-
-        f TBreak  = TNegate
-        f TIn     = TNegate
-        f TIf     = TNegate
-        f TThen   = TNegate
-        f TElse   = TNegate
-        f TDot    = TNegate
-        f TLParen = TNegate
-        f TEqEq   = TNegate
-        f TGt     = TNegate
-        f TGtEq   = TNegate
-        f TLt     = TNegate
-        f TLtEq   = TNegate
-        f TEq     = TNegate
-        f TPlus   = TNegate
-        f TMinus  = TNegate
-        f TMul    = TNegate
-        f TDiv    = TNegate
-        f TNegate = TNegate
-
-        f TRParen         = TMinus
-        f (TLitInt _)     = TMinus
-        f (TLowerStart _) = TMinus
-
-        f TLet            = TAmbiguous
-        f TLambda         = TAmbiguous
-        f (TLitBool _)    = TAmbiguous
-        f (TLitString _)  = TAmbiguous
-        f (TUpperStart _) = TAmbiguous
-        f TPipe           = TAmbiguous
-        f TAmbiguous      = TAmbiguous
-
-token :: Parser (Pos ByteString) (Pos Token)
-token = keyword
-    <|> operator
-    <|> litBool
-    <|> litInt
-    <|> litString
-    <|> variable
-    <|> constructor
+parseToken :: Parser LexState Token
+parseToken = keyword
+         <|> operator
+         <|> litBool
+         <|> litInt
+         <|> litString
+         <|> variable
+         <|> constructor
 
     where
-    keyword = positioned TLet  (B.string "let"  <* B.notFollowedBy alphaNumOrPunc)
-          <|> positioned TIn   (B.string "in"   <* B.notFollowedBy alphaNumOrPunc)
-          <|> positioned TIf   (B.string "if"   <* B.notFollowedBy alphaNumOrPunc)
-          <|> positioned TThen (B.string "then" <* B.notFollowedBy alphaNumOrPunc)
-          <|> positioned TElse (B.string "else" <* B.notFollowedBy alphaNumOrPunc)
+    keyword :: Parser LexState Token
+    keyword = positioned TLet  (string "let"  <* notFollowedBy alphaNumOrPunc)
+          <|> positioned TIn   (string "in"   <* notFollowedBy alphaNumOrPunc)
+          <|> positioned TIf   (string "if"   <* notFollowedBy alphaNumOrPunc)
+          <|> positioned TThen (string "then" <* notFollowedBy alphaNumOrPunc)
+          <|> positioned TElse (string "else" <* notFollowedBy alphaNumOrPunc)
 
-    operator = positioned TEqEq   (B.string "==")
-           <|> positioned TEq     (B.string "=")
-           <|> positioned TPlus   (B.string "+")
-           <|> positioned TMinus  (B.string "-")
-           <|> positioned TMul    (B.string "*")
-           <|> positioned TDiv    (B.string "/")
-           <|> positioned TLambda (B.string "\\")
-           <|> positioned TDot    (B.string ".")
-           <|> positioned TLParen (B.string "(")
-           <|> positioned TRParen (B.string ")")
-           <|> positioned TPipe   (B.string "|")
+    operator :: Parser LexState Token
+    operator = positioned TEqEq   (string "==")
+           <|> positioned TEq     (string "=")
+           <|> positioned TPlus   (string "+")
+           <|> positioned TMinus  (string "-")
+           <|> positioned TMul    (string "*")
+           <|> positioned TDiv    (string "/")
+           <|> positioned TLambda (string "\\")
+           <|> positioned TDot    (string ".")
+           <|> positioned TLParen (string "(")
+           <|> positioned TRParen (string ")")
+           <|> positioned TPipe   (string "|")
 
-    litBool = positioned (TLitBool True)  (B.string "True"  <* B.notFollowedBy alphaNumOrPunc)
-          <|> positioned (TLitBool False) (B.string "False" <* B.notFollowedBy alphaNumOrPunc)
+    litBool = TLitBool <$> boolean
 
-    litInt = (\(Pos b i) -> Pos b (TLitInt i)) <$> B.integer -- TODO not followed by ., etc.
+    litInt :: Parser LexState Token
+    litInt = TLitInt <$> integer -- TODO not followed by ., etc.
 
-    variable = fmap TLowerStart <$> B.lowerStart
+    variable :: Parser LexState Token
+    variable = TLowerStart <$> lowerStart
 
-    constructor = fmap TUpperStart <$> B.upperStart
+    constructor :: Parser LexState Token
+    constructor = TUpperStart <$> upperStart
 
-    alphaNumOrPunc c = isAlphaNum c || isPunctuation c
+positioned :: Functor f => b -> f a -> f b
+positioned t s = (\_ -> t) <$> s
 
-litString :: Parser (Pos ByteString) (Pos Token)
+getPosition :: Parser LexState Int
+getPosition = Parser $ \ps -> Right (ps, ls_pos ps)
+
+boolean :: Parser LexState Bool
+boolean = positioned True  (string "True"  <* notFollowedBy alphaNumOrPunc)
+      <|> positioned False (string "False" <* notFollowedBy alphaNumOrPunc)
+
+alphaNumOrPunc :: Char -> Bool
+alphaNumOrPunc c = isAlphaNum c || isPunctuation c
+
+string :: ByteString -> Parser LexState ()
+string bs = Parser $ \ps ->
+    let len  = BS.length bs
+        pos' = ls_pos ps + len
+        some = BS.take len . BS.drop (ls_pos ps) . ls_source $ ps
+    in
+    if pos' > BS.length (ls_source ps)
+        then Left "Insufficient input"
+        else if bs == some
+                 then Right (ps { ls_pos = pos' }, ())
+                 else Left "String mismatch"
+
+lowerStart :: Parser LexState ByteString
+lowerStart = alphaNumStartWith isLower
+
+integer :: Parser LexState Integer
+integer = (read . C8.unpack) <$> digits
+
+digits :: Parser LexState ByteString
+digits = Parser $ \ls ->
+    let ds = C8.takeWhile isDigit . C8.drop (ls_pos ls) $ ls_source ls
+        len = C8.length ds
+    in
+    if C8.null ds
+        then Left "Expected digits"
+        else Right (ls { ls_pos = ls_pos ls + len }, ds)
+
+upperStart :: Parser LexState ByteString
+upperStart = alphaNumStartWith isUpper
+
+alphaNumStartWith :: (Char -> Bool) -> Parser LexState ByteString
+alphaNumStartWith p = Parser $ \ls ->
+    let some = C8.takeWhile isAlphaNum . BS.drop (ls_pos ls) $ ls_source ls
+        len  = C8.length some
+    in if len == 0
+           then Left "Expected alphaNum for alphaNumStartWith"
+           else
+               if p (C8.head some)
+                   then Right (ls { ls_pos = ls_pos ls + len }, some)
+                   else Left "Unexpected alphaNumStartWith"
+
+notFollowedBy :: (Char -> Bool) -> Parser LexState ()
+notFollowedBy p = Parser $ \ls ->
+    let source = ls_source ls
+        pos    = ls_pos ls
+    in
+    if pos >= BS.length source
+        then pure (ls, ())
+        else if p (C8.index source pos)
+                 then Left "was followed by predicate"
+                 else pure (ls, ())
+
+litString :: Parser LexState Token
 litString = Parser f
     where
-    f p@(Pos by@(Byte b) s)
-        | BS.null s       = errorAt "Out of litString" p
-        | BS.head s /= 34 = errorAt "Doesn't start with \"" p
-        | otherwise       =
-            case findEnd 1 (BS.length s) False mempty of
-                Left l         -> Left l
-                Right (end, x) -> let s' = BS.drop end s
-                                      b' = Byte (b + end + 1)
-                                  in Right ( Pos b' (BS.tail s')
-                                           , Pos by (TLitString x))
-
+    f (LexState source pos)
+        | pos >= BS.length source = Left "Out of litString"
+        | BS.index source pos /= 34 = Left "Doesn't start with \""
+        | otherwise =           
+            case findEnd 1 (BS.length source) False of
+                Left l -> Left l
+                Right (i, j) -> let len = j - i
+                                in Right (LexState source (pos + len), TLitString . BS.take len . BS.drop i $ source)
         where
-        findEnd :: Int -> Int -> Bool -> Builder -> Either ByteString (Int, ByteString)
-        findEnd i j esc acc
+        findEnd :: Int -> Int -> Bool -> Either ByteString (Int, Int)
+        findEnd i j esc
             | i == j    = Left "Ran off the end"
             | otherwise =
-                let c = s `BS.index` i
+                let c = BS.index source i
                 in
                 if esc
-                    then findEnd (i+1) j False (acc <> BB.word8 c)
+                    then findEnd (i+1) j False
                     else case c of
-                             92 -> findEnd (i+1) j True acc
-                             34 -> Right (i, LBS.toStrict $ BB.toLazyByteString acc)
-                             _  -> findEnd (i+1) j False (acc <> BB.word8 c)
-
-data LineState =
-    LineState { newLines :: ![Int]
-              , position :: !Int
-              , last     :: !Word8 }
-
-findLineStarts :: ByteString -> IntSet
-findLineStarts bs
-    | BS.null bs = mempty
-    | otherwise  = IS.fromList . newLines . BS.foldl' f (LineState [0] 0 0) $ bs
-    where
-    f :: LineState -> Word8 -> LineState
-    f (LineState nl p l) x =
-        let nl' = case l of
-                      10 -> p : nl
-                      13 -> case x of
-                                10 -> nl
-                                _  -> p : nl
-                      _  -> nl
-        in LineState nl' (p+1) x
+                            92 -> findEnd (i+1) j True
+                            34 -> Right (i, j)
+                            _  -> findEnd (i+1) j False
