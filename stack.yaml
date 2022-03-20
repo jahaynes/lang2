@@ -3,7 +3,6 @@ resolver: lts-18.26
 local-bin-path: ./bin
 
 packages:
-- compiler-cli
 - compiler-lib
 - compiler-explorer-lib
 - compiler-explorer
