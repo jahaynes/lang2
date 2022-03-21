@@ -9,10 +9,8 @@ import Core.Term
 import Core.Operator
 
 import           Data.ByteString    (ByteString)
-import           Data.Functor       ((<&>))
 import           Data.Text          (Text)
 import           Data.Text.Encoding (decodeUtf8)
-import qualified Data.Text as T
 import           Text.Builder       (Builder)
 import qualified Text.Builder as TB
 
@@ -70,7 +68,20 @@ printTerm :: Term Text -> Builder
 printTerm (LitBool True)  = "true"
 printTerm (LitBool False) = "false"
 printTerm (LitInt i)      = TB.decimal i
+printTerm (LitString s)   = mconcat [TB.char '"', TB.text s, TB.char '"']
 printTerm (Var v)         = TB.text v
 
 printOp :: BinOp -> Builder
-printOp AddI = TB.char '+'
+printOp binOp =
+    case binOp of
+        AddI    -> TB.char   '+'
+        SubI    -> TB.char   '-'
+        MulI    -> TB.char   '*'
+        DivI    -> TB.char   '/'
+        ModI    -> TB.char   '%'
+        EqI     -> TB.string "=="
+        LtEqI   -> TB.string "=<"
+        LtI     -> TB.char   '<'
+        GtEqI   -> TB.string ">="
+        GtI     -> TB.char   '>'
+        ConcatS -> TB.string "++"
