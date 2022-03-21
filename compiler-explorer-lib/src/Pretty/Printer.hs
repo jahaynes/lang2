@@ -48,10 +48,14 @@ printExpr (ELam vs body) = do
     (_, body') <- printExpr body
     pure (Group, TB.intercalate " " ["\\" <> vs', "->", body'])
 
+printExpr (EUnPrimOp o e) = do
+    e' <- group <$> printExpr e
+    pure (Group, TB.intercalate " " [printUnOp o, e'])
+
 printExpr (EBinPrimOp o a b) = do
     a' <- group <$> printExpr a
     b' <- group <$> printExpr b
-    pure (Group, TB.intercalate " " [a', printOp o, b'])
+    pure (Group, TB.intercalate " " [a', printBinOp o, b'])
 
 printExpr (ELet a b c) = do
     let a' = TB.text a
@@ -59,20 +63,33 @@ printExpr (ELet a b c) = do
     c' <- group <$> printExpr c
     pure (Group, TB.intercalate " " ["let", a', "=", b', "in", c'])
 
+printExpr (IfThenElse p t f) = do
+    p' <- group <$> printExpr p
+    t' <- group <$> printExpr t
+    f' <- group <$> printExpr f
+    pure (Group, TB.intercalate " " ["if", p', "then", t', "else", f'])
+
 printExpr (ETerm t) =
     pure (Atom, printTerm t)
 
 printExpr x = error $ show x
 
 printTerm :: Term Text -> Builder
-printTerm (LitBool True)  = "true"
-printTerm (LitBool False) = "false"
+printTerm (LitBool True)  = "True"
+printTerm (LitBool False) = "False"
 printTerm (LitInt i)      = TB.decimal i
 printTerm (LitString s)   = mconcat [TB.char '"', TB.text s, TB.char '"']
 printTerm (Var v)         = TB.text v
 
-printOp :: BinOp -> Builder
-printOp binOp =
+printUnOp :: UnOp -> Builder
+printUnOp unOp =
+    case unOp of
+        Negate -> TB.char   '-'
+        EShow  -> TB.string "show"
+        Err    -> TB.string "error"
+
+printBinOp :: BinOp -> Builder
+printBinOp binOp =
     case binOp of
         AddI    -> TB.char   '+'
         SubI    -> TB.char   '-'
