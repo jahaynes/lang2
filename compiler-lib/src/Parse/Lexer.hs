@@ -111,6 +111,10 @@ parseToken = keyword
 
     operator :: Parser LexState Token
     operator = positioned TEqEq   (string "==")
+           <|> positioned TGtEq   (string ">=")
+           <|> positioned TGt     (string ">")
+           <|> positioned TLtEq   (string "<=")
+           <|> positioned TLt     (string "<")
            <|> positioned TEq     (string "=")
            <|> positioned TPlus   (string "+")
            <|> positioned TMinus  (string "-")
