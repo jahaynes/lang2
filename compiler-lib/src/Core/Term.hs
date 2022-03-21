@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveFunctor #-}
+
 module Core.Term where
 
 data Term s = Var s
@@ -5,4 +7,4 @@ data Term s = Var s
             | LitInt Integer
             | LitBool Bool     
             | LitString s
-                deriving (Eq, Show)
+                deriving (Eq, Functor, Show)
