@@ -1,7 +1,7 @@
 module Main where
 
-import Controller  (runController)
-import Text.Printf (printf)
+import Service.Controller (runController)
+import Text.Printf        (printf)
 
 main :: IO ()
 main = do

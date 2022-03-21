@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveFunctor #-}
+
 module Core.Expression where
 
 import Core.Operator (BinOp, UnOp)
@@ -10,4 +12,4 @@ data Expr s = ETerm (Term s)
             | EUnPrimOp UnOp (Expr s)
             | EBinPrimOp BinOp (Expr s) (Expr s)
             | IfThenElse (Expr s) (Expr s) (Expr s)
-                deriving (Eq, Show)
+                deriving (Eq, Functor, Show)

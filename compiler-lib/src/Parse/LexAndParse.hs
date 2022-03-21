@@ -2,9 +2,11 @@
 
 module Parse.LexAndParse where
 
+import Core.Definition
 import Parse.Definition
 import Parse.Lexer
 import Parse.Parser
+import Parse.Token
 
 import           Data.ByteString             (ByteString)
 import qualified Data.ByteString as BS
@@ -12,24 +14,25 @@ import qualified Data.ByteString.Char8 as C8
 import           Data.IntSet                 (IntSet)
 import qualified Data.IntSet as IS
 import           Data.List                   (intercalate)
-import           Data.Vector                 (toList)
+import           Data.Vector                 (Vector, toList)
 import           Data.Word                   (Word8)
 
-lexAndParse :: ByteString -> (ByteString, ByteString)
+tokensToByteString :: Vector Token -> ByteString
+tokensToByteString = C8.unlines . map (C8.pack . show) . toList
+
+definitionsToByteString :: [Defn ByteString] -> ByteString
+definitionsToByteString = C8.pack . intercalate "\n\n" . map show
+
+lexAndParse :: ByteString -> ( Either ByteString (Vector Token)
+                             , Either ByteString [Defn ByteString] )
 lexAndParse source =
-    let lineStarts = findLineStarts source
-    in
     case lex'' source of
-        Left e -> (e, "")
-        Right (pos, tokens) ->
-            let strTokens = C8.unlines . map (C8.pack . show) $ toList tokens
-            in
-            case parse' pos lineStarts tokens parseDefns of
-                Left e -> (strTokens, e)
-                Right defns ->
-                    let strDefns = C8.pack . intercalate "\n\n" $ map show defns
-                    in
-                    (strTokens, strDefns)
+
+        Left e -> ( Left e
+                  , Left "" )
+
+        Right (pos, tokens) -> ( Right tokens
+                               , parse' pos (findLineStarts source) tokens parseDefns )
 
 data LineState =
     LineState { newLines :: ![Int]
