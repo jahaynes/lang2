@@ -32,6 +32,12 @@ group (Group, b) = mconcat [TB.char '(', b, TB.char ')']
 --------------------------------
 
 printDefn :: Defn Text -> State Int Builder
+
+printDefn (FunDefn f (ELam vs x)) = do
+    let fvs' = TB.intercalate " " $ map TB.text (f:vs)
+    (_, x') <- printExpr x
+    pure $ mconcat [fvs', " = ", x']
+
 printDefn (FunDefn f x) = do
     let f' = TB.text f
     (_, x') <- printExpr x
