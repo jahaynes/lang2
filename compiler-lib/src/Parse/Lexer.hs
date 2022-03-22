@@ -48,6 +48,8 @@ disambiguateNegation = go [] TAmbiguous
     f TMul    = TNegate
     f TDiv    = TNegate
     f TNegate = TNegate
+    f TAnd    = TNegate
+    f TOr     = TNegate
 
     f TRParen         = TMinus
     f (TLitInt _)     = TMinus
@@ -124,6 +126,8 @@ parseToken = keyword
            <|> positioned TDot    (string ".")
            <|> positioned TLParen (string "(")
            <|> positioned TRParen (string ")")
+           <|> positioned TAnd    (string "&&")
+           <|> positioned TOr     (string "||")
            <|> positioned TPipe   (string "|")
 
     litBool = TLitBool <$> boolean

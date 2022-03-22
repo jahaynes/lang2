@@ -107,4 +107,6 @@ printBinOp binOp =
         LtI     -> TB.char   '<'
         GtEqI   -> TB.string ">="
         GtI     -> TB.char   '>'
+        AndB    -> TB.string "&&"
+        OrB     -> TB.string "||"
         ConcatS -> TB.string "++"

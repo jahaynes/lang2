@@ -18,5 +18,8 @@ data BinOp = AddI
            | GtEqI
            | GtI
 
+           | AndB
+           | OrB
+
            | ConcatS
                deriving (Eq, Show)

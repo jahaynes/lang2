@@ -14,7 +14,37 @@ import           Data.List             (foldl')
 import           Data.Vector           ((!?))
 
 parseExpr :: Parser ParseState (Expr ByteString)
-parseExpr = parseComp
+parseExpr = parseBoolOr
+
+parseBoolOr :: Parser ParseState (Expr ByteString)
+parseBoolOr = do
+    x  <- parseBoolAnd
+    ys <- many $ do op <- boolOr
+                    y  <- parseBoolAnd
+                    pure (op, y)
+    pure $ foldl' (\e (o, y) -> EBinPrimOp o e y) x ys
+
+    where
+    boolOr :: Parser ParseState BinOp
+    boolOr = parseSatisfy "boolOr" $ \t ->
+        case t of
+            TOr  -> Just OrB
+            _    -> Nothing
+
+parseBoolAnd :: Parser ParseState (Expr ByteString)
+parseBoolAnd = do
+    x  <- parseComp
+    ys <- many $ do op <- boolAnd
+                    y  <- parseComp
+                    pure (op, y)
+    pure $ foldl' (\e (o, y) -> EBinPrimOp o e y) x ys
+
+    where
+    boolAnd :: Parser ParseState BinOp
+    boolAnd = parseSatisfy "boolAnd" $ \t ->
+        case t of
+            TAnd -> Just AndB
+            _    -> Nothing
 
 parseComp :: Parser ParseState (Expr ByteString)
 parseComp = sumExpr <|> parseSum

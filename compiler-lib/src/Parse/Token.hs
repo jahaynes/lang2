@@ -29,6 +29,9 @@ data Token = TLet
            | TLt
            | TLtEq
 
+           | TOr
+           | TAnd
+
            | TEq
            | TPlus
            | TMul
