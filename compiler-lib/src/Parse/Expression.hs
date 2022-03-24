@@ -109,7 +109,14 @@ parseNonApply = parseLet
             <|> parseIfThenElse
             <|> parseLambda
             <|> parseTerm
+            <|> parseNegated
             <|> parseParen
+
+parseNegated :: Parser ParseState (Expr ByteString)
+parseNegated = do
+    parseNegate
+    e <- parseExpr
+    pure $ EUnPrimOp Negate e
 
 parseLet :: Parser ParseState (Expr ByteString)
 parseLet = do
