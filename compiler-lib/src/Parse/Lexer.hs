@@ -99,7 +99,7 @@ parseToken = keyword
          <|> operator
          <|> litBool
          <|> litInt
-         <|> litString
+         <|> (TLitString <$> litString)
          <|> variable
          <|> constructor
 
@@ -203,27 +203,34 @@ notFollowedBy p = Parser $ \ls ->
                  then Left "was followed by predicate"
                  else pure (ls, ())
 
-litString :: Parser LexState Token
+litString :: Parser LexState ByteString
 litString = Parser f
     where
     f (LexState source pos)
-        | pos >= BS.length source = Left "Out of litString"
-        | BS.index source pos /= 34 = Left "Doesn't start with \""
-        | otherwise =           
-            case findEnd 1 (BS.length source) False of
+
+        | pos >= BS.length source =
+            Left "Out of litString"
+
+        | BS.index source pos /= 34 =
+            Left "Doesn't start with \""
+
+        | otherwise =
+            case findEnd (pos + 1) (BS.length source) False of
+
                 Left l -> Left l
-                Right (i, j) -> let len = j - i
-                                in Right (LexState source (pos + len), TLitString . BS.take len . BS.drop i $ source)
+
+                Right i -> let len = i - pos
+                           in
+                           Right ( LexState source (pos + len + 1)
+                                 , BS.take (len - 1) $ BS.drop (pos + 1) source )
+
         where
-        findEnd :: Int -> Int -> Bool -> Either ByteString (Int, Int)
+        findEnd :: Int -> Int -> Bool -> Either ByteString Int
         findEnd i j esc
             | i == j    = Left "Ran off the end"
+            | esc       = findEnd (i+1) j False
             | otherwise =
-                let c = BS.index source i
-                in
-                if esc
-                    then findEnd (i+1) j False
-                    else case c of
-                            92 -> findEnd (i+1) j True
-                            34 -> Right (i, j)
-                            _  -> findEnd (i+1) j False
+                case BS.index source i of
+                    92 -> findEnd (i+1) j True
+                    34 -> Right i
+                    _  -> findEnd (i+1) j False

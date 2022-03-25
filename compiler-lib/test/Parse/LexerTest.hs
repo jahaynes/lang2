@@ -15,6 +15,7 @@ lexerTests =
                    , ("booleans", test_booleans)
                    , ("get_position", test_get_position)
                    , ("dropwhile", test_dropwhile)
+                   , ("literal_string", test_literal_string)
                    ]
 
 test_string_match :: Property
@@ -69,32 +70,23 @@ test_dropwhile = unitTest $
                 pure (p1, p2, p3, p4, p5)
     in r === (0, 0, 3, 6, 6)
 
+test_literal_string :: Property
+test_literal_string = unitTest $ do
+
+    lex' "" litString ===
+        Left "Out of litString"
+
+    lex' "abc" litString ===
+        Left "Doesn't start with \""
+
+    lex' "\"abc" litString ===
+        Left "Ran off the end"
+
+    lex' "\"foo bar\"" litString ===
+        Right "foo bar"
+
+    lex' "\"a \\\"quoted\\\" string\"" litString ===
+        Right "a \\\"quoted\\\" string"
+
 unitTest :: PropertyT IO () -> Property
 unitTest p = withTests 1 $ property p
-
-{-
-
-lexerTests :: Group
-lexerTests =
-    Group "Lexer" [ ("can lex tokens", prop_canLexTokens)
-                  ]
-
-prop_canLexTokens :: Property
-prop_canLexTokens = property $ do
-
-    (str, tok) <- forAll $ G.element [ ("let", TLet)
-                                     , ("in",  TIn)
-                                     , ("==",  TEqEq)
-                                     , ("=",   TEq)
-                                     , ("33",  TLitInt 33)
-                                     , ("True", TLitBool True)
-                                     , ("False", TLitBool False)
-                                     ] -- TODO flesh out
-
-    let Right (P.Pos (P.Byte b1) leftover, P.Pos (P.Byte b2) t) = P.runParser' token str
-    leftover === ""
-    b1       === C8.length str
-    b2       === 0
-    t        === tok
-\
--}
