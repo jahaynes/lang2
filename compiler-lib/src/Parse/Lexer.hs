@@ -8,7 +8,7 @@ import           Parse.Token
 import           Data.ByteString       (ByteString)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as C8
-import           Data.Char             (isAlphaNum, isDigit, isLower, isPunctuation, isSpace, isUpper)
+import           Data.Char             (isAlphaNum, isDigit, isLower, isSpace, isUpper)
 import           Data.Vector           (Vector)
 import qualified Data.Vector as V
 
@@ -105,11 +105,11 @@ parseToken = keyword
 
     where
     keyword :: Parser LexState Token
-    keyword = positioned TLet  (string "let"  <* notFollowedBy alphaNumOrPunc)
-          <|> positioned TIn   (string "in"   <* notFollowedBy alphaNumOrPunc)
-          <|> positioned TIf   (string "if"   <* notFollowedBy alphaNumOrPunc)
-          <|> positioned TThen (string "then" <* notFollowedBy alphaNumOrPunc)
-          <|> positioned TElse (string "else" <* notFollowedBy alphaNumOrPunc)
+    keyword = positioned TLet  (string "let"  <* notFollowedBy isAlphaNum)
+          <|> positioned TIn   (string "in"   <* notFollowedBy isAlphaNum)
+          <|> positioned TIf   (string "if"   <* notFollowedBy isAlphaNum)
+          <|> positioned TThen (string "then" <* notFollowedBy isAlphaNum)
+          <|> positioned TElse (string "else" <* notFollowedBy isAlphaNum)
 
     operator :: Parser LexState Token
     operator = positioned TEqEq   (string "==")
@@ -148,11 +148,8 @@ getPosition :: Parser LexState Int
 getPosition = Parser $ \ps -> Right (ps, ls_pos ps)
 
 boolean :: Parser LexState Bool
-boolean = positioned True  (string "True"  <* notFollowedBy alphaNumOrPunc)
-      <|> positioned False (string "False" <* notFollowedBy alphaNumOrPunc)
-
-alphaNumOrPunc :: Char -> Bool
-alphaNumOrPunc c = isAlphaNum c || isPunctuation c
+boolean = positioned True  (string "True"  <* notFollowedBy isAlphaNum)
+      <|> positioned False (string "False" <* notFollowedBy isAlphaNum)
 
 string :: ByteString -> Parser LexState ()
 string bs = Parser $ \ps ->
