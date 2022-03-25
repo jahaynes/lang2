@@ -18,6 +18,7 @@ library
                     Core.Expression
                     Core.Operator
                     Core.Term
+                    Cps.Cps
                     Parse.Definition
                     Parse.Expression
                     Parse.LexAndParse

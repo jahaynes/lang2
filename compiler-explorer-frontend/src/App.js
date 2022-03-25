@@ -9,10 +9,14 @@ class App extends React.Component {
     const target1 = document.getElementById("tokens");
     const target2 = document.getElementById("expressions");
     const target3 = document.getElementById("expressionsPretty");
+    const target4 = document.getElementById("contified");
+    const target5 = document.getElementById("contifiedPretty");
 
     target1.value = "";
     target2.value = "";
     target3.value = "";
+    target4.value = "";
+    target5.value = "";
 
     fetch("http://127.0.0.1:8080/lexAndParse", { method: 'POST', body: source.value })
       .then(resp => resp.json())
@@ -20,6 +24,8 @@ class App extends React.Component {
         target1.value = ts[0];
         target2.value = ts[1];
         target3.value = ts[2];
+        target4.value = ts[3];
+        target5.value = ts[4];
       })
   }
 
@@ -37,6 +43,12 @@ class App extends React.Component {
         <div>
           <textarea id='expressions' className='editor' spellCheck='false' rows='14'></textarea>
           <textarea id='expressionsPretty' className='editor' spellCheck='false' rows='14'></textarea>
+        </div>
+
+        <label>Contified / Pretty</label>
+        <div>
+          <textarea id='contified' className='editor' spellCheck='false' rows='14'></textarea>
+          <textarea id='contifiedPretty' className='editor' spellCheck='false' rows='14'></textarea>
         </div>
 
       </div>
