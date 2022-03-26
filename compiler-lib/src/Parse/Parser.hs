@@ -109,7 +109,7 @@ parseWhileColumns comparison p = Parser $ \ps -> parseWhileColumns' comparison p
 parseWhileColumns' :: ColumnComparison -> Parser ParseState a -> ParseState -> Either ByteString (ParseState, [a])
 parseWhileColumns' comparison p qs =
     case runParser (parseWithColumn p) qs of
-        Left l -> Left l
+        Left _                  -> Right (qs, [])
         Right (ps', (mCol1, x)) -> Right (parseWhileColumns'' ps' mCol1 [x])
 
     where

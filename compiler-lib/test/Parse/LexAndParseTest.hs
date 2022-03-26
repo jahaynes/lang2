@@ -22,7 +22,8 @@ lexAndParseTests =
                         , ("mr_more_right", test_mr_more_right)
                         , ("mr_same_column", test_mr_same_column)  
                         , ("mr_diag_right", test_mr_diag_right)
-                        , ("mr_diag_left", test_mr_diag_left)  
+                        , ("mr_diag_left", test_mr_diag_left)
+                        , ("mr_none", test_mr_none)
                         ]
 
 prop_simple_definition :: Property
@@ -82,6 +83,21 @@ test_mr_diag_left = unitTest $ do
 
     tokens === [TLowerStart "topright", TLowerStart "bottomleft" ]
     pr === ["topright"]
+
+test_mr_none :: Property
+test_mr_none = unitTest $ do
+
+    let parser = do upper <- parseUpperStart
+                    _     <- parseWhileColumns MoreRight parseUpperStart
+                    lower <- parseLowerStart
+                    pure (upper, lower)
+
+    let Right (tokens, Right (_, pr)) =
+            lexAndParseWith parser "F y"
+
+    tokens === [TUpperStart "F", TLowerStart "y"]
+
+    pr === ("F", "y")
 
 lexAndParseWith :: Parser ParseState a
                 -> ByteString
