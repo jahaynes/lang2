@@ -43,6 +43,23 @@ printDefn (FunDefn f x) = do
     (_, x') <- printExpr x
     pure $ mconcat [f', " = ", x']
 
+printDefn (TypeDefn t tyvars dataCons) = do
+    let t'       = TB.text t
+        tyvars'  = map (\(TyVar tv) -> TB.text tv) tyvars
+        ttyvars' = TB.intercalate " " (t':tyvars')
+        dcs'     = TB.intercalate " | " $ map printDataCon dataCons
+    pure $ mconcat [ttyvars', " = ", dcs']
+
+printDataCon :: DataCon Text -> Builder
+printDataCon (DataCon s members) =
+    TB.intercalate " " (TB.text s : map printMember members)
+
+printMember :: Member Text -> Builder
+printMember m =
+    case m of
+        MemberType s -> TB.text s
+        MemberVar s  -> TB.text s
+
 printExpr :: Expr Text -> State Int (Atomic, Builder)
 printExpr (EApp f xs) = do
     f'  <- group <$> printExpr f
@@ -78,14 +95,15 @@ printExpr (IfThenElse p t f) = do
 printExpr (ETerm t) =
     pure (Atom, printTerm t)
 
-printExpr x = error $ show x
-
 printTerm :: Term Text -> Builder
-printTerm (LitBool True)  = "True"
-printTerm (LitBool False) = "False"
-printTerm (LitInt i)      = TB.decimal i
-printTerm (LitString s)   = mconcat [TB.char '"', TB.text s, TB.char '"']
-printTerm (Var v)         = TB.text v
+printTerm t =
+    case t of
+        Var v         -> TB.text v
+        DCons s       -> TB.text s
+        LitInt i      -> TB.decimal i
+        LitBool True  -> "True"
+        LitBool False -> "False"
+        LitString s   -> mconcat [TB.char '"', TB.text s, TB.char '"']
 
 printUnOp :: UnOp -> Builder
 printUnOp unOp =
