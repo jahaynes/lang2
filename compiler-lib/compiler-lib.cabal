@@ -19,6 +19,7 @@ library
                     Core.Operator
                     Core.Term
                     Cps.Cps
+                    FreeVars.FreeVars
                     Parse.Definition
                     Parse.Expression
                     Parse.LexAndParse
