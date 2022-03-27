@@ -24,7 +24,7 @@ defnFreeVars (FunDefn n e) = do
     addToScope [n]
     exprFreeVars e
     removeFromScope [n]
-defnFreeVars (TypeDefn _ _ _) = error "fv of typedefn"
+defnFreeVars TypeDefn{} = pure ()
 
 exprFreeVars :: Ord s => Expr s -> State (FreeVars s) ()
 exprFreeVars e =
