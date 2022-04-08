@@ -24,7 +24,8 @@ defnFreeVars (FunDefn n e) = do
     addToScope [n]
     exprFreeVars e
     removeFromScope [n]
-defnFreeVars TypeDefn{} = pure ()
+defnFreeVars DataDefn{} = pure () -- TODO?
+defnFreeVars TypeSig{} = pure () -- TODO?
 
 exprFreeVars :: Ord s => Expr s -> State (FreeVars s) ()
 exprFreeVars e =

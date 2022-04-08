@@ -61,6 +61,8 @@ disambiguateNegation = go [] TAmbiguous
     f (TLitString _)  = TAmbiguous
     f (TUpperStart _) = TAmbiguous
     f TPipe           = TAmbiguous
+    f TColon          = TAmbiguous
+    f TArr            = TAmbiguous
     f TAmbiguous      = TAmbiguous
 
 lex' :: ByteString -> Parser LexState a -> Either ByteString a
@@ -118,7 +120,9 @@ parseToken = keyword
            <|> positioned TLtEq   (string "<=")
            <|> positioned TLt     (string "<")
            <|> positioned TEq     (string "=")
+           <|> positioned TColon  (string ":")
            <|> positioned TPlus   (string "+")
+           <|> positioned TArr    (string "->")
            <|> positioned TMinus  (string "-")
            <|> positioned TMul    (string "*")
            <|> positioned TDiv    (string "/")

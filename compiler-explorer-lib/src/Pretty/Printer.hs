@@ -43,12 +43,22 @@ printDefn (FunDefn f x) = do
     (_, x') <- printExpr x
     pure $ mconcat [f', " = ", x']
 
-printDefn (TypeDefn t tyvars dataCons) = do
+printDefn (DataDefn t tyvars dataCons) = do
     let t'       = TB.text t
-        tyvars'  = map (\(TyVar tv) -> TB.text tv) tyvars
+        tyvars'  = map TB.text tyvars
         ttyvars' = TB.intercalate " " (t':tyvars')
         dcs'     = TB.intercalate " | " $ map printDataCon dataCons
     pure $ mconcat [ttyvars', " = ", dcs']
+
+printDefn (TypeSig name typ) = do
+    let name'    = TB.text name
+        typ'     = printType typ
+    pure $ mconcat [name', " : ", typ']
+
+printType :: Type Text -> Builder
+printType (TyVar s) = TB.text s
+printType (TyCon s) = TB.text s
+printType (TyArr a b) = mconcat ["(", printType a, " -> ", printType b, ")"]
 
 printDataCon :: DataCon Text -> Builder
 printDataCon (DataCon s members) =

@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Parse.Definition where
+module Parse.Definition (parseDefns) where
 
 import Core.Definition
 
@@ -18,7 +18,7 @@ parseDefns :: Parser ParseState [Defn ByteString]
 parseDefns = many' parseDefn
 
 parseDefn :: Parser ParseState (Defn ByteString)
-parseDefn = assertLineStart *> (parseFunDefn <|> parseDataDefn)
+parseDefn = assertLineStart *> (parseFunDefn <|> parseDataDefn <|> parseTypeSig)
 
 assertLineStart :: Parser ParseState ()
 assertLineStart = Parser $ \ps ->
@@ -68,11 +68,11 @@ notAtLineStarts p = Parser $ go []
 parseDataDefn :: Parser ParseState (Defn ByteString)
 parseDataDefn = do
     name   <- atLineStart parseUpperStart
-    tyVars <- notAtLineStarts parseTypeVariable
+    tyVars <- notAtLineStarts parseLowerStart
     _      <- notAtLineStart (token TEq)
     dc1    <- notAtLineStart parseDataConstructor
     dcs    <- many' (notAtLineStart (token TPipe) *> notAtLineStart parseDataConstructor)
-    pure $ TypeDefn name tyVars (dc1:dcs)
+    pure $ DataDefn name tyVars (dc1:dcs)
     where
     parseDataConstructor :: Parser ParseState (DataCon ByteString)
     parseDataConstructor = DataCon <$> parseUpperStart <*> notAtLineStarts parseMember
@@ -81,5 +81,21 @@ parseDataDefn = do
     parseMember = (MemberType <$> parseUpperStart)
               <|> (MemberVar  <$> parseLowerStart)
 
-    parseTypeVariable :: Parser ParseState (TyVar ByteString)
-    parseTypeVariable = TyVar <$> parseLowerStart
+parseTypeSig :: Parser ParseState (Defn ByteString)
+parseTypeSig = do
+    name <- atLineStart parseLowerStart
+    _    <- notAtLineStart (token TColon)
+    typ  <- parseArrowedType
+    pure $ TypeSig name typ
+
+    where
+    parseArrowedType :: Parser ParseState (Type ByteString)
+    parseArrowedType = do
+        t  <- parseType
+        ts <- many $ token TArr *> parseArrowedType
+        pure $ foldl TyArr t ts
+
+    parseType :: Parser ParseState (Type ByteString)
+    parseType = (token TLParen *> parseArrowedType <* token TRParen)
+            <|> (TyVar <$> parseLowerStart)
+            <|> (TyCon <$> parseUpperStart)

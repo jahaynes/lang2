@@ -5,12 +5,9 @@ module Core.Definition where
 import Core.Expression
 
 data Defn s = FunDefn s (Expr s)
-            | TypeDefn s [TyVar s] [DataCon s]
+            | DataDefn s [s] [DataCon s]
+            | TypeSig s (Type s)
                 deriving (Eq, Functor, Show)
-
-newtype TyVar s =
-    TyVar s
-        deriving (Eq, Functor, Show)
 
 data DataCon s =
     DataCon s [Member s]
@@ -19,3 +16,8 @@ data DataCon s =
 data Member s = MemberType s
               | MemberVar s
                   deriving (Eq, Functor, Show)
+
+data Type s = TyVar s
+            | TyCon s
+            | TyArr (Type s) (Type s)
+                deriving (Eq, Functor, Show)
