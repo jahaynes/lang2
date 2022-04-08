@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Parse.Definition (parseDefns) where
+module Parse.Definition (parseDefns, parseFunDefn) where
 
 import Core.Definition
 
