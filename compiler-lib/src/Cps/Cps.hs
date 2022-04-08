@@ -8,7 +8,8 @@ import Data.ByteString.Char8 (ByteString, pack)
 
 cps :: Defn ByteString -> Defn ByteString
 cps (FunDefn s expr) = FunDefn s (fst $ runState (cpsM expr) 0)
-cps t@TypeDefn{} = t
+cps d@DataDefn{} = d
+cps t@TypeSig{} = t
 
 cpsM :: Expr ByteString
      -> State Int (Expr ByteString)
