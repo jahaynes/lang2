@@ -20,4 +20,4 @@ data Member s = MemberType s
 data Type s = TyVar s
             | TyCon s
             | TyArr (Type s) (Type s)
-                deriving (Eq, Functor, Show)
+                deriving (Eq, Ord, Functor, Show)

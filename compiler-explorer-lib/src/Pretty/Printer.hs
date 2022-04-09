@@ -7,8 +7,10 @@ import Core.Definition
 import Core.Expression
 import Core.Term
 import Core.Operator
+import TypeCheck.Types
 
 import           Data.ByteString    (ByteString)
+import qualified Data.Map    as M
 import           Data.Text          (Text)
 import           Data.Text.Encoding (decodeUtf8)
 import           Text.Builder       (Builder)
@@ -20,6 +22,22 @@ render :: [Defn ByteString] -> Text
 render = TB.run . TB.intercalate "\n\n" . map go
     where
     go defn = fst $ runState (printDefn . fmap decodeUtf8 $ defn) 0
+
+renderTypeEnv :: TypeEnv -> Text
+renderTypeEnv (TypeEnv env) = TB.run
+                            . TB.intercalate "\n"
+                            . map printTypeDefn
+                            $ M.toList env
+
+printTypeDefn :: (ByteString, Scheme) -> Builder
+printTypeDefn (name, Forall vs typ) =
+    let name'   = TB.text $ decodeUtf8 name
+        vs'     = TB.intercalate " " $ map (TB.text . decodeUtf8) vs
+        scheme' = case vs of
+                      [] -> vs'
+                      _  -> mconcat ["forall ", vs', ". "]
+        typ'    = printType (decodeUtf8 <$> typ)
+    in mconcat [name', " : ", scheme', typ']
 
 --------------------------------
 
@@ -130,7 +148,7 @@ printBinOp binOp =
         MulI    -> TB.char   '*'
         DivI    -> TB.char   '/'
         ModI    -> TB.char   '%'
-        EqI     -> TB.string "=="
+        EqA     -> TB.string "=="
         LtEqI   -> TB.string "=<"
         LtI     -> TB.char   '<'
         GtEqI   -> TB.string ">="

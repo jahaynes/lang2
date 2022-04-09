@@ -12,7 +12,7 @@ data BinOp = AddI
            | DivI
            | ModI
 
-           | EqI
+           | EqA
            | LtEqI
            | LtI
            | GtEqI

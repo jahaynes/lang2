@@ -12,6 +12,7 @@ library
                     base,
                     bytestring,
                     compiler-lib,
+                    containers,
                     servant-server,
                     text,
                     text-builder,

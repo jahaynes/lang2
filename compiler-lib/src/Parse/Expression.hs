@@ -58,7 +58,7 @@ parseComp = sumExpr <|> parseSum
     compOp :: Parser ParseState BinOp
     compOp = parseSatisfy "compOp" $ \t ->
         case t of
-            TEqEq -> Just EqI
+            TEqEq -> Just EqA
             TGt   -> Just GtI
             TGtEq -> Just GtEqI
             TLt   -> Just LtI

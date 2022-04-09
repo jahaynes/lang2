@@ -9,6 +9,7 @@ import Cps.Cps
 import FreeVars.FreeVars
 import Parse.LexAndParse
 import Pretty.Printer
+import TypeCheck.TypeCheck
 
 import           Data.Text                   (Text, pack)
 import           Data.Text.Encoding          (decodeUtf8, encodeUtf8)
@@ -17,14 +18,14 @@ import           Network.Wai.Middleware.Cors (simpleCors)
 import           Servant
 
 type Api = "lexAndParse" :> ReqBody '[PlainText] Text
-                         :> Post '[JSON] (Text, Text, Text, Text, Text, Text)
+                         :> Post '[JSON] (Text, Text, Text, Text, Text, Text, Text)
 
 server :: Server Api
 server = routeLexAndParse
 
     where
-    routeLexAndParse :: Text -> Handler (Text, Text, Text, Text, Text, Text)
-    routeLexAndParse txt =
+    routeLexAndParse :: Text -> Handler (Text, Text, Text, Text, Text, Text, Text)
+    routeLexAndParse txt = do
 
         let (eTokens, eDefns) =
                 lexAndParse (encodeUtf8 txt)
@@ -47,13 +48,16 @@ server = routeLexAndParse
             strFreeVars =
                 either show (show . map getFreeVars) (fmap (map cps) eDefns)
 
-        in
+            strTypes =
+                either decodeUtf8 (renderTypeEnv . runTypeCheck) eDefns
+
         pure ( decodeUtf8 strTokens
              , decodeUtf8 strDefns
              , strPretty
              , decodeUtf8 strCps
              , strCpsPretty
              , pack strFreeVars
+             , strTypes
              )
 
 runController :: Int -> IO ()
