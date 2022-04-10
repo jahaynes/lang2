@@ -93,7 +93,7 @@ infer expr =
             (t, c) <- infer e
             tv <- fresh
             let u1 = TyArr t tv
-                u2 = unOp op
+            u2 <- unOp op
             pure (tv, c ++ [Constraint u1 u2])
 
         IfThenElse p t f -> do
@@ -102,15 +102,29 @@ infer expr =
             (t3, c3) <- infer f
             pure (t2, c1 ++ c2 ++ c3 ++ [Constraint t1 (TyCon "Bool"), Constraint t2 t3])
 
-unOp :: UnOp -> Type ByteString
-unOp Negate = TyCon "Int" `TyArr` TyCon "Int"
+unOp :: UnOp -> State TcState (Type ByteString)
+unOp Negate = pure $ TyCon "Int" `TyArr` TyCon "Int"
+unOp EShow  = fresh <&> \fr -> fr `TyArr` TyCon "String"    -- TODO check
+unOp Err    = fresh <&> \fr -> TyCon "String" `TyArr` fr    -- TODO check
 
 binOp :: BinOp -> State TcState (Type ByteString)
 binOp AddI = pure $ TyCon "Int" `TyArr` (TyCon "Int" `TyArr` TyCon "Int")
 binOp SubI = pure $ TyCon "Int" `TyArr` (TyCon "Int" `TyArr` TyCon "Int")
+binOp MulI = pure $ TyCon "Int" `TyArr` (TyCon "Int" `TyArr` TyCon "Int")
+binOp DivI = pure $ TyCon "Int" `TyArr` (TyCon "Int" `TyArr` TyCon "Int")
+binOp ModI = pure $ TyCon "Int" `TyArr` (TyCon "Int" `TyArr` TyCon "Int")
+
+binOp EqA = fresh <&> \fr -> fr `TyArr` (fr `TyArr` TyCon "Bool")
+
+binOp LtEqI = pure $ TyCon "Int" `TyArr` (TyCon "Int" `TyArr` TyCon "Bool")
+binOp LtI   = pure $ TyCon "Int" `TyArr` (TyCon "Int" `TyArr` TyCon "Bool")
+binOp GtEqI = pure $ TyCon "Int" `TyArr` (TyCon "Int" `TyArr` TyCon "Bool")
+binOp GtI   = pure $ TyCon "Int" `TyArr` (TyCon "Int" `TyArr` TyCon "Bool")
+
+binOp AndB = pure $ TyCon "Bool" `TyArr` (TyCon "Bool" `TyArr` TyCon "Bool")
 binOp OrB  = pure $ TyCon "Bool" `TyArr` (TyCon "Bool" `TyArr` TyCon "Bool")
-binOp EqA  = fresh <&> \fr -> fr `TyArr` (fr `TyArr` TyCon "Bool")
-binOp x    = error $ "OP: " ++ show x
+
+binOp ConcatS  = pure $ TyCon "String" `TyArr` (TyCon "String" `TyArr` TyCon "String")
 
 inEnv :: ByteString -> Scheme -> State TcState a -> State TcState a
 inEnv x sc m =
