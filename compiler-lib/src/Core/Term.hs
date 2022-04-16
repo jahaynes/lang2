@@ -7,4 +7,4 @@ data Term s = Var s
             | LitInt Integer
             | LitBool Bool     
             | LitString s
-                deriving (Eq, Functor, Show)
+                deriving (Eq, Ord, Functor, Show)
