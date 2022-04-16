@@ -5,6 +5,7 @@
 module Service.Controller (runController) where
 
 import Cps.Cps
+import Optimise.Alpha
 import Parse.LexAndParse
 import Pretty.Printer
 import TypeCheck.TypeCheck
@@ -26,6 +27,8 @@ data Response =
              , prettyDefns     :: !Text
              , contified       :: !Text
              , prettyContified :: !Text
+             , optimised       :: !Text
+             , prettyOptimised :: !Text
              , types           :: !Text
              } deriving Generic
 
@@ -46,6 +49,8 @@ server = routeLexAndParse
                         , prettyDefns     = either decodeUtf8 render eDefns
                         , contified       = decodeUtf8 $ either id (definitionsToByteString . map cps) eDefns
                         , prettyContified = either decodeUtf8 (render . map cps) eDefns
+                        , optimised       = decodeUtf8 $ either id (definitionsToByteString . alphas . map cps) eDefns
+                        , prettyOptimised = either decodeUtf8 (render . alphas . map cps) eDefns
                         , types           = either decodeUtf8 (renderTypeEnv . runTypeCheck) eDefns
                         }
 

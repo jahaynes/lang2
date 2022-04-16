@@ -20,6 +20,7 @@ library
                     Core.Term
                     Cps.Cps
                     FreeVars.FreeVars
+                    Optimise.Alpha
                     Parse.Definition
                     Parse.Expression
                     Parse.LexAndParse
