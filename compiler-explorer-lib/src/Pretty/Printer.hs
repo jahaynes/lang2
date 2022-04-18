@@ -2,7 +2,6 @@
 
 module Pretty.Printer where
 
-import Common.State
 import Core.Definition
 import Core.Expression
 import Core.Term
@@ -19,9 +18,9 @@ import qualified Text.Builder as TB
 --------------------------------
 
 render :: [Defn ByteString] -> Text
-render = TB.run . TB.intercalate "\n\n" . map go
-    where
-    go defn = fst $ runState (printDefn . fmap decodeUtf8 $ defn) 0
+render = TB.run
+       . TB.intercalate "\n\n"
+       . map (printDefn . fmap decodeUtf8)
 
 renderTypeEnv :: TypeEnv -> Text
 renderTypeEnv (TypeEnv env) = TB.run
@@ -49,29 +48,27 @@ group (Group, b) = mconcat [TB.char '(', b, TB.char ')']
 
 --------------------------------
 
-printDefn :: Defn Text -> State Int Builder
+printDefn :: Defn Text -> Builder
 
-printDefn (FunDefn f (ELam vs x)) = do
-    let fvs' = TB.intercalate " " $ map TB.text (f:vs)
-    (_, x') <- printExpr x
-    pure $ mconcat [fvs', " = ", x']
+printDefn (FunDefn f (ELam vs x)) =
+    let fvs'    = TB.intercalate " " $ map TB.text (f:vs)
+        (_, x') = printExpr x
+    in mconcat [fvs', " = ", x']
 
-printDefn (FunDefn f x) = do
-    let f' = TB.text f
-    (_, x') <- printExpr x
-    pure $ mconcat [f', " = ", x']
+printDefn (FunDefn f x) =
+    let f'      = TB.text f
+        (_, x') = printExpr x
+    in mconcat [f', " = ", x']
 
-printDefn (DataDefn t tyvars dataCons) = do
+printDefn (DataDefn t tyvars dataCons) =
     let t'       = TB.text t
         tyvars'  = map TB.text tyvars
         ttyvars' = TB.intercalate " " (t':tyvars')
         dcs'     = TB.intercalate " | " $ map printDataCon dataCons
-    pure $ mconcat [ttyvars', " = ", dcs']
+    in mconcat [ttyvars', " = ", dcs']
 
-printDefn (TypeSig name typ) = do
-    let name'    = TB.text name
-        typ'     = printType typ
-    pure $ mconcat [name', " : ", typ']
+printDefn (TypeSig name typ) =
+    mconcat [TB.text name, " : ", printType typ]
 
 printType :: Type Text -> Builder
 printType (TyVar s) = TB.text s
@@ -88,40 +85,39 @@ printMember m =
         MemberType s -> TB.text s
         MemberVar s  -> TB.text s
 
-printExpr :: Expr Text -> State Int (Atomic, Builder)
-printExpr (EApp f xs) = do
-    f'  <- group <$> printExpr f
-    xs' <- TB.intercalate " " . map group <$> mapM printExpr xs
-    pure $ (Group, f' <> " " <> xs')
+printExpr :: Expr Text -> (Atomic, Builder)
+printExpr (EApp f xs) =
+    let f'  = group $ printExpr f
+        xs' = TB.intercalate " " $ map (group . printExpr) xs
+    in (Group, f' <> " " <> xs')
 
-printExpr (ELam vs body) = do
-    let vs' = TB.intercalate " " $ map TB.text vs
-    (_, body') <- printExpr body
-    pure (Group, TB.intercalate " " ["\\" <> vs', "->", body'])
+printExpr (ELam vs body) =
+    let vs'        = TB.intercalate " " $ map TB.text vs
+        (_, body') = printExpr body
+    in (Group, TB.intercalate " " ["\\" <> vs', "->", body'])
 
-printExpr (EUnPrimOp o e) = do
-    e' <- group <$> printExpr e
-    pure (Group, TB.intercalate " " [printUnOp o, e'])
+printExpr (EUnPrimOp o e) =
+    (Group, TB.intercalate " " [printUnOp o, group $ printExpr e])
 
-printExpr (EBinPrimOp o a b) = do
-    a' <- group <$> printExpr a
-    b' <- group <$> printExpr b
-    pure (Group, TB.intercalate " " [a', printBinOp o, b'])
+printExpr (EBinPrimOp o a b) =
+    let a' = group $ printExpr a
+        b' = group $ printExpr b
+    in (Group, TB.intercalate " " [a', printBinOp o, b'])
 
-printExpr (ELet a b c) = do
+printExpr (ELet a b c) =
     let a' = TB.text a
-    b' <- group <$> printExpr b
-    c' <- group <$> printExpr c
-    pure (Group, TB.intercalate " " ["let", a', "=", b', "in", c'])
+        b' = group $ printExpr b
+        c' = group $ printExpr c
+    in (Group, TB.intercalate " " ["let", a', "=", b', "in", c'])
 
-printExpr (IfThenElse p t f) = do
-    p' <- group <$> printExpr p
-    t' <- group <$> printExpr t
-    f' <- group <$> printExpr f
-    pure (Group, TB.intercalate " " ["if", p', "then", t', "else", f'])
+printExpr (IfThenElse p t f) =
+    let p' = group $ printExpr p
+        t' = group $ printExpr t
+        f' = group $ printExpr f
+    in (Group, TB.intercalate " " ["if", p', "then", t', "else", f'])
 
 printExpr (ETerm t) =
-    pure (Atom, printTerm t)
+    (Atom, printTerm t)
 
 printTerm :: Term Text -> Builder
 printTerm t =
