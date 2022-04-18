@@ -6,13 +6,18 @@ import Core.Expression
 import Core.Term
 import Data.ByteString.Char8 (ByteString, pack)
 
+data CpsState s =
+    CpsState { count  :: !Int
+             , symGen :: !(Int -> s)
+             }
+
 cps :: Defn ByteString -> Defn ByteString
-cps (FunDefn s expr) = FunDefn s (fst $ runState (cpsM expr) 0)
+cps (FunDefn s expr) = FunDefn s (fst $ runState (cpsM expr) (CpsState 0 (\n -> pack $ "c" <> show n)))
 cps d@DataDefn{} = d
 cps t@TypeSig{} = t
 
-cpsM :: Expr ByteString
-     -> State Int (Expr ByteString)
+cpsM :: Expr s
+     -> State (CpsState s) (Expr s)
 
 cpsM e@ETerm{} = pure e
 
@@ -26,9 +31,9 @@ cpsM e = do
     body' <- cpsC e k
     pure $ ELam [k] body'
 
-cpsC :: Expr ByteString
-     -> ByteString
-     -> State Int (Expr ByteString)
+cpsC :: Expr s
+     -> s
+     -> State (CpsState s) (Expr s)
 cpsC e@ELam{} c = do
     e' <- cpsM e
     pure $ EApp (ETerm $ Var c) [e']
@@ -68,15 +73,15 @@ cpsC (IfThenElse p t f) c = do
                 pure $ IfThenElse p' t' f'
     pure $ ELet k (ETerm (Var c)) body
 
-genSym :: State Int ByteString
+genSym :: State (CpsState s) s
 genSym = do
-    n <- get
-    put $! n + 1
-    pure . pack $ "c" ++ show n
+    CpsState n f <- get
+    put $! CpsState (n + 1) f
+    pure $ f n
 
-cpsK :: Expr ByteString
-     -> (Expr ByteString -> State Int (Expr ByteString))
-     -> State Int (Expr ByteString)
+cpsK :: Expr s
+     -> (Expr s -> State (CpsState s) (Expr s))
+     -> State (CpsState s) (Expr s)
 cpsK expr@ELam{}  k = k =<< cpsM expr
 cpsK expr@ETerm{} k = k =<< cpsM expr
 
@@ -114,9 +119,9 @@ cpsK (IfThenElse p t f) k = do
     cpsK p $ \p' ->
         pure $ ELet c (ELam [v] k') (IfThenElse p' t' f')
 
-cpsKs :: [Expr ByteString]
-      -> ([Expr ByteString] -> State Int (Expr ByteString))
-      -> State Int (Expr ByteString)
+cpsKs :: [Expr s]
+      -> ([Expr s] -> State (CpsState s) (Expr s))
+      -> State (CpsState s) (Expr s)
 cpsKs     [] k = k []
 cpsKs (e:es) k =
     cpsK e $ \e' ->
