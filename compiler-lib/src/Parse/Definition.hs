@@ -8,6 +8,7 @@ import Core.Expression
 import Parse.Expression
 import Parse.Parser
 import Parse.Token
+import TypeCheck.Types
 
 import Data.ByteString (ByteString)
 

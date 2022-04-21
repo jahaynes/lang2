@@ -1,14 +1,18 @@
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE DeriveFunctor,
+             FlexibleInstances #-}
 
 module TypeCheck.Types where
-
-import Core.Definition
 
 import           Data.Map      (Map)
 import qualified Data.Map as M
 import           Data.Set      (Set)
 import qualified Data.Set as S
 import           Data.ByteString (ByteString)
+
+data Type s = TyVar s
+            | TyCon s
+            | TyArr (Type s) (Type s)
+                deriving (Eq, Ord, Functor, Show)
 
 data Constraint =
     Constraint !(Type ByteString) !(Type ByteString)
@@ -57,3 +61,10 @@ instance Substitutable a => Substitutable [a] where
 instance Substitutable TypeEnv where
   apply s (TypeEnv env) = TypeEnv $ M.map (apply s) env
   ftv (TypeEnv env) = ftv $ M.elems env
+
+arity :: Scheme -> Int
+arity (Forall _ t) = go t
+    where
+    go TyCon{}      = 0
+    go TyVar{}      = 0 -- error "unknown arity"
+    go (TyArr _ t2) = 1 + go t2

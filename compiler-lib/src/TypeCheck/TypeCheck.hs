@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, ScopedTypeVariables #-}
 
 module TypeCheck.TypeCheck (runTypeCheck) where
 
@@ -8,6 +8,7 @@ import Core.Operator
 import Core.Term
 import Common.State
 import TypeCheck.Types
+import TypeCheck.TypedExpression
 
 import           Control.Monad   (replicateM)
 import           Data.ByteString (ByteString)
@@ -22,13 +23,15 @@ data TcState =
             , getCount   :: !Int
             } deriving Show
 
-runTypeCheck :: [Defn ByteString] -> TypeEnv
+runTypeCheck :: [Defn ByteString] -> (TypeEnv, [TypedDefn Scheme ByteString])
 runTypeCheck defns =
 
     let (typeSigs, funDefns) = foldl clas ([], []) defns
         typeEnv = buildTypeEnv typeSigs
 
-    in getTypeEnv . snd . runState (mapM_ inferTop funDefns) $ TcState typeEnv 0
+        (typedExprs, tcState) = runState (mapM inferTop funDefns) $ TcState typeEnv 0
+
+    in (getTypeEnv tcState, typedExprs)
 
     where
     clas (typeSigs, funDefns) t@TypeSig{} = (typeSigs++[t], funDefns)
@@ -42,65 +45,74 @@ runTypeCheck defns =
         bt :: Map ByteString Scheme -> Defn ByteString -> Map ByteString Scheme
         bt m (TypeSig n t) = M.insert n (closeOver t) m
 
-inferTop :: Defn ByteString -> State TcState ()
+inferTop :: Defn ByteString -> State TcState (TypedDefn Scheme ByteString)
 inferTop (FunDefn name ex) = do
-    (ty, cs) <- infer ex
+    (ty, cs, tye) <- infer ex
     let subst = runSolve cs
     let scheme = closeOver $ apply subst ty
     modify' $ \tcState ->
         tcState { getTypeEnv = extend (getTypeEnv tcState) (name, scheme)}
+    pure $ FunDefnT scheme name (withTypes (closeOver . apply subst) tye)
 
-infer :: Expr ByteString -> State TcState (Type ByteString, [Constraint])
+infer :: Expr ByteString -> State TcState (Type ByteString, [Constraint], TypedExpr (Type ByteString) ByteString)
 infer expr =
     case expr of
-        ETerm (LitBool _)   -> pure (TyCon "Bool", [])
-        ETerm (LitInt _)    -> pure (TyCon "Int", [])
-        ETerm (LitString _) -> pure (TyCon "String", [])
-        ETerm (Var x)       -> lookupEnv x
+        ETerm b@LitBool{}   -> pure (TyCon "Bool", [], TermT (TyCon "Bool") b)
+        ETerm i@LitInt{}    -> pure (TyCon "Int", [], TermT (TyCon "Int") i)
+        ETerm s@LitString{} -> pure (TyCon "String", [], TermT (TyCon "String") s)
+        ETerm v@(Var x)       -> do (t, c) <- lookupEnv x
+                                    pure (t, c, TermT t v)
         ETerm (DCons _)     -> error "No typechecking for dataconstructors yet"
 
         ELam vs e -> do
             tvs <- replicateM (length vs) fresh
             let scs = map (Forall []) tvs
-            (t, c) <- inEnvs (zip vs scs) (infer e)
-            pure (foldr TyArr t tvs, c)
+            (t, c, tye) <- inEnvs (zip vs scs) (infer e)
+            let ty = foldr TyArr t tvs
+            pure (ty, c, LamT ty vs tye)
 
         EApp f xs -> do
-            (t1, c1) <- infer f
-            (ts, cs) <- unzip <$> mapM infer xs
+            (t1, c1, tyf) <- infer f
+            (ts, cs, tyxs) <- unzip3 <$> mapM infer xs
             tv       <- fresh
             let c  = Constraint t1 (foldr TyArr tv ts)
                 cs' = c1 ++ concat cs ++ [c]
-            pure (tv, cs')
+            pure (tv, cs', AppT tv tyf tyxs)
 
         ELet x e1 e2 -> do
             env <- getTypeEnv <$> get
-            (t1, c1) <- infer e1
+            (t1, c1, tye1) <- infer e1
             let sub = runSolve c1
                 sc = generalize (apply sub env) (apply sub t1)
-            (t2, c2) <- inEnv x sc $ local (apply sub) (infer e2)
-            pure (t2, c1 ++ c2)
+            (t2, c2, tye2) <- inEnv x sc $ local (apply sub) (infer e2)
+            pure ( t2
+                 , c1 ++ c2
+                 , LetT t2 x tye1 tye2)
 
         EBinPrimOp op e1 e2 -> do
-            (t1, c1) <- infer e1
-            (t2, c2) <- infer e2
+            (t1, c1, tye1) <- infer e1
+            (t2, c2, tye2) <- infer e2
             tv <- fresh
             let u1 = t1 `TyArr` (t2 `TyArr` tv)
             u2 <- binOp op
-            pure (tv, c1 ++ c2 ++ [Constraint u1 u2])
+            pure ( tv
+                 , c1 ++ c2 ++ [Constraint u1 u2]
+                 , BinPrimOpT tv op tye1 tye2 )
 
         EUnPrimOp op e -> do
-            (t, c) <- infer e
+            (t, c, tye) <- infer e
             tv <- fresh
             let u1 = TyArr t tv
             u2 <- unOp op
-            pure (tv, c ++ [Constraint u1 u2])
+            pure (tv, c ++ [Constraint u1 u2], UnPrimOpT tv op tye)
 
         IfThenElse p t f -> do
-            (t1, c1) <- infer p
-            (t2, c2) <- infer t
-            (t3, c3) <- infer f
-            pure (t2, c1 ++ c2 ++ c3 ++ [Constraint t1 (TyCon "Bool"), Constraint t2 t3])
+            (t1, c1, typ) <- infer p
+            (t2, c2, tyt) <- infer t
+            (t3, c3, tyf) <- infer f
+            pure ( t2
+                 , c1 ++ c2 ++ c3 ++ [Constraint t1 (TyCon "Bool"), Constraint t2 t3]
+                 , IfThenElseT t2 typ tyt tyf )
 
 unOp :: UnOp -> State TcState (Type ByteString)
 unOp Negate = pure $ TyCon "Int" `TyArr` TyCon "Int"
