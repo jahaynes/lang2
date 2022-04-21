@@ -12,7 +12,13 @@ data CpsState s =
              }
 
 cps :: Defn ByteString -> Defn ByteString
-cps (FunDefn s expr) = FunDefn s (fst $ runState (cpsM expr) (CpsState 0 (\n -> pack $ "c" <> show n)))
+cps (FunDefn s expr) = do
+    -- Force top-levels as lambdas so they can be called with a continuation
+    let expr' =
+          case expr of
+              ELam{} -> expr
+              _      -> ELam [] expr
+    FunDefn s (fst $ runState (cpsM expr') (CpsState 0 (\n -> pack $ "c" <> show n)))
 cps d@DataDefn{} = d
 cps t@TypeSig{} = t
 

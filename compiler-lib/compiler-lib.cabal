@@ -19,6 +19,7 @@ library
                     Core.Operator
                     Core.Term
                     Cps.Cps
+                    Cps.PreCps
                     FreeVars.FreeVars
                     Optimise.Alpha
                     Parse.Definition
@@ -27,7 +28,11 @@ library
                     Parse.Lexer
                     Parse.Parser
                     Parse.Token
+                    Phase.DiscardTypes
+                    Phase.EtaExpand
+                    Phase.Saturate
                     TypeCheck.TypeCheck
+                    TypeCheck.TypedExpression
                     TypeCheck.Types
   ghc-options:      -Wall -O2
   hs-source-dirs:   src

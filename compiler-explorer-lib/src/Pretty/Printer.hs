@@ -6,6 +6,7 @@ import Core.Definition
 import Core.Expression
 import Core.Term
 import Core.Operator
+import TypeCheck.TypedExpression
 import TypeCheck.Types
 
 import           Data.ByteString    (ByteString)
@@ -38,6 +39,52 @@ printTypeDefn (name, Forall vs typ) =
         typ'    = printType (decodeUtf8 <$> typ)
     in mconcat [name', " : ", scheme', typ']
 
+renderTypedDefns :: [TypedDefn Scheme ByteString] -> Text
+renderTypedDefns = TB.run . TB.intercalate "\n\n" . map renderTypedDefn
+
+renderTypedDefn :: TypedDefn Scheme ByteString -> Builder
+renderTypedDefn (FunDefnT ty name ex) =
+    let name'   = TB.text $ decodeUtf8 name
+        typeSig = name' <> " : " <> printScheme ty
+        ex'     = renderTypedExpr ex
+    in TB.intercalate "\n" [typeSig, name' <> " = " <> ex']
+
+renderTypedExpr :: TypedExpr Scheme ByteString -> Builder
+renderTypedExpr = group . printTypedExpr . fmap decodeUtf8
+
+printTypedExpr :: TypedExpr Scheme Text -> (Atomic, Builder)
+printTypedExpr (TermT _ term) = (Atom, printTerm term)
+
+printTypedExpr (LamT _ vs body) =
+    let vs'        = TB.intercalate " " $ map TB.text vs
+        (_, body') = printTypedExpr body
+    in (Group, TB.intercalate " " ["\\" <> vs', "->", body'])
+
+printTypedExpr (AppT _ f xs) =
+    let f'  = group $ printTypedExpr f
+        xs' = TB.intercalate " " $ map (group . printTypedExpr) xs
+    in (Group, f' <> " " <> xs')
+
+printTypedExpr (LetT _ a b c) =
+    let a' = TB.text a
+        b' = group $ printTypedExpr b
+        c' = group $ printTypedExpr c
+    in (Group, TB.intercalate " " ["let", a', "=", b', "in", c'])
+
+printTypedExpr (UnPrimOpT _ o e) =
+    (Group, TB.intercalate " " [printUnOp o, group $ printTypedExpr e])
+
+printTypedExpr (BinPrimOpT _ o a b) =
+    let a' = group $ printTypedExpr a
+        b' = group $ printTypedExpr b
+    in (Group, TB.intercalate " " [a', printBinOp o, b'])
+
+printTypedExpr (IfThenElseT _ p t f) =
+    let p' = group $ printTypedExpr p
+        t' = group $ printTypedExpr t
+        f' = group $ printTypedExpr f
+    in (Group, TB.intercalate " " ["if", p', "then", t', "else", f'])
+
 --------------------------------
 
 data Atomic = Atom | Group
@@ -69,6 +116,12 @@ printDefn (DataDefn t tyvars dataCons) =
 
 printDefn (TypeSig name typ) =
     mconcat [TB.text name, " : ", printType typ]
+
+printScheme :: Scheme -> Builder
+printScheme (Forall [] t) = printType (fmap decodeUtf8 t)
+printScheme (Forall vs t) = do
+    let vs' = map (TB.text . decodeUtf8) vs
+    "forall " <> TB.intercalate " " vs' <> ". " <> printType (fmap decodeUtf8 t)
 
 printType :: Type Text -> Builder
 printType (TyVar s) = TB.text s

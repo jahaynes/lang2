@@ -3,6 +3,7 @@
 module Core.Definition where
 
 import Core.Expression
+import TypeCheck.Types
 
 data Defn s = FunDefn s (Expr s)
             | DataDefn s [s] [DataCon s]
@@ -16,8 +17,3 @@ data DataCon s =
 data Member s = MemberType s
               | MemberVar s
                   deriving (Eq, Functor, Show)
-
-data Type s = TyVar s
-            | TyCon s
-            | TyArr (Type s) (Type s)
-                deriving (Eq, Ord, Functor, Show)
