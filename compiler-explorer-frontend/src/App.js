@@ -5,48 +5,48 @@ import React from 'react';
 class App extends React.Component {
 
   lexAndParse() {
-    const source   = document.getElementById("text");
-    const target1  = document.getElementById("tokens");
-    const target2  = document.getElementById("expressions");
-    const target3  = document.getElementById("expressionsPretty");
-    const target4  = document.getElementById("typeEnv");
-    const target5  = document.getElementById("types");
-    const target6  = document.getElementById("etaExpanded");
-    const target7  = document.getElementById("saturated");
-    const target8  = document.getElementById("discarded");
-    const target9  = document.getElementById("contified");
-    const target10 = document.getElementById("contifiedPretty");
-    const target11 = document.getElementById("optimised");
-    const target12 = document.getElementById("optimisedPretty");
+    const source            = document.getElementById("text");
+    const tokens            = document.getElementById("tokens");
+    const expressions       = document.getElementById("expressions");
+    const expressionsPretty = document.getElementById("expressionsPretty");
+    const typeEnv           = document.getElementById("typeEnv");
+    const types             = document.getElementById("types");
+    const etaExpanded       = document.getElementById("etaExpanded");
+    const saturated         = document.getElementById("saturated");
+    const discarded         = document.getElementById("discarded");
+    const contified         = document.getElementById("contified");
+    const contifiedPretty   = document.getElementById("contifiedPretty");
+    const optimised         = document.getElementById("optimised");
+    const optimisedPretty   = document.getElementById("optimisedPretty");
 
-    target1.value  = "";
-    target2.value  = "";
-    target3.value  = "";
-    target4.value  = "";
-    target5.value  = "";
-    target6.value  = "";
-    target7.value  = "";
-    target8.value  = "";
-    target9.value  = "";
-    target10.value = "";
-    target11.value = "";
-    target12.value = "";
+    tokens.value            = "";
+    expressions.value       = "";
+    expressionsPretty.value = "";
+    typeEnv.value           = "";
+    types.value             = "";
+    etaExpanded.value       = "";
+    saturated.value         = "";
+    discarded.value         = "";
+    contified.value         = "";
+    contifiedPretty.value   = "";
+    optimised.value         = "";
+    optimisedPretty.value   = "";
 
     fetch("http://127.0.0.1:8080/lexAndParse", { method: 'POST', body: source.value })
       .then(resp => resp.json())
       .then((ts) => {
-        target1.value = ts.tokens;
-        target2.value = ts.defns;
-        target3.value = ts.prettyDefns;
-        target4.value = ts.typeEnv;
-        target5.value = ts.types;
-        target6.value = ts.etaExpanded;
-        target7.value = ts.saturated;
-        target8.value = ts.discarded;
-        target9.value = ts.contified;
-        target10.value = ts.prettyContified;
-        target11.value = ts.optimised;
-        target12.value = ts.prettyOptimised;
+        tokens.value            = ts.tokens;
+        expressions.value       = ts.defns;
+        expressionsPretty.value = ts.prettyDefns;
+        typeEnv.value           = ts.typeEnv;
+        types.value             = ts.types;
+        etaExpanded.value       = ts.etaExpanded;
+        saturated.value         = ts.saturated;
+        discarded.value         = ts.discarded;
+        contified.value         = ts.contified;
+        contifiedPretty.value   = ts.prettyContified;
+        optimised.value         = ts.optimised;
+        optimisedPretty.value   = ts.prettyOptimised;
       })
   }
 
