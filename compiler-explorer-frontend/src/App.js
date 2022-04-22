@@ -4,33 +4,26 @@ import React from 'react';
 
 class App extends React.Component {
 
+  getAndClearElement(elemId) {
+    const elem = document.getElementById(elemId);
+    elem.value = "";
+    return elem;
+  }
+
   lexAndParse() {
     const source            = document.getElementById("text");
-    const tokens            = document.getElementById("tokens");
-    const expressions       = document.getElementById("expressions");
-    const expressionsPretty = document.getElementById("expressionsPretty");
-    const typeEnv           = document.getElementById("typeEnv");
-    const types             = document.getElementById("types");
-    const etaExpanded       = document.getElementById("etaExpanded");
-    const saturated         = document.getElementById("saturated");
-    const discarded         = document.getElementById("discarded");
-    const contified         = document.getElementById("contified");
-    const contifiedPretty   = document.getElementById("contifiedPretty");
-    const optimised         = document.getElementById("optimised");
-    const optimisedPretty   = document.getElementById("optimisedPretty");
-
-    tokens.value            = "";
-    expressions.value       = "";
-    expressionsPretty.value = "";
-    typeEnv.value           = "";
-    types.value             = "";
-    etaExpanded.value       = "";
-    saturated.value         = "";
-    discarded.value         = "";
-    contified.value         = "";
-    contifiedPretty.value   = "";
-    optimised.value         = "";
-    optimisedPretty.value   = "";
+    const tokens            = this.getAndClearElement("tokens");
+    const expressions       = this.getAndClearElement("expressions");
+    const expressionsPretty = this.getAndClearElement("expressionsPretty");
+    const typeEnv           = this.getAndClearElement("typeEnv");
+    const types             = this.getAndClearElement("types");
+    const etaExpanded       = this.getAndClearElement("etaExpanded");
+    const saturated         = this.getAndClearElement("saturated");
+    const discarded         = this.getAndClearElement("discarded");
+    const contified         = this.getAndClearElement("contified");
+    const contifiedPretty   = this.getAndClearElement("contifiedPretty");
+    const optimised         = this.getAndClearElement("optimised");
+    const optimisedPretty   = this.getAndClearElement("optimisedPretty");
 
     fetch("http://127.0.0.1:8080/lexAndParse", { method: 'POST', body: source.value })
       .then(resp => resp.json())
