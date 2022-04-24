@@ -13,19 +13,17 @@ data FreeVars s =
              , getFree  :: !(Set s)
              }
 
-getFreeVars :: Ord s => Defn s -> Set s
+getFreeVars :: Ord s => FunDefn s -> Set s
 getFreeVars def = getFree
                 . snd
                 . runState (defnFreeVars def)
                 $ FreeVars mempty mempty
 
-defnFreeVars :: Ord s => Defn s -> State (FreeVars s) ()
+defnFreeVars :: Ord s => FunDefn s -> State (FreeVars s) ()
 defnFreeVars (FunDefn n e) = do
     addToScope [n]
     exprFreeVars e
     removeFromScope [n]
-defnFreeVars DataDefn{} = pure () -- TODO?
-defnFreeVars TypeSig{} = pure () -- TODO?
 
 exprFreeVars :: Ord s => Expr s -> State (FreeVars s) ()
 exprFreeVars e =

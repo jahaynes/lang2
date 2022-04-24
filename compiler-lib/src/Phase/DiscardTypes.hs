@@ -4,7 +4,7 @@ import Core.Definition
 import Core.Expression
 import TypeCheck.TypedExpression
 
-discardTypes :: TypedDefn t s -> Defn s
+discardTypes :: FunDefnT t s -> FunDefn s
 discardTypes (FunDefnT _ n te) =
     FunDefn n (discard te)
 

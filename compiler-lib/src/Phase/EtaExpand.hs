@@ -1,6 +1,7 @@
-module Phase.EtaExpand where
+module Phase.EtaExpand (etaExpand) where
 
 import Common.State
+import Core.Definition
 import Core.Term
 import TypeCheck.TypedExpression
 import TypeCheck.Types
@@ -8,9 +9,11 @@ import TypeCheck.Types
 import Control.Monad         (replicateM)
 import Data.ByteString.Char8 (ByteString, pack)
 
-etaExpand :: TypedDefn Scheme ByteString -> TypedDefn Scheme ByteString
-etaExpand (FunDefnT t s e) =
-    FunDefnT t s (fst $ runState (etaExpandExpr genSym e) 0)
+etaExpand :: TypedModule Scheme ByteString -> TypedModule Scheme ByteString
+etaExpand md = md { getFunDefnsT = fst $ runState (mapM etaExpand' $ getFunDefnsT md) 0 }
+
+etaExpand' :: FunDefnT Scheme ByteString -> State Int (FunDefnT Scheme ByteString)
+etaExpand' (FunDefnT t s e) = FunDefnT t s <$> etaExpandExpr genSym e
 
 -- TODO: check the non-term cases as well
 etaExpandExpr :: Show s => State Int s

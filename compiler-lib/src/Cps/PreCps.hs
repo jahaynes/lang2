@@ -3,13 +3,25 @@ module Cps.PreCps (preCps) where
 import Core.Definition
 import Core.Expression
 import Core.Term
+import Phase.DiscardTypes
 
 import           Data.Set (Set)
 import qualified Data.Set as S
 
-preCps :: Ord s => Defn s -> Defn s
-preCps (FunDefn n e) = FunDefn n (go mempty Inspect e)
-preCps e = e
+preCps :: Ord s => TypedModule t s -> Module s
+preCps md =
+    
+    let ds = getDataDefnsT md
+        ts = getTypeSigsT md
+        fs = map (preCpsFunDefn . discardTypes) $ getFunDefnsT md
+
+    in Module { getDataDefns = ds
+              , getTypeSigs = ts
+              , getFunDefns = fs
+              }
+
+preCpsFunDefn :: Ord s => FunDefn s -> FunDefn s
+preCpsFunDefn (FunDefn n e) = FunDefn n (go mempty Inspect e)
 
 data Inspect = Inspect | Skip
 

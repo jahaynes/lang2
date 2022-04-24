@@ -23,29 +23,24 @@ data TcState =
             , getCount   :: !Int
             } deriving Show
 
-runTypeCheck :: [Defn ByteString] -> (TypeEnv, [TypedDefn Scheme ByteString])
-runTypeCheck defns =
+runTypeCheck :: Module ByteString -> (TypeEnv, [FunDefnT Scheme ByteString])
+runTypeCheck md =
 
-    let (typeSigs, funDefns) = foldl clas ([], []) defns
-        typeEnv = buildTypeEnv typeSigs
+    let typeEnv = buildTypeEnv (getTypeSigs md)
 
-        (typedExprs, tcState) = runState (mapM inferTop funDefns) $ TcState typeEnv 0
+        (typedExprs, tcState) = runState (mapM inferTop (getFunDefns md)) $ TcState typeEnv 0
 
     in (getTypeEnv tcState, typedExprs)
 
     where
-    clas (typeSigs, funDefns) t@TypeSig{} = (typeSigs++[t], funDefns)
-    clas (typeSigs, funDefns) f@FunDefn{} = (typeSigs, funDefns++[f])
-    clas (typeSigs, funDefns)           _ = (typeSigs, funDefns) -- TODO data types
-
-    buildTypeEnv :: [Defn ByteString] -> TypeEnv
+    buildTypeEnv :: [TypeSig ByteString] -> TypeEnv
     buildTypeEnv ds = TypeEnv $ foldl bt mempty ds
 
         where
-        bt :: Map ByteString Scheme -> Defn ByteString -> Map ByteString Scheme
+        bt :: Map ByteString Scheme -> TypeSig ByteString -> Map ByteString Scheme
         bt m (TypeSig n t) = M.insert n (closeOver t) m
 
-inferTop :: Defn ByteString -> State TcState (TypedDefn Scheme ByteString)
+inferTop :: FunDefn ByteString -> State TcState (FunDefnT Scheme ByteString)
 inferTop (FunDefn name ex) = do
     (ty, cs, tye) <- infer ex
     let subst = runSolve cs

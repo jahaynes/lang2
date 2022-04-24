@@ -13,18 +13,14 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as C8
 import           Data.IntSet                 (IntSet)
 import qualified Data.IntSet as IS
-import           Data.List                   (intercalate)
 import           Data.Vector                 (Vector, toList)
 import           Data.Word                   (Word8)
 
 tokensToByteString :: Vector Token -> ByteString
 tokensToByteString = C8.unlines . map (C8.pack . show) . toList
 
-definitionsToByteString :: [Defn ByteString] -> ByteString
-definitionsToByteString = C8.pack . intercalate "\n\n" . map show
-
 lexAndParse :: ByteString -> ( Either ByteString (Vector Token)
-                             , Either ByteString [Defn ByteString] )
+                             , Either ByteString (Module ByteString) )
 lexAndParse source =
     case lex'' source of
 

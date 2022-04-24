@@ -15,11 +15,8 @@ class App extends React.Component {
     const tokens            = this.getAndClearElement("tokens");
     const expressions       = this.getAndClearElement("expressions");
     const expressionsPretty = this.getAndClearElement("expressionsPretty");
-    const typeEnv           = this.getAndClearElement("typeEnv");
-    const types             = this.getAndClearElement("types");
     const etaExpanded       = this.getAndClearElement("etaExpanded");
     const saturated         = this.getAndClearElement("saturated");
-    const discarded         = this.getAndClearElement("discarded");
     const contified         = this.getAndClearElement("contified");
     const contifiedPretty   = this.getAndClearElement("contifiedPretty");
     const optimised         = this.getAndClearElement("optimised");
@@ -31,11 +28,8 @@ class App extends React.Component {
         tokens.value            = ts.tokens;
         expressions.value       = ts.defns;
         expressionsPretty.value = ts.prettyDefns;
-        typeEnv.value           = ts.typeEnv;
-        types.value             = ts.types;
         etaExpanded.value       = ts.etaExpanded;
         saturated.value         = ts.saturated;
-        discarded.value         = ts.discarded;
         contified.value         = ts.contified;
         contifiedPretty.value   = ts.prettyContified;
         optimised.value         = ts.optimised;
@@ -59,20 +53,9 @@ class App extends React.Component {
           <textarea id='expressionsPretty' className='editor' spellCheck='false' rows='14'></textarea>
         </div>
 
-        <label>Types</label>
-        <div>
-          <textarea id='typeEnv' className='editor' spellCheck='false' rows='14'></textarea>
-          <textarea id='types' className='editor' spellCheck='false' rows='14'></textarea>
-        </div>
-
-        <label>Eta Expanded</label>
+        <label>Eta Expanded / Saturated </label>
         <div>
           <textarea id='etaExpanded' className='editor' spellCheck='false' rows='14'></textarea>
-          <textarea id='discarded' className='editor' spellCheck='false' rows='14'></textarea>
-        </div>
-
-        <label>Saturated</label>
-        <div>
           <textarea id='saturated' className='editor' spellCheck='false' rows='14'></textarea>
         </div>
 
