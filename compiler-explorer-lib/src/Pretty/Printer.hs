@@ -11,17 +11,31 @@ import TypeCheck.Types
 
 import           Data.ByteString    (ByteString)
 import qualified Data.Map    as M
-import           Data.Text          (Text)
+import           Data.Text          (Text, pack)
 import           Data.Text.Encoding (decodeUtf8)
 import           Text.Builder       (Builder)
 import qualified Text.Builder as TB
 
 --------------------------------
 
-render :: [Defn ByteString] -> Text
-render = TB.run
-       . TB.intercalate "\n\n"
-       . map (printDefn . fmap decodeUtf8)
+render :: Module ByteString -> Text
+render md =
+    let txtModule = fmap decodeUtf8 md
+        dataDefs  = map printDataDefn $ getDataDefns txtModule
+        funDefs   = map printFunDefn  $ getFunDefns txtModule
+    in TB.run . TB.intercalate "\n\n" $ concat [dataDefs, funDefs]
+
+moduleToText :: Module ByteString -> Text
+moduleToText md =
+    let dataDefs = map (TB.text . pack . show) $ getDataDefns md
+        funDefs  = map (TB.text . pack . show) $ getFunDefns md
+    in TB.run . TB.intercalate "\n\n" $ concat [dataDefs, funDefs]
+
+typedModuleToText :: TypedModule Scheme ByteString -> Text
+typedModuleToText md =
+    let dataDefs = map (TB.text . pack . show) $ getDataDefnsT md
+        funDefs  = map (TB.text . pack . show) $ getFunDefnsT md
+    in TB.run . TB.intercalate "\n\n" $ concat [dataDefs, funDefs]
 
 renderTypeEnv :: TypeEnv -> Text
 renderTypeEnv (TypeEnv env) = TB.run
@@ -39,10 +53,10 @@ printTypeDefn (name, Forall vs typ) =
         typ'    = printType (decodeUtf8 <$> typ)
     in mconcat [name', " : ", scheme', typ']
 
-renderTypedDefns :: [TypedDefn Scheme ByteString] -> Text
+renderTypedDefns :: [FunDefnT Scheme ByteString] -> Text
 renderTypedDefns = TB.run . TB.intercalate "\n\n" . map renderTypedDefn
 
-renderTypedDefn :: TypedDefn Scheme ByteString -> Builder
+renderTypedDefn :: FunDefnT Scheme ByteString -> Builder
 renderTypedDefn (FunDefnT ty name ex) =
     let name'   = TB.text $ decodeUtf8 name
         typeSig = name' <> " : " <> printScheme ty
@@ -95,26 +109,28 @@ group (Group, b) = mconcat [TB.char '(', b, TB.char ')']
 
 --------------------------------
 
-printDefn :: Defn Text -> Builder
+printFunDefn :: FunDefn Text -> Builder
 
-printDefn (FunDefn f (ELam vs x)) =
+printFunDefn (FunDefn f (ELam vs x)) =
     let fvs'    = TB.intercalate " " $ map TB.text (f:vs)
         (_, x') = printExpr x
     in mconcat [fvs', " = ", x']
 
-printDefn (FunDefn f x) =
+printFunDefn (FunDefn f x) =
     let f'      = TB.text f
         (_, x') = printExpr x
     in mconcat [f', " = ", x']
 
-printDefn (DataDefn t tyvars dataCons) =
+printDataDefn :: DataDefn Text -> Builder
+printDataDefn (DataDefn t tyvars dataCons) =
     let t'       = TB.text t
         tyvars'  = map TB.text tyvars
         ttyvars' = TB.intercalate " " (t':tyvars')
         dcs'     = TB.intercalate " | " $ map printDataCon dataCons
     in mconcat [ttyvars', " = ", dcs']
 
-printDefn (TypeSig name typ) =
+printTypeSig :: TypeSig Text -> Builder
+printTypeSig (TypeSig name typ) =
     mconcat [TB.text name, " : ", printType typ]
 
 printScheme :: Scheme -> Builder

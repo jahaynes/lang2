@@ -4,16 +4,36 @@ module Core.Definition where
 
 import Core.Expression
 import TypeCheck.Types
+import TypeCheck.TypedExpression
 
-data Defn s = FunDefn s (Expr s)
-            | DataDefn s [s] [DataCon s]
-            | TypeSig s (Type s)
-                deriving (Eq, Functor, Show)
+data Module s =
+    Module { getDataDefns :: [DataDefn s]
+           , getTypeSigs  :: [TypeSig s]
+           , getFunDefns  :: [FunDefn s]
+           } deriving (Functor, Show)
+
+data TypedModule t s =
+    TypedModule { getDataDefnsT :: [DataDefn s]
+                , getTypeSigsT  :: [TypeSig s]
+                , getFunDefnsT  :: [FunDefnT t s]
+                } deriving (Functor, Show)
+
+data DataDefn s =
+    DataDefn s [s] [DataCon s]
+        deriving (Functor, Show)
+
+data TypeSig s =
+    TypeSig s (Type s)
+        deriving (Functor, Show)
+
+data FunDefn s =
+    FunDefn s (Expr s)
+        deriving (Functor, Show)
 
 data DataCon s =
     DataCon s [Member s]
-        deriving (Eq, Functor, Show)
+        deriving (Functor, Show)
 
 data Member s = MemberType s
               | MemberVar s
-                  deriving (Eq, Functor, Show)
+                  deriving (Functor, Show)

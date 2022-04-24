@@ -13,12 +13,10 @@ import Cps.PreCps
 import Optimise.Alpha
 import Parse.LexAndParse
 import Parse.Token
-import Phase.DiscardTypes
 import Phase.EtaExpand
 import Phase.Saturate
 import Pretty.Printer
 import TypeCheck.TypeCheck
-import TypeCheck.TypedExpression
 import TypeCheck.Types
 
 import           Data.Aeson
@@ -36,14 +34,12 @@ type Api = "lexAndParse" :> ReqBody '[PlainText] Text
 data ProgramState =
     ProgramState { getSource      :: Text
                  , getTokens      :: Either ByteString (Vector Token)
-                 , getDefinitions :: Either ByteString [Defn ByteString]
-                 , getTypeEnv     :: Either ByteString TypeEnv
-                 , getTypedDefns  :: Either ByteString [TypedDefn Scheme ByteString]
-                 , getEtaExpanded :: Either ByteString [TypedDefn Scheme ByteString]
-                 , getSaturated   :: Either ByteString [TypedDefn Scheme ByteString]
-                 , getDiscarded   :: Either ByteString [Defn ByteString]
-                 , getContified   :: Either ByteString [Defn ByteString]
-                 , getOptimised   :: Either ByteString [Defn ByteString]
+                 , getModule      :: Either ByteString (Module ByteString)
+                 , getTypedModule :: Either ByteString (TypedModule Scheme ByteString)
+                 , getEtaExpanded :: Either ByteString (TypedModule Scheme ByteString)
+                 , getSaturated   :: Either ByteString (TypedModule Scheme ByteString)
+                 , getContified   :: Either ByteString (Module ByteString)
+                 , getOptimised   :: Either ByteString (Module ByteString)
                  }
 
 instance ToJSON ProgramState where
@@ -51,25 +47,19 @@ instance ToJSON ProgramState where
     toJSON ps = do
 
         let txtTokens          = decodeUtf8 $ either id tokensToByteString (getTokens ps)
-            txtDefns           = decodeUtf8 $ either id definitionsToByteString (getDefinitions ps)
-            txtPrettyDefns     = either decodeUtf8 render (getDefinitions ps)
-            txtTypeEnv         = either decodeUtf8 renderTypeEnv (getTypeEnv ps) 
-            txtTypes           = either decodeUtf8 renderTypedDefns (getTypedDefns ps)
-            txtEtaExpanded     = either decodeUtf8 renderTypedDefns (getEtaExpanded ps)
-            txtSaturated       = either decodeUtf8 renderTypedDefns (getSaturated ps)
-            txtDiscarded       = either decodeUtf8 render (getDiscarded ps)
-            txtContified       = decodeUtf8 $ either id definitionsToByteString (getContified ps)
+            txtDefns           = either decodeUtf8 moduleToText (getModule ps)
+            txtPrettyDefns     = either decodeUtf8 render (getModule ps)
+            txtEtaExpanded     = either decodeUtf8 typedModuleToText (getEtaExpanded ps)
+            txtSaturated       = either decodeUtf8 typedModuleToText (getSaturated ps)
+            txtContified       = either decodeUtf8 moduleToText (getContified ps)
             txtPrettyContified = either decodeUtf8 render (getContified ps)
-            txtOptimised       = decodeUtf8 $ either id definitionsToByteString (getOptimised ps)
+            txtOptimised       = either decodeUtf8 moduleToText (getOptimised ps)
             txtPrettyOptimised = either decodeUtf8 render (getOptimised ps)
 
         object [ "tokens"          .= String txtTokens
                , "defns"           .= String txtDefns
                , "prettyDefns"     .= String txtPrettyDefns
-               , "typeEnv"         .= String txtTypeEnv
-               , "types"           .= String txtTypes
                , "etaExpanded"     .= String txtEtaExpanded
-               , "discarded"       .= String txtDiscarded
                , "saturated"       .= String txtSaturated
                , "contified"       .= String txtContified
                , "prettyContified" .= String txtPrettyContified
@@ -78,7 +68,7 @@ instance ToJSON ProgramState where
                ]
 
 fromSource :: Text -> ProgramState
-fromSource txt = ProgramState txt na na na na na na na na na
+fromSource txt = ProgramState txt na na na na na na na
     where
     na = Left "Not Available"
 
@@ -95,42 +85,44 @@ transform = snd
           . fromSource
 
 pipe :: State ProgramState ()
-pipe = lexAndParser >> typeCheck >> phaseEtaExpand >> phaseSaturate >> phaseDiscardTypes >> phaseContify >> optimise
+pipe = lexAndParser >> typeCheck >> phaseEtaExpand >> phaseSaturate >> phaseContify >> optimise
 
     where
     lexAndParser :: State ProgramState ()
     lexAndParser = modify' $ \ps ->
-        let (eTokens, eDefns) = lexAndParse . encodeUtf8 $ getSource ps
-        in ps { getTokens      = eTokens
-              , getDefinitions = eDefns
+        let (eTokens, eMd) = lexAndParse . encodeUtf8 $ getSource ps
+        in ps { getTokens = eTokens
+              , getModule = eMd
               }
 
     typeCheck :: State ProgramState ()
     typeCheck = modify' $ \ps ->
-        let (typedEnv, typedDefns) =
-                case runTypeCheck <$> getDefinitions ps of
+
+        let md = getModule ps
+
+            (_, typedDefns) =
+                case runTypeCheck <$> getModule ps of
                     Left e       -> (Left e, Left e)
                     Right (a, b) -> (Right a, Right b)
-        in ps { getTypeEnv    = typedEnv
-              , getTypedDefns = typedDefns
-              }
+
+            typedModule = TypedModule <$> (getDataDefns <$> md)
+                                      <*> (getTypeSigs <$> md)
+                                      <*> typedDefns
+
+        in ps { getTypedModule = typedModule }
 
     phaseEtaExpand :: State ProgramState ()
     phaseEtaExpand = modify' $ \ps ->
-        ps { getEtaExpanded = fmap etaExpand <$> getTypedDefns ps }
+        ps { getEtaExpanded = etaExpand <$> getTypedModule ps }
 
     phaseSaturate :: State ProgramState ()
     phaseSaturate = modify' $ \ps ->
-        ps { getSaturated = fmap saturate <$> getEtaExpanded ps }
-
-    phaseDiscardTypes :: State ProgramState ()
-    phaseDiscardTypes = modify' $ \ps ->
-        ps { getDiscarded = fmap discardTypes <$> getSaturated ps }
+        ps { getSaturated = saturate <$> getEtaExpanded ps }
 
     phaseContify :: State ProgramState ()
     phaseContify = modify' $ \ps ->
-        let preContified = map preCps <$> getDiscarded ps
-        in ps { getContified = map cps <$> preContified }
+        let preContified = preCps <$> getSaturated ps
+        in ps { getContified = cps <$> preContified }
 
     optimise :: State ProgramState ()
     optimise = modify' $ \ps ->

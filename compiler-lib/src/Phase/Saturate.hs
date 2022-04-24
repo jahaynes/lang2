@@ -1,14 +1,17 @@
-module Phase.Saturate where
+module Phase.Saturate (saturate) where
 
+import Core.Definition
 import Core.Term
 import TypeCheck.TypedExpression
 import TypeCheck.Types
 
 import qualified Data.Map as M
 
-saturate :: Ord s => TypedDefn Scheme s -> TypedDefn Scheme s
-saturate (FunDefnT t n e) =
-    FunDefnT t n (saturateExpr e)
+saturate :: Ord s => TypedModule Scheme s -> TypedModule Scheme s
+saturate md = md { getFunDefnsT = map saturate' $ getFunDefnsT md }
+
+saturate' :: Ord s => FunDefnT Scheme s -> FunDefnT Scheme s
+saturate' (FunDefnT t n e) = FunDefnT t n (saturateExpr e)
 
 saturateExpr :: Ord s => TypedExpr Scheme s -> TypedExpr Scheme s
 saturateExpr (TermT t term) =

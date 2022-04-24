@@ -1,4 +1,4 @@
-module Cps.Cps where
+module Cps.Cps (cps) where
 
 import Common.State
 import Core.Definition
@@ -11,16 +11,17 @@ data CpsState s =
              , symGen :: !(Int -> s)
              }
 
-cps :: Defn ByteString -> Defn ByteString
-cps (FunDefn s expr) = do
+cps :: Module ByteString -> Module ByteString
+cps md = md { getFunDefns = map cpsFunDef $ getFunDefns md }
+
+cpsFunDef :: FunDefn ByteString -> FunDefn ByteString
+cpsFunDef (FunDefn s expr) = do
     -- Force top-levels as lambdas so they can be called with a continuation
     let expr' =
           case expr of
               ELam{} -> expr
               _      -> ELam [] expr
     FunDefn s (fst $ runState (cpsM expr') (CpsState 0 (\n -> pack $ "c" <> show n)))
-cps d@DataDefn{} = d
-cps t@TypeSig{} = t
 
 cpsM :: Expr s
      -> State (CpsState s) (Expr s)

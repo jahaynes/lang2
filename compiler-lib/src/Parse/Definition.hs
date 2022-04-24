@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Parse.Definition (parseDefns, parseFunDefn) where
+module Parse.Definition where
 
 import Core.Definition
 
@@ -15,11 +15,23 @@ import Data.ByteString (ByteString)
 import           Data.Vector      ((!?))
 import qualified Data.IntSet as IS
 
-parseDefns :: Parser ParseState [Defn ByteString]
-parseDefns = many' parseDefn
+data ModuleElement s = ModuleDataDefn (DataDefn s)
+                     | ModuleTypeSig (TypeSig s)
+                     | ModuleFunDefn (FunDefn s)
 
-parseDefn :: Parser ParseState (Defn ByteString)
-parseDefn = assertLineStart *> (parseFunDefn <|> parseDataDefn <|> parseTypeSig)
+parseDefns :: Parser ParseState (Module ByteString)
+parseDefns = go [] [] [] <$> many' parseDefn
+
+    where
+    go dds tss fds                      [] = Module (reverse dds) (reverse tss) (reverse fds)
+    go dds tss fds (ModuleDataDefn dd:mes) = go (dd:dds) tss fds mes
+    go dds tss fds (ModuleTypeSig ts:mes)  = go dds (ts:tss) fds mes
+    go dds tss fds (ModuleFunDefn fd:mes)  = go dds tss (fd:fds) mes
+
+parseDefn :: Parser ParseState (ModuleElement ByteString)
+parseDefn = assertLineStart *> (ModuleDataDefn <$> parseDataDefn)
+                           <|> (ModuleTypeSig  <$> parseTypeSig)
+                           <|> (ModuleFunDefn  <$> parseFunDefn)
 
 assertLineStart :: Parser ParseState ()
 assertLineStart = Parser $ \ps ->
@@ -27,7 +39,7 @@ assertLineStart = Parser $ \ps ->
         Just 0 -> Right (ps, ())
         _      -> Left "Not a line start"
 
-parseFunDefn :: Parser ParseState (Defn ByteString)
+parseFunDefn :: Parser ParseState (FunDefn ByteString)
 parseFunDefn = do
     (name, vars) <- parseWhileColumns1 MoreRight parseLowerStart
     token TEq
@@ -66,7 +78,7 @@ notAtLineStarts p = Parser $ go []
                 Left _ -> Right (ps, reverse acc)
                 Right (ps', x) -> go (x:acc) ps'
 
-parseDataDefn :: Parser ParseState (Defn ByteString)
+parseDataDefn :: Parser ParseState (DataDefn ByteString)
 parseDataDefn = do
     name   <- atLineStart parseUpperStart
     tyVars <- notAtLineStarts parseLowerStart
@@ -82,7 +94,7 @@ parseDataDefn = do
     parseMember = (MemberType <$> parseUpperStart)
               <|> (MemberVar  <$> parseLowerStart)
 
-parseTypeSig :: Parser ParseState (Defn ByteString)
+parseTypeSig :: Parser ParseState (TypeSig ByteString)
 parseTypeSig = do
     name <- atLineStart parseLowerStart
     _    <- notAtLineStart (token TColon)

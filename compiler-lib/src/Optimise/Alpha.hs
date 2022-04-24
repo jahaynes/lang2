@@ -8,12 +8,11 @@ import Core.Definition
 import Core.Expression
 import Core.Term
 
-alphas :: Ord s => [Defn s] -> [Defn s]
-alphas = map alpha
+alphas :: Ord s => Module s -> Module s
+alphas md = md { getFunDefns = map alpha $ getFunDefns md }
 
-alpha :: Ord s => Defn s -> Defn s
+alpha :: Ord s => FunDefn s -> FunDefn s
 alpha (FunDefn name e) = FunDefn name (alphaExpr mempty e)
-alpha defn             = defn
 
 alphaExpr :: Ord s => Map s (Term s) -> Expr s -> Expr s
 alphaExpr subst e =

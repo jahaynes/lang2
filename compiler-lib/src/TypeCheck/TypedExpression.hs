@@ -5,8 +5,9 @@ module TypeCheck.TypedExpression where
 import Core.Operator   (BinOp, UnOp)
 import Core.Term       (Term)
 
-data TypedDefn t s = FunDefnT t s (TypedExpr t s) deriving Show
--- TODO more
+data FunDefnT t s =
+    FunDefnT t s (TypedExpr t s)
+        deriving (Functor, Show)
 
 data TypedExpr t s = TermT       t (Term s)
                    | LamT        t [s] (TypedExpr t s)
