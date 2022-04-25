@@ -19,7 +19,14 @@ library
                     vector,
                     wai-cors,
                     warp
-  exposed-modules:  Pretty.Printer
+  exposed-modules:  Pretty.Common
+                    Pretty.Definition
+                    Pretty.Expression
+                    Pretty.Module
+                    Pretty.Operator
+                    Pretty.Term
+                    Pretty.Type
+                    Pretty.TypedExpression
                     Service.Controller
   ghc-options:      -Wall -O2
   hs-source-dirs:   src

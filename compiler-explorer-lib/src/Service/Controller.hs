@@ -15,7 +15,7 @@ import Parse.LexAndParse
 import Parse.Token
 import Phase.EtaExpand
 import Phase.Saturate
-import Pretty.Printer
+import Pretty.Module
 import TypeCheck.TypeCheck
 import TypeCheck.Types
 
