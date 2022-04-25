@@ -3,8 +3,9 @@ module Pretty.Common where
 import           Text.Builder       (Builder)
 import qualified Text.Builder as TB
 
-data Atomic = Atom | Group
+data Grouping = Atom | Paren | Braces
 
-group :: (Atomic, Builder) -> Builder
+group :: (Grouping, Builder) -> Builder
 group (Atom, b)  = b
-group (Group, b) = mconcat [TB.char '(', b, TB.char ')']
+group (Paren, b) = mconcat [TB.char '(', b, TB.char ')']
+group (Braces, b) = mconcat [TB.char '{', b, TB.char '}']
