@@ -80,6 +80,12 @@ cpsC (IfThenElse p t f) c = do
                 pure $ IfThenElse p' t' f'
     pure $ ELet k (ETerm (Var c)) body
 
+cpsC (EClos _ _ _) _ =
+    error "Closures do not exist yet!"
+
+cpsC (MkClos _ _) _ =
+    error "Closures do not exist yet!"
+
 genSym :: State (CpsState s) s
 genSym = do
     CpsState n f <- get
@@ -125,6 +131,12 @@ cpsK (IfThenElse p t f) k = do
     k' <- k (ETerm (Var v))
     cpsK p $ \p' ->
         pure $ ELet c (ELam [v] k') (IfThenElse p' t' f')
+
+cpsK (EClos _ _ _) _ =
+    error "Closures do not exist yet!"
+
+cpsK (MkClos _ _) _ =
+    error "Closures do not exist yet!"
 
 cpsKs :: [Expr s]
       -> ([Expr s] -> State (CpsState s) (Expr s))

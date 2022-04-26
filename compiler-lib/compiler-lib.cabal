@@ -28,6 +28,7 @@ library
                     Parse.Lexer
                     Parse.Parser
                     Parse.Token
+                    Phase.ClosureConvert
                     Phase.DiscardTypes
                     Phase.EtaExpand
                     Phase.Saturate
