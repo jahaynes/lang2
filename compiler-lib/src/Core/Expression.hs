@@ -12,4 +12,8 @@ data Expr s = ETerm (Term s)
             | EUnPrimOp UnOp (Expr s)
             | EBinPrimOp BinOp (Expr s) (Expr s)
             | IfThenElse (Expr s) (Expr s) (Expr s)
+
+            | EClos [s] [s] (Expr s)
+            | MkClos s [s]
+
                 deriving (Eq, Functor, Show)

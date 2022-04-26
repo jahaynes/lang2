@@ -19,6 +19,14 @@ getFreeVars def = getFree
                 . runState (defnFreeVars def)
                 $ FreeVars mempty mempty
 
+getFreeVars' :: Ord s => Set s -> Expr s -> [s]
+getFreeVars' topLevelScope e = S.toList
+                             . getFree
+                             . snd
+                             . runState (exprFreeVars e)
+                             $ FreeVars { getScope = topLevelScope
+                                        , getFree  = mempty }
+
 defnFreeVars :: Ord s => FunDefn s -> State (FreeVars s) ()
 defnFreeVars (FunDefn n e) = do
     addToScope [n]
@@ -56,6 +64,12 @@ exprFreeVars e =
 
         IfThenElse p t f ->
             mapM_ exprFreeVars [p, t, f]
+
+        EClos _ _ _ ->
+            error "Closures do not exist yet!"
+
+        MkClos _ fvs ->
+            mapM_ tryInsert fvs
 
 termFreeVars :: Ord s => Term s -> State (FreeVars s) ()
 termFreeVars t =

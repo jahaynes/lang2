@@ -44,3 +44,14 @@ printExpr (IfThenElse p t f) =
 
 printExpr (ETerm t) =
     (Atom, printTerm t)
+
+printExpr (EClos fs vs body) = do
+    let fs' = TB.intercalate " " $ map TB.text fs
+        vs' = TB.intercalate " " $ map TB.text vs
+        (_, body') = printExpr body
+    (Paren, TB.intercalate " " ["\\[" <> fs' <> "] " <> vs', "->", body'])
+
+printExpr (MkClos s fvs) = do
+    let s'   = TB.text s
+        fvs' = TB.intercalate " " $ map TB.text fvs
+    (Braces, TB.intercalate " " [s', fvs'])

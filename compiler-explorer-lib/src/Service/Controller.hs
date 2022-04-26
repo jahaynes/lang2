@@ -13,6 +13,7 @@ import Cps.PreCps
 import Optimise.Alpha
 import Parse.LexAndParse
 import Parse.Token
+import Phase.ClosureConvert
 import Phase.EtaExpand
 import Phase.Saturate
 import Pretty.Module
@@ -32,43 +33,48 @@ type Api = "lexAndParse" :> ReqBody '[PlainText] Text
                          :> Post '[JSON] ProgramState
 
 data ProgramState =
-    ProgramState { getSource      :: Text
-                 , getTokens      :: Either ByteString (Vector Token)
-                 , getModule      :: Either ByteString (Module ByteString)
-                 , getTypedModule :: Either ByteString (TypedModule Scheme ByteString)
-                 , getEtaExpanded :: Either ByteString (TypedModule Scheme ByteString)
-                 , getSaturated   :: Either ByteString (TypedModule Scheme ByteString)
-                 , getContified   :: Either ByteString (Module ByteString)
-                 , getOptimised   :: Either ByteString (Module ByteString)
+    ProgramState { getSource           :: Text
+                 , getTokens           :: Either ByteString (Vector Token)
+                 , getModule           :: Either ByteString (Module ByteString)
+                 , getTypedModule      :: Either ByteString (TypedModule Scheme ByteString)
+                 , getEtaExpanded      :: Either ByteString (TypedModule Scheme ByteString)
+                 , getSaturated        :: Either ByteString (TypedModule Scheme ByteString)
+                 , getContified        :: Either ByteString (Module ByteString)
+                 , getOptimised        :: Either ByteString (Module ByteString)
+                 , getClosureConverted :: Either ByteString (Module ByteString)
                  }
 
 instance ToJSON ProgramState where
 
     toJSON ps = do
 
-        let txtTokens          = decodeUtf8 $ either id tokensToByteString (getTokens ps)
-            txtDefns           = either decodeUtf8 moduleToText (getModule ps)
-            txtPrettyDefns     = either decodeUtf8 render (getModule ps)
-            txtEtaExpanded     = either decodeUtf8 typedModuleToText (getEtaExpanded ps)
-            txtSaturated       = either decodeUtf8 typedModuleToText (getSaturated ps)
-            txtContified       = either decodeUtf8 moduleToText (getContified ps)
-            txtPrettyContified = either decodeUtf8 render (getContified ps)
-            txtOptimised       = either decodeUtf8 moduleToText (getOptimised ps)
-            txtPrettyOptimised = either decodeUtf8 render (getOptimised ps)
+        let txtTokens                 = decodeUtf8 $ either id tokensToByteString (getTokens ps)
+            txtDefns                  = either decodeUtf8 moduleToText (getModule ps)
+            txtPrettyDefns            = either decodeUtf8 render (getModule ps)
+            txtEtaExpanded            = either decodeUtf8 typedModuleToText (getEtaExpanded ps)
+            txtSaturated              = either decodeUtf8 typedModuleToText (getSaturated ps)
+            txtContified              = either decodeUtf8 moduleToText (getContified ps)
+            txtPrettyContified        = either decodeUtf8 render (getContified ps)
+            txtOptimised              = either decodeUtf8 moduleToText (getOptimised ps)
+            txtPrettyOptimised        = either decodeUtf8 render (getOptimised ps)
+            txtClosureConverted       = either decodeUtf8 moduleToText (getClosureConverted ps)
+            txtClosureConvertedPretty = either decodeUtf8 render (getClosureConverted ps)
 
-        object [ "tokens"          .= String txtTokens
-               , "defns"           .= String txtDefns
-               , "prettyDefns"     .= String txtPrettyDefns
-               , "etaExpanded"     .= String txtEtaExpanded
-               , "saturated"       .= String txtSaturated
-               , "contified"       .= String txtContified
-               , "prettyContified" .= String txtPrettyContified
-               , "optimised"       .= String txtOptimised
-               , "prettyOptimised" .= String txtPrettyOptimised
+        object [ "tokens"                 .= String txtTokens
+               , "defns"                  .= String txtDefns
+               , "prettyDefns"            .= String txtPrettyDefns
+               , "etaExpanded"            .= String txtEtaExpanded
+               , "saturated"              .= String txtSaturated
+               , "contified"              .= String txtContified
+               , "prettyContified"        .= String txtPrettyContified
+               , "optimised"              .= String txtOptimised
+               , "prettyOptimised"        .= String txtPrettyOptimised
+               , "closureConverted"       .= String txtClosureConverted
+               , "prettyClosureConverted" .= String txtClosureConvertedPretty
                ]
 
 fromSource :: Text -> ProgramState
-fromSource txt = ProgramState txt na na na na na na na
+fromSource txt = ProgramState txt na na na na na na na na
     where
     na = Left "Not Available"
 
@@ -85,7 +91,7 @@ transform = snd
           . fromSource
 
 pipe :: State ProgramState ()
-pipe = lexAndParser >> typeCheck >> phaseEtaExpand >> phaseSaturate >> phaseContify >> optimise
+pipe = lexAndParser >> typeCheck >> phaseEtaExpand >> phaseSaturate >> phaseContify >> optimise >> phaseClosureConvert
 
     where
     lexAndParser :: State ProgramState ()
@@ -127,6 +133,10 @@ pipe = lexAndParser >> typeCheck >> phaseEtaExpand >> phaseSaturate >> phaseCont
     optimise :: State ProgramState ()
     optimise = modify' $ \ps ->
         ps { getOptimised = alphas <$> getContified ps }
+
+    phaseClosureConvert :: State ProgramState ()
+    phaseClosureConvert = modify' $ \ps ->
+        ps { getClosureConverted = closureConvert <$> getOptimised ps }
 
 runController :: Int -> IO ()
 runController port = run port . simpleCors $ serve (Proxy :: Proxy Api) server 
