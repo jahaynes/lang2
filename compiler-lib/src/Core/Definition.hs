@@ -28,7 +28,7 @@ data TypeSig s =
 
 data FunDefn s =
     FunDefn s (Expr s)
-        deriving (Functor, Show)
+        deriving (Eq, Functor, Show)
 
 data DataCon s =
     DataCon s [Member s]
