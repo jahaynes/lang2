@@ -12,16 +12,18 @@ data CpsState s =
              }
 
 cps :: Module ByteString -> Module ByteString
-cps md = md { getFunDefns = map cpsFunDef $ getFunDefns md }
+cps md =
+    let funDefs' = fst $ runState (mapM cpsFunDef $ getFunDefns md) (CpsState 0 (\n -> pack $ "c" <> show n))
+    in md { getFunDefns = funDefs' }
 
-cpsFunDef :: FunDefn ByteString -> FunDefn ByteString
+cpsFunDef :: FunDefn s -> State (CpsState s) (FunDefn s)
 cpsFunDef (FunDefn s expr) = do
     -- Force top-levels as lambdas so they can be called with a continuation
     let expr' =
           case expr of
               ELam{} -> expr
               _      -> ELam [] expr
-    FunDefn s (fst $ runState (cpsM expr') (CpsState 0 (\n -> pack $ "c" <> show n)))
+    FunDefn s <$> cpsM expr'
 
 cpsM :: Expr s
      -> State (CpsState s) (Expr s)
