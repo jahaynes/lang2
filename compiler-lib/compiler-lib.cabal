@@ -31,6 +31,7 @@ library
                     Phase.ClosureConvert
                     Phase.DiscardTypes
                     Phase.EtaExpand
+                    Phase.LambdaLift
                     Phase.Saturate
                     TypeCheck.TypeCheck
                     TypeCheck.TypedExpression

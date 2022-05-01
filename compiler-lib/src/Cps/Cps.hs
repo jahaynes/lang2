@@ -7,8 +7,8 @@ import Core.Term
 import Data.ByteString.Char8 (ByteString, pack)
 
 data CpsState s =
-    CpsState { count  :: !Int
-             , symGen :: !(Int -> s)
+    CpsState { _count  :: !Int
+             , _symGen :: !(Int -> s)
              }
 
 cps :: Module ByteString -> Module ByteString
@@ -82,11 +82,11 @@ cpsC (IfThenElse p t f) c = do
                 pure $ IfThenElse p' t' f'
     pure $ ELet k (ETerm (Var c)) body
 
-cpsC (EClos _ _ _) _ =
-    error "Closures do not exist yet!"
+cpsC EClo{} _ =
+    error "Does not exist yet!"
 
-cpsC (MkClos _ _) _ =
-    error "Closures do not exist yet!"
+cpsC CallClo{} _ =
+    error "Does not exist yet!"
 
 genSym :: State (CpsState s) s
 genSym = do
@@ -134,11 +134,11 @@ cpsK (IfThenElse p t f) k = do
     cpsK p $ \p' ->
         pure $ ELet c (ELam [v] k') (IfThenElse p' t' f')
 
-cpsK (EClos _ _ _) _ =
-    error "Closures do not exist yet!"
+cpsK EClo{} _ =
+    error "Does not exist yet!"
 
-cpsK (MkClos _ _) _ =
-    error "Closures do not exist yet!"
+cpsK CallClo{} _ =
+    error "Does not exist yet!"
 
 cpsKs :: [Expr s]
       -> ([Expr s] -> State (CpsState s) (Expr s))

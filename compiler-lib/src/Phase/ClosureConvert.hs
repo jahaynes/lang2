@@ -3,35 +3,26 @@ module Phase.ClosureConvert (closureConvert) where
 import Common.State
 import Core.Definition
 import Core.Expression
-import Core.Term
 import FreeVars.FreeVars
 
-import           Control.Monad         (forM)
-import           Data.ByteString.Char8 (ByteString, pack)
-import           Data.Maybe            (catMaybes)
-import           Data.Set              (Set)
+import           Data.ByteString.Char8 (ByteString)
+import           Data.Set              (Set, (\\))
 import qualified Data.Set as S
+
+newtype ConvState s =
+    ConvState { getScope:: Set s }
 
 closureConvert :: Module ByteString -> Module ByteString
 closureConvert md = md { getFunDefns = closureConvert' $ getFunDefns md }
 
 closureConvert' :: [FunDefn ByteString] -> [FunDefn ByteString]
-closureConvert' funDefs = do
-
+closureConvert' funDefs =
     let topLevelScope = S.fromList $ map (\(FunDefn n _) -> n) funDefs
-
-    let (exprs, ls) = runState (mapM (closureConvertDefn topLevelScope) funDefs) (LiftState mempty 0)
-
-    liftedLambdas ls ++ exprs
-
-data LiftState s =
-    LiftState { liftedLambdas :: ![FunDefn s]
-              , lambdaNum     :: !Int
-              } deriving Show
+    in fst $ runState (mapM (closureConvertDefn topLevelScope) funDefs) (ConvState mempty)
 
 closureConvertDefn :: Set ByteString
                    -> FunDefn ByteString
-                   -> State (LiftState ByteString) (FunDefn ByteString)
+                   -> State (ConvState ByteString) (FunDefn ByteString)
 closureConvertDefn topLevelScope (FunDefn n fun) =
 
     case fun of
@@ -47,20 +38,27 @@ closureConvertDefn topLevelScope (FunDefn n fun) =
 
             ELam vs body -> do
                 body' <- cc body
-                (liftedName, fvs) <- liftedLambda vs body'
-                pure $
-                    case fvs of
-                        [] -> ETerm (Var liftedName)
-                        _  -> MkClos liftedName fvs
+                ConvState currentScope <- get
+                let scope = S.fromList vs <> topLevelScope <> currentScope
+                let fvs = S.toList . getFree . snd $ runState (exprFreeVars body') (FreeVars scope mempty)
+                pure $ if null fvs
+                           then ELam     vs body'
+                           else EClo fvs vs body'
 
-            -- TODO: extract any MkClos in these arguments out into Lets
-            -- TODO: When to replace EApp with CallClosure?
+            EClo{} ->
+                error "doesn't exist yet"
+
             EApp f xs ->
-                liftClosureArgs (f:xs)
+                EApp <$> cc f
+                     <*> mapM cc xs
 
-            ELet a b c ->
-                ELet a <$> cc b
-                       <*> cc c
+            ELet a b c -> do
+                -- Include a in the scope to allow recursion
+                addToScope [a]
+                b' <- cc b
+                c' <- cc c
+                removeFromScope [a]
+                pure $ ELet a b' c'
 
             EUnPrimOp o a ->
                 EUnPrimOp o <$> cc a
@@ -74,42 +72,11 @@ closureConvertDefn topLevelScope (FunDefn n fun) =
                            <*> cc t
                            <*> cc f
 
-            EClos{} ->
-                error "EClos does not exist yet."
+            CallClo{} ->
+                error "Doesn't exist yet"
 
-            MkClos{} ->
-                error "MkClos does not exist yet."
+addToScope :: Ord s => [s] -> State (ConvState s) ()
+addToScope vs = modify' $ \cs -> cs { getScope = getScope cs <> S.fromList vs }
 
-    liftedLambda vs body = do
-        name <- naming "lifted_"
-        alreadyLifted <- S.fromList . map (\(FunDefn na _) -> na) . liftedLambdas <$> get
-        let freeVars = getFreeVars' (alreadyLifted <> topLevelScope) (ELam vs body)
-        let lifted = if null freeVars
-                        then ELam           vs body
-                        else EClos freeVars vs body
-        modify' $ \ls -> ls { liftedLambdas = (FunDefn name lifted) : liftedLambdas ls }
-        pure (name, freeVars)
-
-    liftClosureArgs :: [Expr ByteString]
-                    -> State (LiftState ByteString) (Expr ByteString)
-
-    liftClosureArgs fargs = do
-
-        pairs <- forM fargs $ \x -> do
-                     x' <- cc x
-                     case x' of
-                         ETerm{}  -> pure (Nothing, x')
-                         MkClos{} -> do
-                             clo <- naming "clo_"
-                             pure (Just (clo, x'), ETerm (Var clo))
-                         _ -> error "Non term/mkclos as parameter!"
-
-        let (lets, f:args) = unzip pairs
-
-        -- Is this the right order?
-        pure $ foldr (\(l,c) -> ELet l c)
-                     (EApp f args)
-                     (catMaybes lets)
-
-naming :: String -> State (LiftState ByteString) ByteString
-naming prefix = State $ \ls -> (pack (prefix <> show (lambdaNum ls)), ls { lambdaNum = lambdaNum ls + 1})
+removeFromScope :: Ord s => [s] -> State (ConvState s) ()
+removeFromScope vs = modify' $ \cs -> cs { getScope = getScope cs \\ S.fromList vs }

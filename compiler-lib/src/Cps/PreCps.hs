@@ -54,3 +54,9 @@ go scope _ (EBinPrimOp op e1 e2) =
 
 go scope _ (IfThenElse p t f) =
     IfThenElse (go scope Inspect p) (go scope Inspect t) (go scope Inspect f)
+
+go _ _ EClo{} =
+    error "Does not exist yet!"
+
+go _ _ CallClo{} =
+    error "Does not exist yet!"

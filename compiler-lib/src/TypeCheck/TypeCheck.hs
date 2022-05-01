@@ -109,6 +109,12 @@ infer expr =
                  , c1 ++ c2 ++ c3 ++ [Constraint t1 (TyCon "Bool"), Constraint t2 t3]
                  , IfThenElseT t2 typ tyt tyf )
 
+        EClo{} ->
+            error "Does not exist yet!"
+
+        CallClo{} ->
+            error "Does not exist yet!"
+
 unOp :: UnOp -> State TcState (Type ByteString)
 unOp Negate = pure $ TyCon "Int" `TyArr` TyCon "Int"
 unOp EShow  = fresh <&> \fr -> fr `TyArr` TyCon "String"    -- TODO check
