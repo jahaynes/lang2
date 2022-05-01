@@ -15,6 +15,7 @@ import Parse.LexAndParse
 import Parse.Token
 import Phase.ClosureConvert
 import Phase.EtaExpand
+import Phase.LambdaLift
 import Phase.Saturate
 import Pretty.Module
 import TypeCheck.TypeCheck
@@ -42,6 +43,7 @@ data ProgramState =
                  , getContified        :: Either ByteString (Module ByteString)
                  , getOptimised        :: Either ByteString (Module ByteString)
                  , getClosureConverted :: Either ByteString (Module ByteString)
+                 , getLambdaLifted     :: Either ByteString (Module ByteString)
                  }
 
 instance ToJSON ProgramState where
@@ -59,6 +61,8 @@ instance ToJSON ProgramState where
             txtPrettyOptimised        = either decodeUtf8 render (getOptimised ps)
             txtClosureConverted       = either decodeUtf8 moduleToText (getClosureConverted ps)
             txtClosureConvertedPretty = either decodeUtf8 render (getClosureConverted ps)
+            txtLambdaLifted           = either decodeUtf8 moduleToText (getLambdaLifted ps)
+            txtLambdaLiftedPretty     = either decodeUtf8 render (getLambdaLifted ps)
 
         object [ "tokens"                 .= String txtTokens
                , "defns"                  .= String txtDefns
@@ -70,11 +74,13 @@ instance ToJSON ProgramState where
                , "optimised"              .= String txtOptimised
                , "prettyOptimised"        .= String txtPrettyOptimised
                , "closureConverted"       .= String txtClosureConverted
-               , "prettyClosureConverted" .= String txtClosureConvertedPretty
+               , "closureConvertedPretty" .= String txtClosureConvertedPretty
+               , "lambdaLifted"           .= String txtLambdaLifted
+               , "lambdaLiftedPretty"     .= String txtLambdaLiftedPretty
                ]
 
 fromSource :: Text -> ProgramState
-fromSource txt = ProgramState txt na na na na na na na na
+fromSource txt = ProgramState txt na na na na na na na na na
     where
     na = Left "Not Available"
 
@@ -91,7 +97,15 @@ transform = snd
           . fromSource
 
 pipe :: State ProgramState ()
-pipe = lexAndParser >> typeCheck >> phaseEtaExpand >> phaseSaturate >> phaseContify >> optimise >> phaseClosureConvert
+pipe = do
+    lexAndParser
+    typeCheck
+    phaseEtaExpand
+    phaseSaturate
+    phaseContify
+    optimise
+    phaseClosureConvert
+    phaseLambdaLift
 
     where
     lexAndParser :: State ProgramState ()
@@ -137,6 +151,10 @@ pipe = lexAndParser >> typeCheck >> phaseEtaExpand >> phaseSaturate >> phaseCont
     phaseClosureConvert :: State ProgramState ()
     phaseClosureConvert = modify' $ \ps ->
         ps { getClosureConverted = closureConvert <$> getOptimised ps }
+
+    phaseLambdaLift :: State ProgramState ()
+    phaseLambdaLift = modify' $ \ps ->
+        ps { getLambdaLifted = lambdaLift <$> getClosureConverted ps }
 
 runController :: Int -> IO ()
 runController port = run port . simpleCors $ serve (Proxy :: Proxy Api) server 

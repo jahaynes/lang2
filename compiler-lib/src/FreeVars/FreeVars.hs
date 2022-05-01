@@ -1,7 +1,6 @@
-module FreeVars.FreeVars where
+module FreeVars.FreeVars (FreeVars (FreeVars, getFree), exprFreeVars, getFreeVars) where
 
 import Common.State
-import Core.Definition
 import Core.Expression
 import Core.Term
 
@@ -13,25 +12,13 @@ data FreeVars s =
              , getFree  :: !(Set s)
              }
 
-getFreeVars :: Ord s => FunDefn s -> Set s
-getFreeVars def = getFree
-                . snd
-                . runState (defnFreeVars def)
-                $ FreeVars mempty mempty
-
-getFreeVars' :: Ord s => Set s -> Expr s -> [s]
-getFreeVars' topLevelScope e = S.toList
-                             . getFree
-                             . snd
-                             . runState (exprFreeVars e)
-                             $ FreeVars { getScope = topLevelScope
-                                        , getFree  = mempty }
-
-defnFreeVars :: Ord s => FunDefn s -> State (FreeVars s) ()
-defnFreeVars (FunDefn n e) = do
-    addToScope [n]
-    exprFreeVars e
-    removeFromScope [n]
+getFreeVars :: Ord s => Set s -> Expr s -> [s]
+getFreeVars topLevelScope e = S.toList
+                            . getFree
+                            . snd
+                            . runState (exprFreeVars e)
+                            $ FreeVars { getScope = topLevelScope
+                                       , getFree  = mempty }
 
 exprFreeVars :: Ord s => Expr s -> State (FreeVars s) ()
 exprFreeVars e =
@@ -45,6 +32,9 @@ exprFreeVars e =
             addToScope vs
             exprFreeVars b
             removeFromScope vs
+
+        EClo fvs _ _ ->
+            mapM_ tryInsert fvs
 
         EApp f xs -> do
             exprFreeVars f
@@ -65,11 +55,8 @@ exprFreeVars e =
         IfThenElse p t f ->
             mapM_ exprFreeVars [p, t, f]
 
-        EClos _ _ _ ->
-            error "Closures do not exist yet!"
-
-        MkClos _ fvs ->
-            mapM_ tryInsert fvs
+        CallClo{} ->
+            error "TODO?"
 
 termFreeVars :: Ord s => Term s -> State (FreeVars s) ()
 termFreeVars t =

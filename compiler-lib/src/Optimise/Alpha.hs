@@ -14,14 +14,14 @@ alphas md = md { getFunDefns = map alpha $ getFunDefns md }
 alpha :: Ord s => FunDefn s -> FunDefn s
 alpha (FunDefn name e) = FunDefn name (alphaExpr mempty e)
 
-alphaExpr :: Ord s => Map s (Term s) -> Expr s -> Expr s
+alphaExpr :: Ord s => Map s s -> Expr s -> Expr s
 alphaExpr subst e =
 
     case e of
 
         t@(ETerm (Var v)) ->
             case M.lookup v subst of
-                Just x  -> ETerm x
+                Just x  -> ETerm (Var x)
                 Nothing -> t
 
         t@ETerm{} ->
@@ -34,7 +34,7 @@ alphaExpr subst e =
         EApp f xs ->
             EApp (alphaExpr subst f) (map (alphaExpr subst) xs)
 
-        ELet a (ETerm b) c ->
+        ELet a (ETerm (Var b)) c ->
             alphaExpr (M.insert a b subst) c
 
         ELet a b c ->
@@ -48,3 +48,9 @@ alphaExpr subst e =
 
         IfThenElse p t f ->
             IfThenElse (alphaExpr subst p) (alphaExpr subst t) (alphaExpr subst f)
+
+        EClo{} ->
+            error "TODO?"
+
+        CallClo{} ->
+            error "TODO?"
