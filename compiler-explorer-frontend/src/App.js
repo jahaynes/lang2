@@ -55,50 +55,50 @@ class App extends React.Component {
 
         <label>Source / Tokens</label>
         <div>
-          <textarea id='text' className='editor' spellCheck='false' rows='14' onChange={e => this.lexAndParse()}></textarea>
-          <textarea id='tokens' className='editor' spellCheck='false' rows='14'></textarea>
+          <textarea id='text' className='editor' spellCheck='false' rows='12' onChange={e => this.lexAndParse()}></textarea>
+          <textarea id='tokens' className='editor' spellCheck='false' rows='12'></textarea>
         </div>
 
         <label>Definitions / Pretty</label>
         <div>
-          <textarea id='expressions' className='editor' spellCheck='false' rows='14'></textarea>
-          <textarea id='expressionsPretty' className='editor' spellCheck='false' rows='14'></textarea>
+          <textarea id='expressions' className='editor' spellCheck='false' rows='12'></textarea>
+          <textarea id='expressionsPretty' className='editor' spellCheck='false' rows='12'></textarea>
         </div>
 
         <label>Call Graph / Typecheck Plan</label>
         <div>
-          <textarea id='callGraph' className='editor' spellCheck='false' rows='14'></textarea>
-          <textarea id='typeGroups' className='editor' spellCheck='false' rows='14'></textarea>
+          <textarea id='callGraph' className='editor' spellCheck='false' rows='12'></textarea>
+          <textarea id='typeGroups' className='editor' spellCheck='false' rows='12'></textarea>
         </div>
 
         <label>Eta Expanded / Saturated </label>
         <div>
-          <textarea id='etaExpanded' className='editor' spellCheck='false' rows='14'></textarea>
-          <textarea id='saturated' className='editor' spellCheck='false' rows='14'></textarea>
+          <textarea id='etaExpanded' className='editor' spellCheck='false' rows='12'></textarea>
+          <textarea id='saturated' className='editor' spellCheck='false' rows='12'></textarea>
         </div>
 
         <label>Contified / Pretty</label>
         <div>
-          <textarea id='contified' className='editor' spellCheck='false' rows='14'></textarea>
-          <textarea id='contifiedPretty' className='editor' spellCheck='false' rows='14'></textarea>
+          <textarea id='contified' className='editor' spellCheck='false' rows='12'></textarea>
+          <textarea id='contifiedPretty' className='editor' spellCheck='false' rows='12'></textarea>
         </div>
 
         <label>Optimised</label>
         <div>
-          <textarea id='optimised' className='editor' spellCheck='false' rows='14'></textarea>
-          <textarea id='optimisedPretty' className='editor' spellCheck='false' rows='14'></textarea>
+          <textarea id='optimised' className='editor' spellCheck='false' rows='12'></textarea>
+          <textarea id='optimisedPretty' className='editor' spellCheck='false' rows='12'></textarea>
         </div>
 
         <label>Closure Converted</label>
         <div>
-          <textarea id='closureConverted' className='editor' spellCheck='false' rows='14'></textarea>
-          <textarea id='closureConvertedPretty' className='editor' spellCheck='false' rows='14'></textarea>
+          <textarea id='closureConverted' className='editor' spellCheck='false' rows='12'></textarea>
+          <textarea id='closureConvertedPretty' className='editor' spellCheck='false' rows='12'></textarea>
         </div>
 
         <label>Lambda Lifted</label>
         <div>
-          <textarea id='lambdaLifted' className='editor' spellCheck='false' rows='14'></textarea>
-          <textarea id='lambdaLiftedPretty' className='editor' spellCheck='false' rows='14'></textarea>
+          <textarea id='lambdaLifted' className='editor' spellCheck='false' rows='12'></textarea>
+          <textarea id='lambdaLiftedPretty' className='editor' spellCheck='false' rows='12'></textarea>
         </div>
 
       </div>
