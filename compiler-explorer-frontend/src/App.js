@@ -15,6 +15,8 @@ class App extends React.Component {
     const tokens                 = this.getAndClearElement("tokens");
     const expressions            = this.getAndClearElement("expressions");
     const expressionsPretty      = this.getAndClearElement("expressionsPretty");
+    const callGraph              = this.getAndClearElement("callGraph");
+    const typeGroups             = this.getAndClearElement("typeGroups");
     const etaExpanded            = this.getAndClearElement("etaExpanded");
     const saturated              = this.getAndClearElement("saturated");
     const contified              = this.getAndClearElement("contified");
@@ -32,6 +34,8 @@ class App extends React.Component {
         tokens.value                 = ts.tokens;
         expressions.value            = ts.defns;
         expressionsPretty.value      = ts.prettyDefns;
+        callGraph.value              = ts.callGraph;
+        typeGroups.value             = ts.typeGroups;
         etaExpanded.value            = ts.etaExpanded;
         saturated.value              = ts.saturated;
         contified.value              = ts.contified;
@@ -59,6 +63,12 @@ class App extends React.Component {
         <div>
           <textarea id='expressions' className='editor' spellCheck='false' rows='14'></textarea>
           <textarea id='expressionsPretty' className='editor' spellCheck='false' rows='14'></textarea>
+        </div>
+
+        <label>Call Graph / Typecheck Plan</label>
+        <div>
+          <textarea id='callGraph' className='editor' spellCheck='false' rows='14'></textarea>
+          <textarea id='typeGroups' className='editor' spellCheck='false' rows='14'></textarea>
         </div>
 
         <label>Eta Expanded / Saturated </label>
