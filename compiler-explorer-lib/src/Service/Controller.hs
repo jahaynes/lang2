@@ -18,12 +18,16 @@ import Phase.EtaExpand
 import Phase.LambdaLift
 import Phase.Saturate
 import Pretty.Module
+import TypeCheck.CallGraph
 import TypeCheck.TypeCheck
 import TypeCheck.Types
 
 import           Data.Aeson
 import           Data.ByteString             (ByteString)
-import           Data.Text                   (Text)
+import           Data.Map                    (Map)
+import qualified Data.Map as M
+import           Data.Set                    (Set)
+import           Data.Text                   (Text, pack)
 import           Data.Text.Encoding          (decodeUtf8, encodeUtf8)
 import           Data.Vector                 (Vector)
 import           Network.Wai.Handler.Warp    (run)
@@ -37,6 +41,8 @@ data ProgramState =
     ProgramState { getSource           :: Text
                  , getTokens           :: Either ByteString (Vector Token)
                  , getModule           :: Either ByteString (Module ByteString)
+                 , getCallGraph        :: Either ByteString (Map ByteString (Set ByteString))
+                 , getTypeGroups       :: Either ByteString [Set ByteString]
                  , getTypedModule      :: Either ByteString (TypedModule Scheme ByteString)
                  , getEtaExpanded      :: Either ByteString (TypedModule Scheme ByteString)
                  , getSaturated        :: Either ByteString (TypedModule Scheme ByteString)
@@ -53,6 +59,8 @@ instance ToJSON ProgramState where
         let txtTokens                 = decodeUtf8 $ either id tokensToByteString (getTokens ps)
             txtDefns                  = either decodeUtf8 moduleToText (getModule ps)
             txtPrettyDefns            = either decodeUtf8 render (getModule ps)
+            txtCallGraph              = either decodeUtf8 (pack . unlines . map show . M.toList) (getCallGraph ps)
+            txtTypeGroups             = either decodeUtf8 (pack . unlines . map show) (getTypeGroups ps)
             txtEtaExpanded            = either decodeUtf8 typedModuleToText (getEtaExpanded ps)
             txtSaturated              = either decodeUtf8 typedModuleToText (getSaturated ps)
             txtContified              = either decodeUtf8 moduleToText (getContified ps)
@@ -67,6 +75,8 @@ instance ToJSON ProgramState where
         object [ "tokens"                 .= String txtTokens
                , "defns"                  .= String txtDefns
                , "prettyDefns"            .= String txtPrettyDefns
+               , "callGraph"              .= String txtCallGraph
+               , "typeGroups"             .= String txtTypeGroups
                , "etaExpanded"            .= String txtEtaExpanded
                , "saturated"              .= String txtSaturated
                , "contified"              .= String txtContified
@@ -80,7 +90,7 @@ instance ToJSON ProgramState where
                ]
 
 fromSource :: Text -> ProgramState
-fromSource txt = ProgramState txt na na na na na na na na na
+fromSource txt = ProgramState txt na na na na na na na na na na na
     where
     na = Left "Not Available"
 
@@ -99,6 +109,7 @@ transform = snd
 pipe :: State ProgramState ()
 pipe = do
     lexAndParser
+    phaseBuildGraph
     typeCheck
     phaseEtaExpand
     phaseSaturate
@@ -114,6 +125,12 @@ pipe = do
         in ps { getTokens = eTokens
               , getModule = eMd
               }
+
+    phaseBuildGraph :: State ProgramState ()
+    phaseBuildGraph = modify' $ \ps ->
+        ps { getCallGraph  = buildGraph . getFunDefns <$> getModule ps
+           , getTypeGroups = plan . getFunDefns =<< getModule ps
+           }
 
     typeCheck :: State ProgramState ()
     typeCheck = modify' $ \ps ->

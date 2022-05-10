@@ -33,6 +33,7 @@ library
                     Phase.EtaExpand
                     Phase.LambdaLift
                     Phase.Saturate
+                    TypeCheck.CallGraph
                     TypeCheck.TypeCheck
                     TypeCheck.TypedExpression
                     TypeCheck.Types
@@ -47,6 +48,7 @@ test-suite test-compiler-lib
     other-modules:    Parse.ExpressionTest
                       Parse.LexerTest
                       Parse.LexAndParseTest
+                      TypeCheck.CallGraphTest
     type:             exitcode-stdio-1.0
     main-is:          Tests.hs
     build-depends:    base, containers, hedgehog, vector
