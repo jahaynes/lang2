@@ -8,7 +8,6 @@ import Core.Expression
 import Parse.Expression
 import Parse.Parser
 import Parse.Token
-import TypeCheck.Types
 
 import Data.ByteString (ByteString)
 
@@ -16,21 +15,18 @@ import           Data.Vector      ((!?))
 import qualified Data.IntSet as IS
 
 data ModuleElement s = ModuleDataDefn (DataDefn s)
-                     | ModuleTypeSig (TypeSig s)
                      | ModuleFunDefn (FunDefn s)
 
 parseDefns :: Parser ParseState (Module ByteString)
-parseDefns = go [] [] [] <$> many' parseDefn
+parseDefns = go [] [] <$> many' parseDefn
 
     where
-    go dds tss fds                      [] = Module (reverse dds) (reverse tss) (reverse fds)
-    go dds tss fds (ModuleDataDefn dd:mes) = go (dd:dds) tss fds mes
-    go dds tss fds (ModuleTypeSig ts:mes)  = go dds (ts:tss) fds mes
-    go dds tss fds (ModuleFunDefn fd:mes)  = go dds tss (fd:fds) mes
+    go dds fds                      [] = Module (reverse dds) (reverse fds)
+    go dds fds (ModuleDataDefn dd:mes) = go (dd:dds) fds mes
+    go dds fds (ModuleFunDefn fd:mes)  = go dds (fd:fds) mes
 
 parseDefn :: Parser ParseState (ModuleElement ByteString)
 parseDefn = assertLineStart *> (ModuleDataDefn <$> parseDataDefn)
-                           <|> (ModuleTypeSig  <$> parseTypeSig)
                            <|> (ModuleFunDefn  <$> parseFunDefn)
 
 assertLineStart :: Parser ParseState ()
@@ -93,22 +89,3 @@ parseDataDefn = do
     parseMember :: Parser ParseState (Member ByteString)
     parseMember = (MemberType <$> parseUpperStart)
               <|> (MemberVar  <$> parseLowerStart)
-
-parseTypeSig :: Parser ParseState (TypeSig ByteString)
-parseTypeSig = do
-    name <- atLineStart parseLowerStart
-    _    <- notAtLineStart (token TColon)
-    typ  <- parseArrowedType
-    pure $ TypeSig name typ
-
-    where
-    parseArrowedType :: Parser ParseState (Type ByteString)
-    parseArrowedType = do
-        t  <- parseType
-        ts <- many $ token TArr *> parseArrowedType
-        pure $ foldl TyArr t ts
-
-    parseType :: Parser ParseState (Type ByteString)
-    parseType = (token TLParen *> parseArrowedType <* token TRParen)
-            <|> (TyVar <$> parseLowerStart)
-            <|> (TyCon <$> parseUpperStart)

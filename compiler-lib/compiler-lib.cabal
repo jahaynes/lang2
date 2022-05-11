@@ -29,14 +29,7 @@ library
                     Parse.Parser
                     Parse.Token
                     Phase.ClosureConvert
-                    Phase.DiscardTypes
-                    Phase.EtaExpand
                     Phase.LambdaLift
-                    Phase.Saturate
-                    TypeCheck.CallGraph
-                    TypeCheck.TypeCheck
-                    TypeCheck.TypedExpression
-                    TypeCheck.Types
   ghc-options:      -Wall -O2
   hs-source-dirs:   src
   default-language: Haskell2010
@@ -48,7 +41,6 @@ test-suite test-compiler-lib
     other-modules:    Parse.ExpressionTest
                       Parse.LexerTest
                       Parse.LexAndParseTest
-                      TypeCheck.CallGraphTest
     type:             exitcode-stdio-1.0
     main-is:          Tests.hs
     build-depends:    base, containers, hedgehog, vector
