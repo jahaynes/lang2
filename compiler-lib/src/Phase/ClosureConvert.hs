@@ -72,7 +72,7 @@ closureConvertDefn topLevelScope (FunDefn n fun) =
                            <*> cc t
                            <*> cc f
 
-            CallClo{} ->
+            InstantiateClos{} ->
                 error "Doesn't exist yet"
 
 addToScope :: Ord s => [s] -> State (ConvState s) ()

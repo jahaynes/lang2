@@ -58,5 +58,5 @@ go scope _ (IfThenElse p t f) =
 go _ _ EClo{} =
     error "Does not exist yet!"
 
-go _ _ CallClo{} =
+go _ _ InstantiateClos{} =
     error "Does not exist yet!"

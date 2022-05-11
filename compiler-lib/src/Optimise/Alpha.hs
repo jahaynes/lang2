@@ -50,7 +50,7 @@ alphaExpr subst e =
             IfThenElse (alphaExpr subst p) (alphaExpr subst t) (alphaExpr subst f)
 
         EClo{} ->
-            error "TODO?"
+            e -- IDK error "TODO?"
 
-        CallClo{} ->
-            error "TODO?"
+        InstantiateClos{} ->
+            e -- IDK error "TODO?"

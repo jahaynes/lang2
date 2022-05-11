@@ -55,7 +55,7 @@ exprFreeVars e =
         IfThenElse p t f ->
             mapM_ exprFreeVars [p, t, f]
 
-        CallClo{} ->
+        InstantiateClos{} ->
             error "TODO?"
 
 termFreeVars :: Ord s => Term s -> State (FreeVars s) ()

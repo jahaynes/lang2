@@ -27,6 +27,8 @@ class App extends React.Component {
     const closureConvertedPretty = this.getAndClearElement("closureConvertedPretty");
     const lambdaLifted           = this.getAndClearElement("lambdaLifted");
     const lambdaLiftedPretty     = this.getAndClearElement("lambdaLiftedPretty");
+    const directMachineResult    = this.getAndClearElement("directMachineResult");
+    const cpsMachineResult       = this.getAndClearElement("cpsMachineResult");
 
     fetch("http://127.0.0.1:8080/lexAndParse", { method: 'POST', body: source.value })
       .then(resp => resp.json())
@@ -46,6 +48,8 @@ class App extends React.Component {
         closureConvertedPretty.value = ts.closureConvertedPretty;
         lambdaLifted.value           = ts.lambdaLifted;
         lambdaLiftedPretty.value     = ts.lambdaLiftedPretty;
+        directMachineResult.value    = ts.directMachineResult;
+        cpsMachineResult.value       = ts.cpsMachineResult;
       })
   }
 
@@ -99,6 +103,12 @@ class App extends React.Component {
         <div>
           <textarea id='lambdaLifted' className='editor' spellCheck='false' rows='14'></textarea>
           <textarea id='lambdaLiftedPretty' className='editor' spellCheck='false' rows='14'></textarea>
+        </div>
+
+        <label>Abstract Machine</label>
+        <div>
+          <textarea id='directMachineResult' className='editor' spellCheck='false' rows='14'></textarea>
+          <textarea id='cpsMachineResult' className='editor' spellCheck='false' rows='14'></textarea>
         </div>
 
       </div>

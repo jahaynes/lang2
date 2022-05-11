@@ -51,5 +51,5 @@ printExpr (EClo fs vs body) = do
         (_, body') = printExpr body
     (Paren, TB.intercalate " " ["\\[" <> fs' <> "] " <> vs', "->", body'])
 
-printExpr (CallClo f fvs) =
+printExpr (InstantiateClos f fvs) =
     (Braces, TB.intercalate " " $ map TB.text (f:fvs))

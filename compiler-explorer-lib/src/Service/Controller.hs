@@ -6,8 +6,11 @@
 
 module Service.Controller (runController) where
 
+import AbstractMachine.Direct
+import AbstractMachine.Cps
 import Common.State
 import Core.Definition
+import Core.Expression
 import Cps.Cps
 import Cps.PreCps
 import Optimise.Alpha
@@ -37,19 +40,23 @@ import           Servant
 type Api = "lexAndParse" :> ReqBody '[PlainText] Text
                          :> Post '[JSON] ProgramState
 
+-- TODO separate call for running
+
 data ProgramState =
-    ProgramState { getSource           :: Text
-                 , getTokens           :: Either ByteString (Vector Token)
-                 , getModule           :: Either ByteString (Module ByteString)
-                 , getCallGraph        :: Either ByteString (Map ByteString (Set ByteString))
-                 , getTypeGroups       :: Either ByteString [Set ByteString]
-                 , getTypedModule      :: Either ByteString (TypedModule Scheme ByteString)
-                 , getEtaExpanded      :: Either ByteString (TypedModule Scheme ByteString)
-                 , getSaturated        :: Either ByteString (TypedModule Scheme ByteString)
-                 , getContified        :: Either ByteString (Module ByteString)
-                 , getOptimised        :: Either ByteString (Module ByteString)
-                 , getClosureConverted :: Either ByteString (Module ByteString)
-                 , getLambdaLifted     :: Either ByteString (Module ByteString)
+    ProgramState { getSource              :: Text
+                 , getTokens              :: Either ByteString (Vector Token)
+                 , getModule              :: Either ByteString (Module ByteString)
+                 , getCallGraph           :: Either ByteString (Map ByteString (Set ByteString))
+                 , getTypeGroups          :: Either ByteString [Set ByteString]
+                 , getTypedModule         :: Either ByteString (TypedModule Scheme ByteString)
+                 , getEtaExpanded         :: Either ByteString (TypedModule Scheme ByteString)
+                 , getSaturated           :: Either ByteString (TypedModule Scheme ByteString)
+                 , getContified           :: Either ByteString (Module ByteString)
+                 , getOptimised           :: Either ByteString (Module ByteString)
+                 , getClosureConverted    :: Either ByteString (Module ByteString)
+                 , getLambdaLifted        :: Either ByteString (Module ByteString)
+                 , getDirectMachineResult :: Either ByteString (Expr ByteString)
+                 , getCpsMachineResult    :: Either ByteString (Expr ByteString)
                  }
 
 instance ToJSON ProgramState where
@@ -71,6 +78,8 @@ instance ToJSON ProgramState where
             txtClosureConvertedPretty = either decodeUtf8 render (getClosureConverted ps)
             txtLambdaLifted           = either decodeUtf8 moduleToText (getLambdaLifted ps)
             txtLambdaLiftedPretty     = either decodeUtf8 render (getLambdaLifted ps)
+            txtDirectMachineResult    = either decodeUtf8 (pack . show) (getDirectMachineResult ps)
+            txtCpsMachineResult       = either decodeUtf8 (pack . show) (getCpsMachineResult ps)
 
         object [ "tokens"                 .= String txtTokens
                , "defns"                  .= String txtDefns
@@ -87,10 +96,12 @@ instance ToJSON ProgramState where
                , "closureConvertedPretty" .= String txtClosureConvertedPretty
                , "lambdaLifted"           .= String txtLambdaLifted
                , "lambdaLiftedPretty"     .= String txtLambdaLiftedPretty
+               , "directMachineResult"    .= String txtDirectMachineResult
+               , "cpsMachineResult"       .= String txtCpsMachineResult
                ]
 
 fromSource :: Text -> ProgramState
-fromSource txt = ProgramState txt na na na na na na na na na na na
+fromSource txt = ProgramState txt na na na na na na na na na na na na na
     where
     na = Left "Not Available"
 
@@ -117,6 +128,8 @@ pipe = do
     optimise
     phaseClosureConvert
     phaseLambdaLift
+    phaseRunDirectAbstractMachine
+    phaseRunCpsAbstractMachine
 
     where
     lexAndParser :: State ProgramState ()
@@ -172,6 +185,14 @@ pipe = do
     phaseLambdaLift :: State ProgramState ()
     phaseLambdaLift = modify' $ \ps ->
         ps { getLambdaLifted = lambdaLift <$> getClosureConverted ps }
+
+    phaseRunDirectAbstractMachine :: State ProgramState ()
+    phaseRunDirectAbstractMachine = modify' $ \ps ->
+        ps { getDirectMachineResult = runDirect =<< getModule ps }
+
+    phaseRunCpsAbstractMachine :: State ProgramState ()
+    phaseRunCpsAbstractMachine = modify' $ \ps ->
+        ps { getCpsMachineResult = runCps =<< getLambdaLifted ps }
 
 runController :: Int -> IO ()
 runController port = run port . simpleCors $ serve (Proxy :: Proxy Api) server 

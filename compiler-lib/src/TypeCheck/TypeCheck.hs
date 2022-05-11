@@ -112,7 +112,7 @@ infer expr =
         EClo{} ->
             error "Does not exist yet!"
 
-        CallClo{} ->
+        InstantiateClos{} ->
             error "Does not exist yet!"
 
 unOp :: UnOp -> State TcState (Type ByteString)

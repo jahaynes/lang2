@@ -82,7 +82,7 @@ lambdaLiftDefn nameGen (FunDefn n fun) =
                            <*> ll t
                            <*> ll f
 
-            CallClo{} ->
+            InstantiateClos{} ->
                 error "Doesn't exist yet!"
 
     -- Handles let-bound and anonymous lambdas/closures
@@ -113,7 +113,7 @@ lambdaLiftDefn nameGen (FunDefn n fun) =
                     Nothing -> body
         clo' <- EClo fvs vs <$> ll body'
         liftLambda $ FunDefn newName clo'
-        pure $ CallClo newName fvs
+        pure $ InstantiateClos newName fvs
 
     liftLambdaOrClosure _ _ =
         error "Tried to lift non-lambda/closure"
@@ -126,7 +126,7 @@ lambdaLiftDefn nameGen (FunDefn n fun) =
             [] ->
                 pure $ foldr (\(a,b) c -> ELet a b c) (EApp f (reverse args)) (reverse lets)
 
-            (cc@CallClo{}:xs) -> do
+            (cc@InstantiateClos{}:xs) -> do
                 name <- nameGen "cc"
                 extractLets f ((name, cc) : lets) (ETerm (Var name) : args) xs
 

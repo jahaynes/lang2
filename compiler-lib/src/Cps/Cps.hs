@@ -85,7 +85,7 @@ cpsC (IfThenElse p t f) c = do
 cpsC EClo{} _ =
     error "Does not exist yet!"
 
-cpsC CallClo{} _ =
+cpsC InstantiateClos{} _ =
     error "Does not exist yet!"
 
 genSym :: State (CpsState s) s
@@ -137,7 +137,7 @@ cpsK (IfThenElse p t f) k = do
 cpsK EClo{} _ =
     error "Does not exist yet!"
 
-cpsK CallClo{} _ =
+cpsK InstantiateClos{} _ =
     error "Does not exist yet!"
 
 cpsKs :: [Expr s]

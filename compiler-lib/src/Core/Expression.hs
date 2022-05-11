@@ -16,6 +16,9 @@ data Expr s = ETerm (Term s)
 
               -- Generated during compilation
             | EClo [s] [s] (Expr s)
-            | CallClo s [s]
+            | InstantiateClos s [s]
+
+              -- A runtime closure instance (fp + heap env ptr)
+            | Instance s Int
 
                 deriving (Eq, Functor, Show)
