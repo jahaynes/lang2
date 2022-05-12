@@ -1,8 +1,8 @@
 module Cps.Cps (cps) where
 
 import Common.State
-import Core.Definition
 import Core.Expression
+import Core.Module
 import Core.Term
 import Data.ByteString.Char8 (ByteString, pack)
 

@@ -1,10 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Parse.Definition where
-
-import Core.Definition
+module Parse.Module where
 
 import Core.Expression
+import Core.Module
 import Parse.Expression
 import Parse.Parser
 import Parse.Token

@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveFunctor #-}
 
-module Core.Definition where
+module Core.Module where
 
 import Core.Expression
 

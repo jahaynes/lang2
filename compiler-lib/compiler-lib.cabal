@@ -14,18 +14,19 @@ library
                     vector,
                     vector-builder
   exposed-modules:  Common.State
-                    Core.Definition
                     Core.Expression
+                    Core.Module
                     Core.Operator
                     Core.Term
+                    Core.Types
                     Cps.Cps
                     Cps.PreCps
                     FreeVars.FreeVars
                     Optimise.Alpha
-                    Parse.Definition
                     Parse.Expression
                     Parse.LexAndParse
                     Parse.Lexer
+                    Parse.Module
                     Parse.Parser
                     Parse.Token
                     Phase.ClosureConvert

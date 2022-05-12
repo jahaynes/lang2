@@ -3,8 +3,8 @@
 module Phase.LambdaLift (lambdaLift) where
 
 import Common.State
-import Core.Definition
 import Core.Expression
+import Core.Module
 import Core.Term
 import Optimise.Alpha
 

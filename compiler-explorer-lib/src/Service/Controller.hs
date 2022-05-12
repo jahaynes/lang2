@@ -7,7 +7,7 @@
 module Service.Controller (runController) where
 
 import Common.State
-import Core.Definition
+import Core.Module
 import Optimise.Alpha
 import Parse.LexAndParse
 import Parse.Token

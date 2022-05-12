@@ -1,7 +1,7 @@
 module Cps.PreCps where
 
-import Core.Definition
 import Core.Expression
+import Core.Module
 import Core.Term
 
 import           Data.Set (Set)

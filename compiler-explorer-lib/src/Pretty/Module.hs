@@ -2,13 +2,15 @@
 
 module Pretty.Module where
 
-import Core.Definition
-import Pretty.Definition
+import Core.Expression
+import Core.Module
+import Pretty.Expression
 
 import           Data.ByteString    (ByteString)
 import           Data.Text          (Text, pack)
 import           Data.Text.Encoding (decodeUtf8)
 import qualified Text.Builder as TB
+import           Text.Builder       (Builder)
 
 render :: Module ByteString -> Text
 render md =
@@ -22,3 +24,36 @@ moduleToText md =
     let dataDefs = map (TB.text . pack . show) $ getDataDefns md
         funDefs  = map (TB.text . pack . show) $ getFunDefns md
     in TB.run . TB.intercalate "\n\n" $ concat [dataDefs, funDefs]
+
+
+
+
+
+printFunDefn :: FunDefn Text -> Builder
+printFunDefn (FunDefn f (ELam vs x)) =
+    let fvs'    = TB.intercalate " " $ map TB.text (f:vs)
+        (_, x') = printExpr x
+    in mconcat [fvs', " = ", x']
+
+printFunDefn (FunDefn f x) =
+    let f'      = TB.text f
+        (_, x') = printExpr x
+    in mconcat [f', " = ", x']
+
+printDataDefn :: DataDefn Text -> Builder
+printDataDefn (DataDefn t tyvars dataCons) =
+    let t'       = TB.text t
+        tyvars'  = map TB.text tyvars
+        ttyvars' = TB.intercalate " " (t':tyvars')
+        dcs'     = TB.intercalate " | " $ map printDataCon dataCons
+    in mconcat [ttyvars', " = ", dcs']
+
+printDataCon :: DataCon Text -> Builder
+printDataCon (DataCon s members) =
+    TB.intercalate " " (TB.text s : map printMember members)
+
+printMember :: Member Text -> Builder
+printMember m =
+    case m of
+        MemberType s -> TB.text s
+        MemberVar s  -> TB.text s
