@@ -1,7 +1,11 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 {-# LANGUAGE DeriveFunctor #-}
+=======
+{-# LANGUAGE DeriveFunctor, OverloadedStrings #-}
+>>>>>>> annotated expressions
 =======
 {-# LANGUAGE DeriveFunctor, OverloadedStrings #-}
 >>>>>>> annotated expressions
@@ -26,6 +30,7 @@ data Polytype s =
         deriving (Eq, Show)
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 =======
 >>>>>>> remove old types implementation
@@ -38,10 +43,15 @@ data Type s = TyVar s
 <<<<<<< HEAD
 >>>>>>> remove old types implementation
 =======
+=======
+>>>>>>> annotated expressions
 typeBool, typeInt, typeString :: Type ByteString
 typeBool = TyCon "Bool"
 typeInt = TyCon "Int"
 typeString = TyCon "String"
+<<<<<<< HEAD
 >>>>>>> annotated expressions
 =======
 >>>>>>> remove old types implementation
+=======
+>>>>>>> annotated expressions
