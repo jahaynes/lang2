@@ -3,7 +3,11 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 {-# LANGUAGE DeriveFunctor #-}
+=======
+{-# LANGUAGE DeriveFunctor, OverloadedStrings #-}
+>>>>>>> annotated expressions
 =======
 {-# LANGUAGE DeriveFunctor, OverloadedStrings #-}
 >>>>>>> annotated expressions
@@ -32,6 +36,7 @@ data Polytype s =
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 =======
 >>>>>>> remove old types implementation
@@ -49,10 +54,13 @@ data Type s = TyVar s
 =======
 =======
 >>>>>>> annotated expressions
+=======
+>>>>>>> annotated expressions
 typeBool, typeInt, typeString :: Type ByteString
 typeBool = TyCon "Bool"
 typeInt = TyCon "Int"
 typeString = TyCon "String"
+<<<<<<< HEAD
 <<<<<<< HEAD
 >>>>>>> annotated expressions
 =======
@@ -61,3 +69,5 @@ typeString = TyCon "String"
 >>>>>>> annotated expressions
 =======
 >>>>>>> remove old types implementation
+=======
+>>>>>>> annotated expressions
