@@ -14,6 +14,7 @@ import Parse.Token
 import Phase.ClosureConvert
 import Phase.LambdaLift
 import Pretty.Module
+<<<<<<< HEAD
 import TypeCheck.TypeInference
 
 import           Data.Aeson
@@ -21,6 +22,12 @@ import           Data.ByteString             (ByteString)
 import qualified Data.Map as M
 import           Data.Set                    (Set)
 import           Data.Text                   (Text, pack)
+=======
+
+import           Data.Aeson
+import           Data.ByteString             (ByteString)
+import           Data.Text                   (Text)
+>>>>>>> remove old types implementation
 import           Data.Text.Encoding          (decodeUtf8, encodeUtf8)
 import           Data.Vector                 (Vector)
 import           Network.Wai.Handler.Warp    (run)
@@ -34,9 +41,12 @@ data ProgramState =
     ProgramState { getSource           :: Text
                  , getTokens           :: Either ByteString (Vector Token)
                  , getModule           :: Either ByteString (Module ByteString)
+<<<<<<< HEAD
                  , getCallGraph        :: Either ByteString (CallGraph ByteString)
                  , getTypeCheckPlan    :: Either ByteString [Set ByteString]
                  , getInferred         :: Either ByteString (PolytypeEnv ByteString)
+=======
+>>>>>>> remove old types implementation
                  , getOptimised        :: Either ByteString (Module ByteString)
                  , getClosureConverted :: Either ByteString (Module ByteString)
                  , getLambdaLifted     :: Either ByteString (Module ByteString)
@@ -49,9 +59,12 @@ instance ToJSON ProgramState where
         let txtTokens                 = decodeUtf8 $ either id tokensToByteString (getTokens ps)
             txtDefns                  = either decodeUtf8 moduleToText (getModule ps)
             txtPrettyDefns            = either decodeUtf8 render (getModule ps)
+<<<<<<< HEAD
             txtCallGraph              = either decodeUtf8 (pack . show) (getCallGraph ps)
             txtTypeCheckPlan          = either decodeUtf8 (pack . show) (getTypeCheckPlan ps)
             txtInferred               = either decodeUtf8 (\(PolytypeEnv e) -> pack . unlines . map show $ M.toList e) (getInferred ps)
+=======
+>>>>>>> remove old types implementation
             txtOptimised              = either decodeUtf8 moduleToText (getOptimised ps)
             txtPrettyOptimised        = either decodeUtf8 render (getOptimised ps)
             txtClosureConverted       = either decodeUtf8 moduleToText (getClosureConverted ps)
@@ -62,9 +75,12 @@ instance ToJSON ProgramState where
         object [ "tokens"                 .= String txtTokens
                , "defns"                  .= String txtDefns
                , "prettyDefns"            .= String txtPrettyDefns
+<<<<<<< HEAD
                , "callGraph"              .= String txtCallGraph
                , "typeCheckPlan"          .= String txtTypeCheckPlan
                , "inferred"               .= String txtInferred
+=======
+>>>>>>> remove old types implementation
                , "optimised"              .= String txtOptimised
                , "prettyOptimised"        .= String txtPrettyOptimised
                , "closureConverted"       .= String txtClosureConverted
@@ -74,7 +90,11 @@ instance ToJSON ProgramState where
                ]
 
 fromSource :: Text -> ProgramState
+<<<<<<< HEAD
 fromSource txt = ProgramState txt na na na na na na na na
+=======
+fromSource txt = ProgramState txt na na na na na
+>>>>>>> remove old types implementation
     where
     na = Left "Not Available"
 
@@ -92,7 +112,10 @@ transform = execState pipe
 pipe :: State ProgramState ()
 pipe = do
     lexAndParser
+<<<<<<< HEAD
     phaseTypeCheck
+=======
+>>>>>>> remove old types implementation
     optimise
     phaseClosureConvert
     phaseLambdaLift
@@ -105,6 +128,7 @@ pipe = do
               , getModule = eMd
               }
 
+<<<<<<< HEAD
     phaseTypeCheck :: State ProgramState ()
     phaseTypeCheck = modify' $ \ps -> do
 
@@ -125,6 +149,8 @@ pipe = do
            , getInferred      = inferred
            }
 
+=======
+>>>>>>> remove old types implementation
     optimise :: State ProgramState ()
     optimise = modify' $ \ps ->
         ps { getOptimised = alphas <$> getModule ps }

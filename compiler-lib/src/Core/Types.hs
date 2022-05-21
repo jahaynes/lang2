@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 {-# LANGUAGE DeriveFunctor #-}
 
 module Core.Types where
@@ -18,3 +19,11 @@ data Polytype s =
     Forall [s] (Type s)
         deriving (Eq, Show)
 
+=======
+module Core.Types where
+
+data Type s = TyVar s
+            | TyCon s
+            | TyArr (Type s) (Type s)
+                deriving (Eq, Show)
+>>>>>>> remove old types implementation

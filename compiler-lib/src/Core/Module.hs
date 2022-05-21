@@ -3,20 +3,18 @@
 module Core.Module where
 
 import Core.Expression
+<<<<<<< HEAD:compiler-lib/src/Core/Module.hs
 import Core.Types
+=======
+>>>>>>> remove old types implementation:compiler-lib/src/Core/Module.hs
 
 data Module s =
     Module { getDataDefns :: [DataDefn s]
-           , getTypeSigs  :: [TypeSig s]
            , getFunDefns  :: [FunDefn s]
            } deriving (Functor, Show)
 
 data DataDefn s =
     DataDefn s [s] [DataCon s]
-        deriving (Functor, Show)
-
-data TypeSig s =
-    TypeSig s (Type s)
         deriving (Functor, Show)
 
 data FunDefn s =
