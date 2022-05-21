@@ -4,8 +4,8 @@ module Optimise.Alpha where
 import           Data.Map        (Map)
 import qualified Data.Map as M
 
-import Core.Definition
 import Core.Expression
+import Core.Module
 import Core.Term
 
 alphas :: Ord s => Module s -> Module s
