@@ -6,7 +6,10 @@ import Core.Expression
 import Core.Module
 <<<<<<< HEAD:compiler-lib/src/Parse/Module.hs
 <<<<<<< HEAD:compiler-lib/src/Parse/Module.hs
+<<<<<<< HEAD:compiler-lib/src/Parse/Module.hs
 import Core.Types
+=======
+>>>>>>> remove old types implementation:compiler-lib/src/Parse/Module.hs
 =======
 >>>>>>> remove old types implementation:compiler-lib/src/Parse/Module.hs
 =======

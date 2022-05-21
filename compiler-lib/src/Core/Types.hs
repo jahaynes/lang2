@@ -2,6 +2,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 {-# LANGUAGE DeriveFunctor #-}
 =======
 {-# LANGUAGE DeriveFunctor, OverloadedStrings #-}
@@ -34,12 +35,15 @@ data Polytype s =
 =======
 =======
 >>>>>>> remove old types implementation
+=======
+>>>>>>> remove old types implementation
 module Core.Types where
 
 data Type s = TyVar s
             | TyCon s
             | TyArr (Type s) (Type s)
                 deriving (Eq, Show)
+<<<<<<< HEAD
 <<<<<<< HEAD
 >>>>>>> remove old types implementation
 =======
@@ -55,3 +59,5 @@ typeString = TyCon "String"
 >>>>>>> remove old types implementation
 =======
 >>>>>>> annotated expressions
+=======
+>>>>>>> remove old types implementation

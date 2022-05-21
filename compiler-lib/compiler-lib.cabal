@@ -19,6 +19,9 @@ library
 =======
   exposed-modules:  Common.State
 <<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> remove old types implementation
+=======
 >>>>>>> remove old types implementation
 =======
 >>>>>>> remove old types implementation
@@ -38,6 +41,7 @@ library
                     Parse.Parser
                     Parse.Token
                     Phase.ClosureConvert
+<<<<<<< HEAD
                     Phase.EtaExpand
                     Phase.LambdaLift
 <<<<<<< HEAD
@@ -48,6 +52,9 @@ library
 =======
 >>>>>>> remove old types implementation
 =======
+>>>>>>> remove old types implementation
+=======
+                    Phase.LambdaLift
 >>>>>>> remove old types implementation
   ghc-options:      -Wall -O2
   hs-source-dirs:   src
@@ -63,7 +70,10 @@ test-suite test-compiler-lib
                       Parse.LexAndParseTest
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
                       TypeCheck.TypeCheckTest
+=======
+>>>>>>> remove old types implementation
 =======
 >>>>>>> remove old types implementation
 =======

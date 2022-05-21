@@ -5,7 +5,10 @@ module Core.Module where
 import Core.Expression
 <<<<<<< HEAD:compiler-lib/src/Core/Module.hs
 <<<<<<< HEAD:compiler-lib/src/Core/Module.hs
+<<<<<<< HEAD:compiler-lib/src/Core/Module.hs
 import Core.Types
+=======
+>>>>>>> remove old types implementation:compiler-lib/src/Core/Module.hs
 =======
 >>>>>>> remove old types implementation:compiler-lib/src/Core/Module.hs
 =======
@@ -16,10 +19,13 @@ data Module s =
            , getFunDefns  :: [FunDefn s]
            } deriving (Functor, Show)
 
+<<<<<<< HEAD:compiler-lib/src/Core/Module.hs
 data TypedModule s =
     TypedModule { getTFunDefns :: [TFunDefn s]
                 } deriving Show
 
+=======
+>>>>>>> remove old types implementation:compiler-lib/src/Core/Module.hs
 data DataDefn s =
     DataDefn s [s] [DataCon s]
         deriving (Functor, Show)
