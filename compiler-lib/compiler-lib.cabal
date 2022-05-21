@@ -18,6 +18,9 @@ library
                     Common.State
 =======
   exposed-modules:  Common.State
+<<<<<<< HEAD
+>>>>>>> remove old types implementation
+=======
 >>>>>>> remove old types implementation
                     Core.Expression
                     Core.Module
@@ -37,9 +40,12 @@ library
                     Phase.ClosureConvert
                     Phase.LambdaLift
 <<<<<<< HEAD
+<<<<<<< HEAD
                     TypeCheck.ConstraintSolver
                     TypeCheck.TypeCheckTypes
                     TypeCheck.TypeInference
+=======
+>>>>>>> remove old types implementation
 =======
 >>>>>>> remove old types implementation
   ghc-options:      -Wall -O2
@@ -55,7 +61,10 @@ test-suite test-compiler-lib
                       Parse.LexerTest
                       Parse.LexAndParseTest
 <<<<<<< HEAD
+<<<<<<< HEAD
                       TypeCheck.TypeCheckTest
+=======
+>>>>>>> remove old types implementation
 =======
 >>>>>>> remove old types implementation
     type:             exitcode-stdio-1.0

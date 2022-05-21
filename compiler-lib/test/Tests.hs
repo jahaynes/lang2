@@ -5,7 +5,10 @@ import Parse.ExpressionTest    (exprTests)
 import Parse.LexerTest         (lexerTests)
 import Parse.LexAndParseTest   (lexAndParseTests)
 <<<<<<< HEAD
+<<<<<<< HEAD
 import TypeCheck.TypeCheckTest (typeCheckTests)
+=======
+>>>>>>> remove old types implementation
 =======
 >>>>>>> remove old types implementation
 
@@ -15,7 +18,10 @@ main = mapM_ checkParallel [ callGraphTests
                            , lexerTests
                            , lexAndParseTests
 <<<<<<< HEAD
+<<<<<<< HEAD
                            , typeCheckTests
+=======
+>>>>>>> remove old types implementation
 =======
 >>>>>>> remove old types implementation
                            ]

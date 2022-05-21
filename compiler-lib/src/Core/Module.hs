@@ -4,7 +4,10 @@ module Core.Module where
 
 import Core.Expression
 <<<<<<< HEAD:compiler-lib/src/Core/Module.hs
+<<<<<<< HEAD:compiler-lib/src/Core/Module.hs
 import Core.Types
+=======
+>>>>>>> remove old types implementation:compiler-lib/src/Core/Module.hs
 =======
 >>>>>>> remove old types implementation:compiler-lib/src/Core/Module.hs
 
