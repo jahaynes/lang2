@@ -5,6 +5,7 @@
 
 module Service.Controller (runController) where
 
+import Common.CallGraph
 import Common.State
 import Core.Module
 import Optimise.Alpha
@@ -13,10 +14,13 @@ import Parse.Token
 import Phase.ClosureConvert
 import Phase.LambdaLift
 import Pretty.Module
+import TypeCheck.TypeInference
 
 import           Data.Aeson
 import           Data.ByteString             (ByteString)
-import           Data.Text                   (Text)
+import qualified Data.Map as M
+import           Data.Set                    (Set)
+import           Data.Text                   (Text, pack)
 import           Data.Text.Encoding          (decodeUtf8, encodeUtf8)
 import           Data.Vector                 (Vector)
 import           Network.Wai.Handler.Warp    (run)
@@ -30,6 +34,9 @@ data ProgramState =
     ProgramState { getSource           :: Text
                  , getTokens           :: Either ByteString (Vector Token)
                  , getModule           :: Either ByteString (Module ByteString)
+                 , getCallGraph        :: Either ByteString (CallGraph ByteString)
+                 , getTypeCheckPlan    :: Either ByteString [Set ByteString]
+                 , getInferred         :: Either ByteString (PolytypeEnv ByteString)
                  , getOptimised        :: Either ByteString (Module ByteString)
                  , getClosureConverted :: Either ByteString (Module ByteString)
                  , getLambdaLifted     :: Either ByteString (Module ByteString)
@@ -42,6 +49,9 @@ instance ToJSON ProgramState where
         let txtTokens                 = decodeUtf8 $ either id tokensToByteString (getTokens ps)
             txtDefns                  = either decodeUtf8 moduleToText (getModule ps)
             txtPrettyDefns            = either decodeUtf8 render (getModule ps)
+            txtCallGraph              = either decodeUtf8 (pack . show) (getCallGraph ps)
+            txtTypeCheckPlan          = either decodeUtf8 (pack . show) (getTypeCheckPlan ps)
+            txtInferred               = either decodeUtf8 (\(PolytypeEnv e) -> pack . unlines . map show $ M.toList e) (getInferred ps)
             txtOptimised              = either decodeUtf8 moduleToText (getOptimised ps)
             txtPrettyOptimised        = either decodeUtf8 render (getOptimised ps)
             txtClosureConverted       = either decodeUtf8 moduleToText (getClosureConverted ps)
@@ -52,6 +62,9 @@ instance ToJSON ProgramState where
         object [ "tokens"                 .= String txtTokens
                , "defns"                  .= String txtDefns
                , "prettyDefns"            .= String txtPrettyDefns
+               , "callGraph"              .= String txtCallGraph
+               , "typeCheckPlan"          .= String txtTypeCheckPlan
+               , "inferred"               .= String txtInferred
                , "optimised"              .= String txtOptimised
                , "prettyOptimised"        .= String txtPrettyOptimised
                , "closureConverted"       .= String txtClosureConverted
@@ -61,7 +74,7 @@ instance ToJSON ProgramState where
                ]
 
 fromSource :: Text -> ProgramState
-fromSource txt = ProgramState txt na na na na na
+fromSource txt = ProgramState txt na na na na na na na na
     where
     na = Left "Not Available"
 
@@ -79,6 +92,7 @@ transform = execState pipe
 pipe :: State ProgramState ()
 pipe = do
     lexAndParser
+    phaseTypeCheck
     optimise
     phaseClosureConvert
     phaseLambdaLift
@@ -90,6 +104,26 @@ pipe = do
         in ps { getTokens = eTokens
               , getModule = eMd
               }
+
+    phaseTypeCheck :: State ProgramState ()
+    phaseTypeCheck = modify' $ \ps -> do
+
+        let eModule       = getModule ps
+            callGraph     = buildGraph <$> eModule
+            typeCheckPlan = do
+                cg <- callGraph
+                md <- eModule
+                planExcludingPretyped md cg
+
+        let inferred = do
+                md  <- eModule
+                tcp <- typeCheckPlan
+                inferModule md tcp
+
+        ps { getCallGraph     = callGraph
+           , getTypeCheckPlan = typeCheckPlan
+           , getInferred      = inferred
+           }
 
     optimise :: State ProgramState ()
     optimise = modify' $ \ps ->
