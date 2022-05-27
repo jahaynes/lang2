@@ -10,8 +10,6 @@ import Core.Term
 import Core.Types
 import TypeCheck.TypeInference
 
-import           Data.Map        ((!))
-import qualified Data.Map as M
 import qualified Data.Set as S
 import           Hedgehog hiding (Var)
 
@@ -46,12 +44,22 @@ test_generalisations = unitTest $ do
                                      , FunDefn "snd" (ELam ["x","y"] (ETerm (Var "y"))) ]
                     }
 
-    let Right (PolytypeEnv env) =
+    let Right (TypedModule tfunDefns) =
             inferModule md [S.fromList ["fst", "snd"]]
 
-    M.size env  === 2
-    env ! "fst" === Forall ["a", "b"] (TyArr (TyVar "a") (TyArr (TyVar "b") (TyVar "a")))
-    env ! "snd" === Forall ["a", "b"] (TyArr (TyVar "a") (TyArr (TyVar "b") (TyVar "b")))
+    length tfunDefns  === 2
+
+    let [fstType] = map (\(TFunDefn t _ _) -> t)
+                  . filter (\(TFunDefn _ n _) -> n == "fst")
+                  $ tfunDefns
+
+    fstType === Forall ["a", "b"] (TyArr (TyVar "a") (TyArr (TyVar "b") (TyVar "a")))
+
+    let [sndType] = map (\(TFunDefn t _ _) -> t)
+                  . filter (\(TFunDefn _ n _) -> n == "snd")
+                  $ tfunDefns
+
+    sndType === Forall ["a", "b"] (TyArr (TyVar "a") (TyArr (TyVar "b") (TyVar "b")))
 
 test_top_level_recursion :: Property
 test_top_level_recursion = unitTest $ do
@@ -67,10 +75,12 @@ test_top_level_recursion = unitTest $ do
                     , getTypeSigs  = []
                     , getFunDefns  = [ fundefn ] }
 
-    let Right (PolytypeEnv env) =
+    let Right (TypedModule tfunDefns) =
             inferModule md [S.singleton "countDown"]
 
-    M.toList env === [("countDown",Forall [] (TyArr (TyCon "Int") (TyCon "String")))]
+    let [typ] = map (\(TFunDefn t _ _) -> t) tfunDefns
+
+    typ === Forall [] (TyArr (TyCon "Int") (TyCon "String"))
 
 test_nested_recursion :: Property
 test_nested_recursion = unitTest $ do
@@ -90,10 +100,12 @@ test_nested_recursion = unitTest $ do
                     , getTypeSigs  = []
                     , getFunDefns  = [ fundefn ] }
 
-    let Right (PolytypeEnv env) =
+    let Right (TypedModule tfunDefns) =
             inferModule md [S.singleton "summorial"]
 
-    M.toList env === [("summorial",Forall [] (TyArr (TyCon "Int") (TyCon "Int")))]
+    let [typ] = map (\(TFunDefn t _ _) -> t) tfunDefns
+
+    typ === Forall [] (TyArr (TyCon "Int") (TyCon "Int"))
 
 test_mutual_recursion :: Property
 test_mutual_recursion = unitTest $ do
@@ -112,14 +124,14 @@ test_mutual_recursion = unitTest $ do
                     , getTypeSigs  = [ TypeSig "not" (TyCon "Bool" `TyArr` TyCon "Bool") ]
                     , getFunDefns  = [ yep, yesnt ] }
 
-    let Right (PolytypeEnv env) =
+    let Right (TypedModule tfunDefns) =
             inferModule md [S.fromList ["yep", "yesnt"]]
 
+    let types = map (\(TFunDefn t _ _) -> t) tfunDefns
 
-    env === M.fromList [ ( "not",   Forall    [] (TyCon "Bool" `TyArr` TyCon "Bool") )
-                       , ( "yep",   Forall ["a"] (TyVar "a"    `TyArr` TyCon "Bool") )
-                       , ( "yesnt", Forall ["a"] (TyVar "a"    `TyArr` TyCon "Bool") )
-                       ]
+    types === [ Forall ["a"] (TyVar "a" `TyArr` TyCon "Bool")
+              , Forall ["a"] (TyVar "a" `TyArr` TyCon "Bool")
+              ]
 
 unitTest :: PropertyT IO () -> Property
 unitTest = withTests 1 . property

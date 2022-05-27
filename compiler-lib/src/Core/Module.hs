@@ -16,6 +16,10 @@ data Module s =
            , getFunDefns  :: [FunDefn s]
            } deriving (Functor, Show)
 
+data TypedModule s =
+    TypedModule { getTFunDefns :: [TFunDefn s]
+                } deriving Show
+
 data DataDefn s =
     DataDefn s [s] [DataCon s]
         deriving (Functor, Show)
@@ -23,6 +27,10 @@ data DataDefn s =
 data FunDefn s =
     FunDefn s (Expr s)
         deriving (Eq, Functor, Show)
+
+data TFunDefn s =
+    TFunDefn (Polytype s) s (AExpr (Type s) s)
+        deriving (Eq, Show)
 
 data DataCon s =
     DataCon s [Member s]

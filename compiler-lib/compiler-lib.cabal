@@ -38,6 +38,7 @@ library
                     Parse.Parser
                     Parse.Token
                     Phase.ClosureConvert
+                    Phase.EtaExpand
                     Phase.LambdaLift
 <<<<<<< HEAD
 <<<<<<< HEAD

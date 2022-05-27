@@ -17,7 +17,7 @@ class App extends React.Component {
     const expressionsPretty      = this.getAndClearElement("expressionsPretty");
     const callGraph              = this.getAndClearElement("callGraph");
     const typeCheckPlan          = this.getAndClearElement("typeCheckPlan");
-    const inferred               = this.getAndClearElement("inferred");
+    const typedModule            = this.getAndClearElement("typedModule");
     const etaExpanded            = this.getAndClearElement("etaExpanded");
     const saturated              = this.getAndClearElement("saturated");
     const contified              = this.getAndClearElement("contified");
@@ -37,7 +37,7 @@ class App extends React.Component {
         expressionsPretty.value      = ts.prettyDefns;
         callGraph.value              = ts.callGraph;
         typeCheckPlan.value          = ts.typeCheckPlan;
-        inferred.value               = ts.inferred;
+        typedModule.value            = ts.typedModule;
         etaExpanded.value            = ts.etaExpanded;
         saturated.value              = ts.saturated;
         contified.value              = ts.contified;
@@ -75,7 +75,7 @@ class App extends React.Component {
 
         <label>Typechecking</label>
         <div>
-          <textarea id='inferred' className='editor' spellCheck='false' rows='14'></textarea>
+          <textarea id='typedModule' className='editor' spellCheck='false' rows='14'></textarea>
         </div>
 
         <label>Eta Expanded / Saturated </label>

@@ -31,22 +31,26 @@ newtype PolytypeEnv s =
 
 inferModule :: Module ByteString
             -> [Set ByteString]
-            -> Either ByteString (PolytypeEnv ByteString)
+            -> Either ByteString (TypedModule ByteString)
 inferModule md = do
 
-    let funDefnMap = M.fromList . map (\(FunDefn n e) -> (n, e)) $ getFunDefns md
+    let funDefnMap = M.fromList
+                   . map (\(FunDefn n e) -> (n, e))
+                   $ getFunDefns md
 
-        polyTypeEnv = PolytypeEnv (foldr (\(TypeSig n t) -> M.insert n (closeOver t)) M.empty $ getTypeSigs md)
+        polyTypeEnv = PolytypeEnv
+                    . foldr (\(TypeSig n t) -> M.insert n (closeOver t)) M.empty
+                    $ getTypeSigs md
 
-    go funDefnMap polyTypeEnv
+    go [] funDefnMap polyTypeEnv
 
     where
-    go       _ env [] = Right env
-    go defnMap env (p:ps) = do
+    go acc       _   _     [] = Right $ TypedModule { getTFunDefns = acc }
+    go acc defnMap env (p:ps) = do
 
         let ns = S.toList p
 
-        let (tycs, st'') =
+        let (tycs, st) =
 
                 runState' (InferState 0 [] env) $ do
 
@@ -67,9 +71,15 @@ inferModule md = do
 
         subst <- runSolve cs
 
-        let tys = map (\(n, ((te, t), _)) -> (n, closeOver $ substituteType subst t)) tycs
-            env' = PolytypeEnv (let PolytypeEnv e = polytypeEnv st'' in foldr (\(n,pt) -> M.insert n pt) e tys)
-        go defnMap env' ps
+        let tys = map (\(n, ((_, t), _)) -> (n, closeOver $ substituteType subst t)) tycs
+
+            PolytypeEnv e = polytypeEnv st
+
+            env' = PolytypeEnv $ foldr (\(n, pt) -> M.insert n pt) e tys
+
+            foos = map (\(n, ((texpr, t), _)) -> TFunDefn (closeOver $ substituteType subst t) n (mapAnnot (substituteType subst    ) texpr)) tycs
+
+        go (foos ++ acc) defnMap env' ps
 
 lookupPolytype :: ByteString -> State (InferState ByteString) (Type ByteString)
 lookupPolytype x = do

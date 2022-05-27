@@ -12,6 +12,7 @@ import Optimise.Alpha
 import Parse.LexAndParse
 import Parse.Token
 import Phase.ClosureConvert
+import Phase.EtaExpand
 import Phase.LambdaLift
 import Pretty.Module
 <<<<<<< HEAD
@@ -20,7 +21,6 @@ import TypeCheck.TypeInference
 
 import           Data.Aeson
 import           Data.ByteString             (ByteString)
-import qualified Data.Map as M
 import           Data.Set                    (Set)
 import           Data.Text                   (Text, pack)
 =======
@@ -52,11 +52,16 @@ data ProgramState =
 <<<<<<< HEAD
                  , getCallGraph        :: Either ByteString (CallGraph ByteString)
                  , getTypeCheckPlan    :: Either ByteString [Set ByteString]
+<<<<<<< HEAD
                  , getInferred         :: Either ByteString (PolytypeEnv ByteString)
 =======
 >>>>>>> remove old types implementation
 =======
 >>>>>>> remove old types implementation
+=======
+                 , getTypedModule      :: Either ByteString (TypedModule ByteString)
+                 , getEtaExpanded      :: Either ByteString (TypedModule ByteString)
+>>>>>>> eta expansion
                  , getOptimised        :: Either ByteString (Module ByteString)
                  , getClosureConverted :: Either ByteString (Module ByteString)
                  , getLambdaLifted     :: Either ByteString (Module ByteString)
@@ -73,11 +78,16 @@ instance ToJSON ProgramState where
 <<<<<<< HEAD
             txtCallGraph              = either decodeUtf8 (pack . show) (getCallGraph ps)
             txtTypeCheckPlan          = either decodeUtf8 (pack . show) (getTypeCheckPlan ps)
+<<<<<<< HEAD
             txtInferred               = either decodeUtf8 (\(PolytypeEnv e) -> pack . unlines . map show $ M.toList e) (getInferred ps)
 =======
 >>>>>>> remove old types implementation
 =======
 >>>>>>> remove old types implementation
+=======
+            txtTypedModule            = either decodeUtf8 (pack . unlines . map show . getTFunDefns) (getTypedModule ps)
+            txtEtaExpanded            = either decodeUtf8 (pack . unlines . map show . getTFunDefns) (getEtaExpanded ps)
+>>>>>>> eta expansion
             txtOptimised              = either decodeUtf8 moduleToText (getOptimised ps)
             txtPrettyOptimised        = either decodeUtf8 render (getOptimised ps)
             txtClosureConverted       = either decodeUtf8 moduleToText (getClosureConverted ps)
@@ -92,11 +102,16 @@ instance ToJSON ProgramState where
 <<<<<<< HEAD
                , "callGraph"              .= String txtCallGraph
                , "typeCheckPlan"          .= String txtTypeCheckPlan
+<<<<<<< HEAD
                , "inferred"               .= String txtInferred
 =======
 >>>>>>> remove old types implementation
 =======
 >>>>>>> remove old types implementation
+=======
+               , "typedModule"            .= String txtTypedModule
+               , "etaExpanded"            .= String txtEtaExpanded
+>>>>>>> eta expansion
                , "optimised"              .= String txtOptimised
                , "prettyOptimised"        .= String txtPrettyOptimised
                , "closureConverted"       .= String txtClosureConverted
@@ -108,6 +123,7 @@ instance ToJSON ProgramState where
 fromSource :: Text -> ProgramState
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 fromSource txt = ProgramState txt na na na na na na na na
 =======
 fromSource txt = ProgramState txt na na na na na
@@ -115,6 +131,9 @@ fromSource txt = ProgramState txt na na na na na
 =======
 fromSource txt = ProgramState txt na na na na na
 >>>>>>> remove old types implementation
+=======
+fromSource txt = ProgramState txt na na na na na na na na na
+>>>>>>> eta expansion
     where
     na = Left "Not Available"
 
@@ -135,13 +154,16 @@ pipe = do
 <<<<<<< HEAD
 <<<<<<< HEAD
     phaseTypeCheck
+<<<<<<< HEAD
 =======
 >>>>>>> remove old types implementation
 =======
 >>>>>>> remove old types implementation
+=======
+    phaseEtaExpand
+>>>>>>> eta expansion
     optimise
     phaseClosureConvert
-    phaseLambdaLift
 
     where
     lexAndParser :: State ProgramState ()
@@ -163,20 +185,27 @@ pipe = do
                 md <- eModule
                 planExcludingPretyped md cg
 
-        let inferred = do
+        let typedModule = do
                 md  <- eModule
                 tcp <- typeCheckPlan
                 inferModule md tcp
 
         ps { getCallGraph     = callGraph
            , getTypeCheckPlan = typeCheckPlan
-           , getInferred      = inferred
+           , getTypedModule   = typedModule
            }
 
+<<<<<<< HEAD
 =======
 >>>>>>> remove old types implementation
 =======
 >>>>>>> remove old types implementation
+=======
+    phaseEtaExpand :: State ProgramState ()
+    phaseEtaExpand = modify' $ \ps ->
+        ps { getEtaExpanded = etaExpand <$> getTypedModule ps }
+
+>>>>>>> eta expansion
     optimise :: State ProgramState ()
     optimise = modify' $ \ps ->
         ps { getOptimised = alphas <$> getModule ps }
@@ -185,8 +214,8 @@ pipe = do
     phaseClosureConvert = modify' $ \ps ->
         ps { getClosureConverted = closureConvert <$> getOptimised ps }
 
-    phaseLambdaLift :: State ProgramState ()
-    phaseLambdaLift = modify' $ \ps ->
+    _phaseLambdaLift :: State ProgramState ()
+    _phaseLambdaLift = modify' $ \ps ->
         ps { getLambdaLifted = lambdaLift <$> getClosureConverted ps }
 
 runController :: Int -> IO ()
