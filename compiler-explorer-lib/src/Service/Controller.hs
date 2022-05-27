@@ -12,6 +12,7 @@ import Optimise.Alpha
 import Parse.LexAndParse
 import Parse.Token
 import Phase.ClosureConvert
+import Phase.EtaExpand
 import Phase.LambdaLift
 import Pretty.Module
 <<<<<<< HEAD
@@ -60,6 +61,7 @@ data ProgramState =
                  , getCallGraph        :: Either ByteString (CallGraph ByteString)
                  , getTypeCheckPlan    :: Either ByteString [Set ByteString]
 <<<<<<< HEAD
+<<<<<<< HEAD
                  , getInferred         :: Either ByteString (PolytypeEnv ByteString)
 =======
 >>>>>>> remove old types implementation
@@ -71,6 +73,10 @@ data ProgramState =
 >>>>>>> eta expansion
 =======
 >>>>>>> remove old types implementation
+=======
+                 , getTypedModule      :: Either ByteString (TypedModule ByteString)
+                 , getEtaExpanded      :: Either ByteString (TypedModule ByteString)
+>>>>>>> eta expansion
                  , getOptimised        :: Either ByteString (Module ByteString)
                  , getClosureConverted :: Either ByteString (Module ByteString)
                  , getLambdaLifted     :: Either ByteString (Module ByteString)
@@ -89,6 +95,7 @@ instance ToJSON ProgramState where
             txtCallGraph              = either decodeUtf8 (pack . show) (getCallGraph ps)
             txtTypeCheckPlan          = either decodeUtf8 (pack . show) (getTypeCheckPlan ps)
 <<<<<<< HEAD
+<<<<<<< HEAD
             txtInferred               = either decodeUtf8 (\(PolytypeEnv e) -> pack . unlines . map show $ M.toList e) (getInferred ps)
 =======
 >>>>>>> remove old types implementation
@@ -100,6 +107,10 @@ instance ToJSON ProgramState where
 >>>>>>> eta expansion
 =======
 >>>>>>> remove old types implementation
+=======
+            txtTypedModule            = either decodeUtf8 (pack . unlines . map show . getTFunDefns) (getTypedModule ps)
+            txtEtaExpanded            = either decodeUtf8 (pack . unlines . map show . getTFunDefns) (getEtaExpanded ps)
+>>>>>>> eta expansion
             txtOptimised              = either decodeUtf8 moduleToText (getOptimised ps)
             txtPrettyOptimised        = either decodeUtf8 render (getOptimised ps)
             txtClosureConverted       = either decodeUtf8 moduleToText (getClosureConverted ps)
@@ -116,6 +127,7 @@ instance ToJSON ProgramState where
                , "callGraph"              .= String txtCallGraph
                , "typeCheckPlan"          .= String txtTypeCheckPlan
 <<<<<<< HEAD
+<<<<<<< HEAD
                , "inferred"               .= String txtInferred
 =======
 >>>>>>> remove old types implementation
@@ -127,6 +139,10 @@ instance ToJSON ProgramState where
 >>>>>>> eta expansion
 =======
 >>>>>>> remove old types implementation
+=======
+               , "typedModule"            .= String txtTypedModule
+               , "etaExpanded"            .= String txtEtaExpanded
+>>>>>>> eta expansion
                , "optimised"              .= String txtOptimised
                , "prettyOptimised"        .= String txtPrettyOptimised
                , "closureConverted"       .= String txtClosureConverted
@@ -136,6 +152,7 @@ instance ToJSON ProgramState where
                ]
 
 fromSource :: Text -> ProgramState
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -153,6 +170,9 @@ fromSource txt = ProgramState txt na na na na na na na na na
 =======
 fromSource txt = ProgramState txt na na na na na
 >>>>>>> remove old types implementation
+=======
+fromSource txt = ProgramState txt na na na na na na na na na
+>>>>>>> eta expansion
     where
     na = Left "Not Available"
 
@@ -175,6 +195,7 @@ pipe = do
 <<<<<<< HEAD
     phaseTypeCheck
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> remove old types implementation
 =======
@@ -184,6 +205,9 @@ pipe = do
 >>>>>>> eta expansion
 =======
 >>>>>>> remove old types implementation
+=======
+    phaseEtaExpand
+>>>>>>> eta expansion
     optimise
     phaseClosureConvert
 
@@ -219,18 +243,24 @@ pipe = do
            }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> remove old types implementation
 =======
 >>>>>>> remove old types implementation
 =======
+=======
+>>>>>>> eta expansion
     phaseEtaExpand :: State ProgramState ()
     phaseEtaExpand = modify' $ \ps ->
         ps { getEtaExpanded = etaExpand <$> getTypedModule ps }
 
+<<<<<<< HEAD
 >>>>>>> eta expansion
 =======
 >>>>>>> remove old types implementation
+=======
+>>>>>>> eta expansion
     optimise :: State ProgramState ()
     optimise = modify' $ \ps ->
         ps { getOptimised = alphas <$> getModule ps }

@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 module Phase.EtaExpand (etaExpand) where
 
 import Common.State
@@ -7,6 +8,8 @@ import Core.Term
 import TypeCheck.TypedExpression
 import TypeCheck.Types
 =======
+=======
+>>>>>>> eta expansion
 module Phase.EtaExpand where
 
 import Common.State
@@ -14,11 +17,15 @@ import Core.Expression
 import Core.Module
 import Core.Term
 import Core.Types
+<<<<<<< HEAD
+>>>>>>> eta expansion
+=======
 >>>>>>> eta expansion
 
 import Control.Monad         (replicateM)
 import Data.ByteString.Char8 (ByteString, pack)
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 etaExpand :: TypedModule Scheme ByteString -> TypedModule Scheme ByteString
 etaExpand md = md { getFunDefnsT = evalState (mapM etaExpand' $ getFunDefnsT md) 0 }
@@ -73,6 +80,8 @@ retype (Forall vs (TyArr t1 t2)) (f:xs) =
     TermT (Forall vs t1) f : retype (Forall vs t2) xs
 retype _ _ = error "Bad retype input"
 =======
+=======
+>>>>>>> eta expansion
 etaExpand :: TypedModule ByteString -> TypedModule ByteString
 etaExpand md = md { getTFunDefns = fst $ runState (mapM etaExpand' $ getTFunDefns md) 0 }
 
@@ -211,4 +220,7 @@ applyTypes = go
 
     underApplied acc (TyArr a b) = underApplied (a:acc) b
     underApplied acc           _ = UnderApplied $ reverse acc
+<<<<<<< HEAD
+>>>>>>> eta expansion
+=======
 >>>>>>> eta expansion

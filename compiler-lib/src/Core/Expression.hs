@@ -31,6 +31,9 @@ data AExpr a s = ATerm a (Term s)
                | ACallClo a s [s]
                    deriving (Eq, Functor, Show)
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> eta expansion
 
 annot :: AExpr a s -> a
 annot expr =
@@ -57,5 +60,8 @@ mapAnnot f expr =
       AIfThenElse a pr tr fa -> AIfThenElse (f a) (mapAnnot f pr) (mapAnnot f tr) (mapAnnot f fa)
       AClo{}                 -> error "closure"
       ACallClo{}             -> error "call closure"
+<<<<<<< HEAD
 =======
 >>>>>>> annotated expressions
+=======
+>>>>>>> eta expansion

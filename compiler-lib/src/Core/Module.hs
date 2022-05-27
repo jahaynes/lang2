@@ -19,13 +19,19 @@ data Module s =
            , getFunDefns  :: [FunDefn s]
            } deriving (Functor, Show)
 
+<<<<<<< HEAD
 <<<<<<< HEAD:compiler-lib/src/Core/Module.hs
+=======
+>>>>>>> eta expansion
 data TypedModule s =
     TypedModule { getTFunDefns :: [TFunDefn s]
                 } deriving Show
 
+<<<<<<< HEAD
 =======
 >>>>>>> remove old types implementation:compiler-lib/src/Core/Module.hs
+=======
+>>>>>>> eta expansion
 data DataDefn s =
     DataDefn s [s] [DataCon s]
         deriving (Functor, Show)

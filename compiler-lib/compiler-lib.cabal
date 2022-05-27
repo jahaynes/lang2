@@ -42,6 +42,9 @@ library
                     Parse.Token
                     Phase.ClosureConvert
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> eta expansion
                     Phase.EtaExpand
                     Phase.LambdaLift
 <<<<<<< HEAD

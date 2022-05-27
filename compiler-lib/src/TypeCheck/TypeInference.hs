@@ -32,10 +32,14 @@ newtype PolytypeEnv s =
 inferModule :: Module ByteString
             -> [Set ByteString]
 <<<<<<< HEAD
+<<<<<<< HEAD
             -> Either ByteString (TypedModule ByteString)
 =======
             -> Either ByteString (PolytypeEnv ByteString)
 >>>>>>> annotated expressions
+=======
+            -> Either ByteString (TypedModule ByteString)
+>>>>>>> eta expansion
 inferModule md = do
 
     let funDefnMap = M.fromList
@@ -76,6 +80,9 @@ inferModule md = do
         subst <- runSolve cs
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> eta expansion
         let tys = map (\(n, ((_, t), _)) -> (n, closeOver $ substituteType subst t)) tycs
 
             PolytypeEnv e = polytypeEnv st
@@ -85,11 +92,14 @@ inferModule md = do
             foos = map (\(n, ((texpr, t), _)) -> TFunDefn (closeOver $ substituteType subst t) n (mapAnnot (substituteType subst    ) texpr)) tycs
 
         go (foos ++ acc) defnMap env' ps
+<<<<<<< HEAD
 =======
         let tys = map (\(n, ((te, t), _)) -> (n, closeOver $ substituteType subst t)) tycs
             env' = PolytypeEnv (let PolytypeEnv e = polytypeEnv st'' in foldr (\(n,pt) -> M.insert n pt) e tys)
         go defnMap env' ps
 >>>>>>> annotated expressions
+=======
+>>>>>>> eta expansion
 
 lookupPolytype :: ByteString -> State (InferState ByteString) (Type ByteString)
 lookupPolytype x = do
