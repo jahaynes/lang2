@@ -43,8 +43,12 @@ library
                     Phase.ClosureConvert
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> eta expansion
+=======
+                    Phase.DropTypes
+>>>>>>> drop types
                     Phase.EtaExpand
                     Phase.LambdaLift
 <<<<<<< HEAD

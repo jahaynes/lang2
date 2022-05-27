@@ -8,12 +8,10 @@ module Service.Controller (runController) where
 import Common.CallGraph
 import Common.State
 import Core.Module
-import Optimise.Alpha
 import Parse.LexAndParse
 import Parse.Token
-import Phase.ClosureConvert
+import Phase.DropTypes
 import Phase.EtaExpand
-import Phase.LambdaLift
 import Pretty.Module
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -70,6 +68,7 @@ data ProgramState =
 =======
                  , getTypedModule      :: Either ByteString (TypedModule ByteString)
                  , getEtaExpanded      :: Either ByteString (TypedModule ByteString)
+<<<<<<< HEAD
 >>>>>>> eta expansion
 =======
 >>>>>>> remove old types implementation
@@ -80,6 +79,9 @@ data ProgramState =
                  , getOptimised        :: Either ByteString (Module ByteString)
                  , getClosureConverted :: Either ByteString (Module ByteString)
                  , getLambdaLifted     :: Either ByteString (Module ByteString)
+=======
+                 , getDroppedTypes     :: Either ByteString [FunDefn ByteString]
+>>>>>>> drop types
                  }
 
 instance ToJSON ProgramState where
@@ -110,6 +112,7 @@ instance ToJSON ProgramState where
 =======
             txtTypedModule            = either decodeUtf8 (pack . unlines . map show . getTFunDefns) (getTypedModule ps)
             txtEtaExpanded            = either decodeUtf8 (pack . unlines . map show . getTFunDefns) (getEtaExpanded ps)
+<<<<<<< HEAD
 >>>>>>> eta expansion
             txtOptimised              = either decodeUtf8 moduleToText (getOptimised ps)
             txtPrettyOptimised        = either decodeUtf8 render (getOptimised ps)
@@ -117,6 +120,9 @@ instance ToJSON ProgramState where
             txtClosureConvertedPretty = either decodeUtf8 render (getClosureConverted ps)
             txtLambdaLifted           = either decodeUtf8 moduleToText (getLambdaLifted ps)
             txtLambdaLiftedPretty     = either decodeUtf8 render (getLambdaLifted ps)
+=======
+            txtDroppedTypes           = either decodeUtf8 (pack . unlines . map show) (getDroppedTypes ps)
+>>>>>>> drop types
 
         object [ "tokens"                 .= String txtTokens
                , "defns"                  .= String txtDefns
@@ -136,6 +142,7 @@ instance ToJSON ProgramState where
 =======
                , "typedModule"            .= String txtTypedModule
                , "etaExpanded"            .= String txtEtaExpanded
+<<<<<<< HEAD
 >>>>>>> eta expansion
 =======
 >>>>>>> remove old types implementation
@@ -173,6 +180,13 @@ fromSource txt = ProgramState txt na na na na na
 =======
 fromSource txt = ProgramState txt na na na na na na na na na
 >>>>>>> eta expansion
+=======
+               , "droppedTypes"           .= String txtDroppedTypes
+               ]
+
+fromSource :: Text -> ProgramState
+fromSource txt = ProgramState txt na na na na na na na
+>>>>>>> drop types
     where
     na = Left "Not Available"
 
@@ -207,9 +221,13 @@ pipe = do
 >>>>>>> remove old types implementation
 =======
     phaseEtaExpand
+<<<<<<< HEAD
 >>>>>>> eta expansion
     optimise
     phaseClosureConvert
+=======
+    phaseDropTypes
+>>>>>>> drop types
 
     where
     lexAndParser :: State ProgramState ()
@@ -256,6 +274,7 @@ pipe = do
         ps { getEtaExpanded = etaExpand <$> getTypedModule ps }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> eta expansion
 =======
 >>>>>>> remove old types implementation
@@ -272,6 +291,11 @@ pipe = do
     _phaseLambdaLift :: State ProgramState ()
     _phaseLambdaLift = modify' $ \ps ->
         ps { getLambdaLifted = lambdaLift <$> getClosureConverted ps }
+=======
+    phaseDropTypes :: State ProgramState ()
+    phaseDropTypes = modify' $ \ps ->
+        ps { getDroppedTypes = map dropTypes . getTFunDefns <$> getEtaExpanded ps }
+>>>>>>> drop types
 
 runController :: Int -> IO ()
 runController port = run port . simpleCors $ serve (Proxy :: Proxy Api) server 

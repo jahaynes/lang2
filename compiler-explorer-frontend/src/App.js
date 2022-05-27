@@ -11,43 +11,28 @@ class App extends React.Component {
   }
 
   lexAndParse() {
-    const source                 = document.getElementById("text");
-    const tokens                 = this.getAndClearElement("tokens");
-    const expressions            = this.getAndClearElement("expressions");
-    const expressionsPretty      = this.getAndClearElement("expressionsPretty");
-    const callGraph              = this.getAndClearElement("callGraph");
-    const typeCheckPlan          = this.getAndClearElement("typeCheckPlan");
-    const typedModule            = this.getAndClearElement("typedModule");
-    const etaExpanded            = this.getAndClearElement("etaExpanded");
-    const saturated              = this.getAndClearElement("saturated");
-    const contified              = this.getAndClearElement("contified");
-    const contifiedPretty        = this.getAndClearElement("contifiedPretty");
-    const optimised              = this.getAndClearElement("optimised");
-    const optimisedPretty        = this.getAndClearElement("optimisedPretty");
-    const closureConverted       = this.getAndClearElement("closureConverted");
-    const closureConvertedPretty = this.getAndClearElement("closureConvertedPretty");
-    const lambdaLifted           = this.getAndClearElement("lambdaLifted");
-    const lambdaLiftedPretty     = this.getAndClearElement("lambdaLiftedPretty");
+    const source        = document.getElementById("text");
+
+    const tokens        = this.getAndClearElement("tokens");
+    const defns         = this.getAndClearElement("defns");
+    const prettyDefns   = this.getAndClearElement("prettyDefns");
+    const callGraph     = this.getAndClearElement("callGraph");
+    const typeCheckPlan = this.getAndClearElement("typeCheckPlan");
+    const typedModule   = this.getAndClearElement("typedModule");
+    const etaExpanded   = this.getAndClearElement("etaExpanded");
+    const droppedTypes  = this.getAndClearElement("droppedTypes");
 
     fetch("http://127.0.0.1:8080/lexAndParse", { method: 'POST', body: source.value })
       .then(resp => resp.json())
       .then((ts) => {
-        tokens.value                 = ts.tokens;
-        expressions.value            = ts.defns;
-        expressionsPretty.value      = ts.prettyDefns;
-        callGraph.value              = ts.callGraph;
-        typeCheckPlan.value          = ts.typeCheckPlan;
-        typedModule.value            = ts.typedModule;
-        etaExpanded.value            = ts.etaExpanded;
-        saturated.value              = ts.saturated;
-        contified.value              = ts.contified;
-        contifiedPretty.value        = ts.prettyContified;
-        optimised.value              = ts.optimised;
-        optimisedPretty.value        = ts.prettyOptimised;
-        closureConverted.value       = ts.closureConverted;
-        closureConvertedPretty.value = ts.closureConvertedPretty;
-        lambdaLifted.value           = ts.lambdaLifted;
-        lambdaLiftedPretty.value     = ts.lambdaLiftedPretty;
+        tokens.value        = ts.tokens;
+        defns.value         = ts.defns;
+        prettyDefns.value   = ts.prettyDefns;
+        callGraph.value     = ts.callGraph;
+        typeCheckPlan.value = ts.typeCheckPlan;
+        typedModule.value   = ts.typedModule;
+        etaExpanded.value   = ts.etaExpanded;
+        droppedTypes.value  = ts.droppedTypes;
       })
   }
 
@@ -63,8 +48,8 @@ class App extends React.Component {
 
         <label>Definitions / Pretty</label>
         <div>
-          <textarea id='expressions' className='editor' spellCheck='false' rows='14'></textarea>
-          <textarea id='expressionsPretty' className='editor' spellCheck='false' rows='14'></textarea>
+          <textarea id='defns' className='editor' spellCheck='false' rows='14'></textarea>
+          <textarea id='prettyDefns' className='editor' spellCheck='false' rows='14'></textarea>
         </div>
 
         <label>Call Graph / Typecheck Plan</label>
@@ -78,34 +63,14 @@ class App extends React.Component {
           <textarea id='typedModule' className='editor' spellCheck='false' rows='14'></textarea>
         </div>
 
-        <label>Eta Expanded / Saturated </label>
+        <label>Eta Expanded</label>
         <div>
           <textarea id='etaExpanded' className='editor' spellCheck='false' rows='14'></textarea>
-          <textarea id='saturated' className='editor' spellCheck='false' rows='14'></textarea>
         </div>
 
-        <label>Contified / Pretty</label>
+        <label>Dropped types</label>
         <div>
-          <textarea id='contified' className='editor' spellCheck='false' rows='14'></textarea>
-          <textarea id='contifiedPretty' className='editor' spellCheck='false' rows='14'></textarea>
-        </div>
-
-        <label>Optimised</label>
-        <div>
-          <textarea id='optimised' className='editor' spellCheck='false' rows='14'></textarea>
-          <textarea id='optimisedPretty' className='editor' spellCheck='false' rows='14'></textarea>
-        </div>
-
-        <label>Closure Converted</label>
-        <div>
-          <textarea id='closureConverted' className='editor' spellCheck='false' rows='14'></textarea>
-          <textarea id='closureConvertedPretty' className='editor' spellCheck='false' rows='14'></textarea>
-        </div>
-
-        <label>Lambda Lifted</label>
-        <div>
-          <textarea id='lambdaLifted' className='editor' spellCheck='false' rows='14'></textarea>
-          <textarea id='lambdaLiftedPretty' className='editor' spellCheck='false' rows='14'></textarea>
+          <textarea id='droppedTypes' className='editor' spellCheck='false' rows='14'></textarea>
         </div>
 
       </div>
