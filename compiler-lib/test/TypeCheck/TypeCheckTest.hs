@@ -30,9 +30,9 @@ test_primitives = unitTest $ do
     let st = InferState 0 mempty (PolytypeEnv mempty)
 
     let r = fst $ runState' st $ do
-                (ity, ics) <- infer $ ETerm (LitInt 0)
-                (bty, bcs) <- infer $ ETerm (LitBool True)
-                (sty, scs) <- infer $ ETerm (LitString "str")
+                (_, ity, ics) <- infer $ ETerm (LitInt 0)
+                (_, bty, bcs) <- infer $ ETerm (LitBool True)
+                (_, sty, scs) <- infer $ ETerm (LitString "str")
                 pure (ity, bty, sty, ics ++ bcs ++ scs)
 
     r === (TyCon "Int", TyCon "Bool", TyCon "String", [])

@@ -29,7 +29,9 @@ newtype PolytypeEnv s =
     PolytypeEnv (Map s (Polytype s))
        deriving Show
 
-inferModule :: Module ByteString -> [Set ByteString] -> Either ByteString (PolytypeEnv ByteString)
+inferModule :: Module ByteString
+            -> [Set ByteString]
+            -> Either ByteString (PolytypeEnv ByteString)
 inferModule md = do
 
     let funDefnMap = M.fromList . map (\(FunDefn n e) -> (n, e)) $ getFunDefns md
@@ -57,15 +59,15 @@ inferModule md = do
 
                     -- Infer each definition's type (and constrain to the fresh variables)
                     forM nfvs $ \(n, fv) -> do
-                        (ty, cs) <- infer (defnMap ! n)
+                        (te, ty, cs) <- infer (defnMap ! n)
                         let c = Constraint fv ty
-                        pure (n, (ty, c : cs))
+                        pure (n, ((te, ty), c : cs))
 
         let cs = concatMap (snd . snd) tycs
 
         subst <- runSolve cs
 
-        let tys = map (\(n, (t, _)) -> (n, closeOver $ substituteType subst t)) tycs
+        let tys = map (\(n, ((te, t), _)) -> (n, closeOver $ substituteType subst t)) tycs
             env' = PolytypeEnv (let PolytypeEnv e = polytypeEnv st'' in foldr (\(n,pt) -> M.insert n pt) e tys)
         go defnMap env' ps
 
@@ -77,23 +79,25 @@ lookupPolytype x = do
         Just p  -> instantiate p
 
 infer :: Expr ByteString
-      -> State (InferState ByteString) (Type ByteString, [Constraint ByteString])
+      -> State (InferState ByteString) ( AExpr (Type ByteString) ByteString
+                                       , Type ByteString
+                                       , [Constraint ByteString] )
 infer expr =
 
     case expr of
 
-        ETerm (LitBool _) ->
-            pure (TyCon "Bool", [])
+        ETerm b@LitBool{} ->
+            pure (ATerm typeBool b, typeBool, [])
 
-        ETerm (LitInt _) ->
-            pure (TyCon "Int", [])
+        ETerm i@LitInt{} ->
+            pure (ATerm typeInt i, typeInt, [])
 
-        ETerm (LitString _) ->
-            pure (TyCon "String", [])
+        ETerm s@LitString{} ->
+            pure (ATerm typeString s, typeString, [])
 
-        ETerm (Var v) -> do
-            t <- lookupPolytype v
-            pure (t, [])
+        ETerm v@(Var v') -> do
+            t <- lookupPolytype v'
+            pure (ATerm t v, t, [])
 
         ETerm (DCons _) ->
             error "DCons not implemented"
@@ -101,49 +105,49 @@ infer expr =
         ELam vs e -> do
             tvs <- replicateM (length vs) fresh
             let scs = map (Forall []) tvs
-            (t, cs) <- inEnv (zip vs scs) (infer e)
+            (e', t, cs) <- inEnv (zip vs scs) (infer e)
             let ty = foldr TyArr t tvs
-            pure (ty, cs)
+            pure (ALam ty vs e', ty, cs)
 
         EApp f xs -> do
-            (t1, c1) <- infer f
-            (ts, cs) <- unzip <$> mapM infer xs
+            (f',  t1, c1) <- infer f
+            (xs', ts, cs) <- unzip3 <$> mapM infer xs
             tv       <- fresh
-            pure (tv, c1 ++ concat cs ++ [Constraint t1 (foldr TyArr tv ts)])
+            pure (AApp tv f' xs', tv, c1 ++ concat cs ++ [Constraint t1 (foldr TyArr tv ts)])
 
         ELet x e1 e2 -> do
 
             tv <- fresh
-            (t1, c1) <- inEnv [(x, Forall [] tv)] $ infer e1
+            (e1', t1, c1) <- inEnv [(x, Forall [] tv)] $ infer e1
 
             case runSolve c1 of
                 Left err -> error $ show err
                 Right sub -> do
                     penv <- polytypeEnv <$> get
                     let sc = generalize (substitutePolytypeEnv sub penv) (substituteType sub t1)
-                    (t2, c2) <- inEnv [(x, sc)] $ infer e2
-                    pure (t2, c1 ++ c2)
+                    (e2', t2, c2) <- inEnv [(x, sc)] $ infer e2
+                    pure (ALet tv x e1' e2', t2, c1 ++ c2)
 
         EUnPrimOp op e -> do
-            (t, c) <- infer e
+            (e', t, c) <- infer e
             tv <- fresh
             let u1 = TyArr t tv
                 u2 = unOp op
-            pure (tv, c ++ [Constraint u1 u2])
+            pure (AUnPrimOp tv op e', tv, c ++ [Constraint u1 u2])
 
         EBinPrimOp op e1 e2 -> do
-            (t1, c1) <- infer e1
-            (t2, c2) <- infer e2
+            (e1', t1, c1) <- infer e1
+            (e2', t2, c2) <- infer e2
             tv <- fresh
             let u1 = t1 `TyArr` (t2 `TyArr` tv)
             u2 <- binOp op
-            pure (tv, c1 ++ c2 ++ [Constraint u1 u2])
+            pure (ABinPrimOp tv op e1' e2', tv, c1 ++ c2 ++ [Constraint u1 u2])
 
         IfThenElse p tr fl -> do
-            (t1, c1) <- infer p
-            (t2, c2) <- infer tr
-            (t3, c3) <- infer fl
-            pure (t2, c1 ++ c2 ++ c3 ++ [Constraint t1 (TyCon "Bool"), Constraint t2 t3])
+            (p',  t1, c1) <- infer p
+            (tr', t2, c2) <- infer tr
+            (fl', t3, c3) <- infer fl
+            pure (AIfThenElse t2 p' tr' fl', t2, c1 ++ c2 ++ c3 ++ [Constraint t1 (typeBool), Constraint t2 t3])
 
         EClo{} ->
             error "EClo doesn't exist yet"
@@ -160,27 +164,27 @@ inEnv xpts st = State $ \is ->
     in (a, is'' { polytypeEnv = e } )
 
 unOp :: UnOp -> Type ByteString
-unOp Negate = TyCon "Int" `TyArr` TyCon "Int"
+unOp Negate = typeInt `TyArr` typeInt
 unOp _      = error "unop"
 
 binOp :: BinOp -> State (InferState ByteString) (Type ByteString)
-binOp AddI = pure $ TyCon "Int" `TyArr` (TyCon "Int" `TyArr` TyCon "Int")
-binOp SubI = pure $ TyCon "Int" `TyArr` (TyCon "Int" `TyArr` TyCon "Int")
-binOp MulI = pure $ TyCon "Int" `TyArr` (TyCon "Int" `TyArr` TyCon "Int")
-binOp DivI = pure $ TyCon "Int" `TyArr` (TyCon "Int" `TyArr` TyCon "Int")
-binOp ModI = pure $ TyCon "Int" `TyArr` (TyCon "Int" `TyArr` TyCon "Int")
+binOp AddI = pure $ typeInt `TyArr` (typeInt `TyArr` typeInt)
+binOp SubI = pure $ typeInt `TyArr` (typeInt `TyArr` typeInt)
+binOp MulI = pure $ typeInt `TyArr` (typeInt `TyArr` typeInt)
+binOp DivI = pure $ typeInt `TyArr` (typeInt `TyArr` typeInt)
+binOp ModI = pure $ typeInt `TyArr` (typeInt `TyArr` typeInt)
 
-binOp EqA = fresh <&> \fr -> fr `TyArr` (fr `TyArr` TyCon "Bool")
+binOp EqA = fresh <&> \fr -> fr `TyArr` (fr `TyArr` typeBool)
 
-binOp LtEqI = pure $ TyCon "Int" `TyArr` (TyCon "Int" `TyArr` TyCon "Bool")
-binOp LtI   = pure $ TyCon "Int" `TyArr` (TyCon "Int" `TyArr` TyCon "Bool")
-binOp GtEqI = pure $ TyCon "Int" `TyArr` (TyCon "Int" `TyArr` TyCon "Bool")
-binOp GtI   = pure $ TyCon "Int" `TyArr` (TyCon "Int" `TyArr` TyCon "Bool")
+binOp LtEqI = pure $ typeInt `TyArr` (typeInt `TyArr` typeBool)
+binOp LtI   = pure $ typeInt `TyArr` (typeInt `TyArr` typeBool)
+binOp GtEqI = pure $ typeInt `TyArr` (typeInt `TyArr` typeBool)
+binOp GtI   = pure $ typeInt `TyArr` (typeInt `TyArr` typeBool)
 
-binOp AndB = pure $ TyCon "Bool" `TyArr` (TyCon "Bool" `TyArr` TyCon "Bool")
-binOp OrB  = pure $ TyCon "Bool" `TyArr` (TyCon "Bool" `TyArr` TyCon "Bool")
+binOp AndB = pure $ typeBool `TyArr` (typeBool `TyArr` typeBool)
+binOp OrB  = pure $ typeBool `TyArr` (typeBool `TyArr` typeBool)
 
-binOp ConcatS  = pure $ TyCon "String" `TyArr` (TyCon "String" `TyArr` TyCon "String")
+binOp ConcatS  = pure $ typeString `TyArr` (typeString `TyArr` typeString)
 
 substitutePolytypeEnv :: Ord s => Subst s -> PolytypeEnv s -> PolytypeEnv s
 substitutePolytypeEnv s (PolytypeEnv e) = PolytypeEnv $ M.map (substitutePolytype s) e

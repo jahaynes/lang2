@@ -19,3 +19,14 @@ data Expr s = ETerm (Term s)
             | CallClo s [s]
 
                 deriving (Eq, Functor, Show)
+
+data AExpr a s = ATerm a (Term s)
+               | ALam a [s] (AExpr a s)
+               | AApp a (AExpr a s) [AExpr a s]
+               | ALet a s (AExpr a s) (AExpr a s)
+               | AUnPrimOp a UnOp (AExpr a s)
+               | ABinPrimOp a BinOp (AExpr a s) (AExpr a s)
+               | AIfThenElse a (AExpr a s) (AExpr a s) (AExpr a s)
+               | AClo a [s] [s] (AExpr a s)
+               | ACallClo a s [s]
+                   deriving (Eq, Functor, Show)
