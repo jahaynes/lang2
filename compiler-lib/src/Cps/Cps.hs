@@ -13,7 +13,7 @@ data CpsState s =
 
 cps :: Module ByteString -> Module ByteString
 cps md =
-    let funDefs' = fst $ runState (mapM cpsFunDef $ getFunDefns md) (CpsState 0 (\n -> pack $ "c" <> show n))
+    let funDefs' = evalState (mapM cpsFunDef $ getFunDefns md) (CpsState 0 (\n -> pack $ "c" <> show n))
     in md { getFunDefns = funDefs' }
 
 cpsFunDef :: FunDefn s -> State (CpsState s) (FunDefn s)
@@ -119,7 +119,7 @@ cpsK (ELet x y z) k =
         z' <- cpsK z k
         pure $ ELet x y' z'
 
-cpsK (EUnPrimOp o e) k = do
+cpsK (EUnPrimOp o e) k =
     cpsK e $ \e' -> do
             r <- genSym
             cont <- k (ETerm (Var r))

@@ -18,7 +18,7 @@ closureConvert md = md { getFunDefns = closureConvert' $ getFunDefns md }
 closureConvert' :: [FunDefn ByteString] -> [FunDefn ByteString]
 closureConvert' funDefs =
     let topLevelScope = S.fromList $ map (\(FunDefn n _) -> n) funDefs
-    in fst $ runState (mapM (closureConvertDefn topLevelScope) funDefs) (ConvState mempty)
+    in evalState (mapM (closureConvertDefn topLevelScope) funDefs) (ConvState mempty)
 
 closureConvertDefn :: Set ByteString
                    -> FunDefn ByteString

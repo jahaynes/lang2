@@ -1,6 +1,5 @@
 {-# LANGUAGE DataKinds,
              OverloadedStrings,
-             DeriveGeneric,
              ScopedTypeVariables,
              TypeOperators #-}
 
@@ -102,8 +101,7 @@ server = routeLexAndParse
     routeLexAndParse = pure . transform
 
 transform :: Text -> ProgramState
-transform = snd 
-          . runState pipe 
+transform = execState pipe
           . fromSource
 
 pipe :: State ProgramState ()

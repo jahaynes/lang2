@@ -51,7 +51,7 @@ test_both = unitTest $
 
 test_build_graph_empty :: Property
 test_build_graph_empty = unitTest $
-    (buildGraph []) === (mempty :: Map () (Set ()))
+    buildGraph [] === (mempty :: Map () (Set ()))
 
 test_build_graph :: Property
 test_build_graph = unitTest $ do

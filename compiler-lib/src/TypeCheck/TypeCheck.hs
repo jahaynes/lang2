@@ -141,13 +141,13 @@ binOp ConcatS  = pure $ TyCon "String" `TyArr` (TyCon "String" `TyArr` TyCon "St
 
 inEnv :: ByteString -> Scheme -> State TcState a -> State TcState a
 inEnv x sc m =
-    let scope e = (remove e x) `extend` (x, sc)
+    let scope e = remove e x `extend` (x, sc)
     in local scope m
 
 inEnvs :: [(ByteString, Scheme)] -> State TcState a -> State TcState a
 inEnvs             [] m = m
 inEnvs ((x, sc):xscs) m =
-    let scope e = (remove e x) `extend` (x, sc)
+    let scope e = remove e x `extend` (x, sc)
     in local scope (inEnvs xscs m)
 
 local :: (TypeEnv -> TypeEnv) -> State TcState a -> State TcState a
@@ -205,7 +205,7 @@ closeOver = normalize . generalize emptyEnv
                 Just x -> TyVar x
                 Nothing -> error "type variable not in signature"
 
-generalize :: TypeEnv -> (Type ByteString) -> Scheme
+generalize :: TypeEnv -> Type ByteString -> Scheme
 generalize env t = 
     let as = S.toList $ ftv t `S.difference` ftv env
     in Forall as t

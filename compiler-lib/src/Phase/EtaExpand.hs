@@ -10,7 +10,7 @@ import Control.Monad         (replicateM)
 import Data.ByteString.Char8 (ByteString, pack)
 
 etaExpand :: TypedModule Scheme ByteString -> TypedModule Scheme ByteString
-etaExpand md = md { getFunDefnsT = fst $ runState (mapM etaExpand' $ getFunDefnsT md) 0 }
+etaExpand md = md { getFunDefnsT = evalState (mapM etaExpand' $ getFunDefnsT md) 0 }
 
 etaExpand' :: FunDefnT Scheme ByteString -> State Int (FunDefnT Scheme ByteString)
 etaExpand' (FunDefnT t s e) = FunDefnT t s <$> etaExpandExpr genSym e
@@ -53,7 +53,7 @@ genSym = do
     n <- get
     let s = pack $ "e" <> show n
     put (n + 1)
-    pure $ s
+    pure s
 
 -- TODO check free vars
 retype :: Scheme -> [Term s] -> [TypedExpr Scheme s]

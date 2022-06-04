@@ -62,11 +62,11 @@ test_dropwhile :: Property
 test_dropwhile = unitTest $
     let Right r =
             lex' "aaabbb" $ do
-                p1 <- pDropWhile (\_ -> False) *> getPosition
+                p1 <- pDropWhile (const False) *> getPosition
                 p2 <- pDropWhile (=='c')       *> getPosition
                 p3 <- pDropWhile (=='a')       *> getPosition
                 p4 <- pDropWhile (=='b')       *> getPosition
-                p5 <- pDropWhile (\_ -> True)  *> getPosition
+                p5 <- pDropWhile (const True)  *> getPosition
                 pure (p1, p2, p3, p4, p5)
     in r === (0, 0, 3, 6, 6)
 

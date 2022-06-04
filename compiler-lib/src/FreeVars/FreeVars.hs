@@ -15,8 +15,7 @@ data FreeVars s =
 getFreeVars :: Ord s => Set s -> Expr s -> [s]
 getFreeVars topLevelScope e = S.toList
                             . getFree
-                            . snd
-                            . runState (exprFreeVars e)
+                            . execState (exprFreeVars e)
                             $ FreeVars { getScope = topLevelScope
                                        , getFree  = mempty }
 

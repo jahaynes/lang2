@@ -6,6 +6,7 @@ import TypeCheck.TypedExpression
 import TypeCheck.Types
 
 import qualified Data.Map as M
+import           Data.Maybe    (fromMaybe)
 
 saturate :: Ord s => TypedModule Scheme s -> TypedModule Scheme s
 saturate md = md { getFunDefnsT = map saturate' $ getFunDefnsT md }
@@ -45,9 +46,7 @@ substitute vs' body' xs' = go (M.fromList $ zip vs' xs') body'
 
     where
     go subst term@(TermT _ (Var v)) =
-        case M.lookup v subst of
-            Just u  -> u
-            Nothing -> term
+          fromMaybe term (M.lookup v subst)
 
     go _ t@TermT{} = t
 

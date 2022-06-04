@@ -36,3 +36,9 @@ modify' f = State $ \x ->
   in
   case y of
     _ -> ((), y)
+
+evalState :: State s a -> s -> a
+evalState x = fst . runState x
+
+execState :: State s a -> s -> s
+execState x = snd . runState x

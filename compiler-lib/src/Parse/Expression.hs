@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE LambdaCase, OverloadedStrings #-}
 
 module Parse.Expression where
 
@@ -26,10 +26,9 @@ parseBoolOr = do
 
     where
     boolOr :: Parser ParseState BinOp
-    boolOr = parseSatisfy "boolOr" $ \t ->
-        case t of
-            TOr  -> Just OrB
-            _    -> Nothing
+    boolOr = parseSatisfy "boolOr" $ \case
+                 TOr  -> Just OrB
+                 _    -> Nothing
 
 parseBoolAnd :: Parser ParseState (Expr ByteString)
 parseBoolAnd = do
@@ -41,10 +40,9 @@ parseBoolAnd = do
 
     where
     boolAnd :: Parser ParseState BinOp
-    boolAnd = parseSatisfy "boolAnd" $ \t ->
-        case t of
-            TAnd -> Just AndB
-            _    -> Nothing
+    boolAnd = parseSatisfy "boolAnd" $ \case
+                  TAnd -> Just AndB
+                  _    -> Nothing
 
 parseComp :: Parser ParseState (Expr ByteString)
 parseComp = sumExpr <|> parseSum
@@ -56,14 +54,13 @@ parseComp = sumExpr <|> parseSum
         pure $ EBinPrimOp o x y
 
     compOp :: Parser ParseState BinOp
-    compOp = parseSatisfy "compOp" $ \t ->
-        case t of
-            TEqEq -> Just EqA
-            TGt   -> Just GtI
-            TGtEq -> Just GtEqI
-            TLt   -> Just LtI
-            TLtEq -> Just LtEqI
-            _     -> Nothing
+    compOp = parseSatisfy "compOp" $ \case
+                 TEqEq -> Just EqA
+                 TGt   -> Just GtI
+                 TGtEq -> Just GtEqI
+                 TLt   -> Just LtI
+                 TLtEq -> Just LtEqI
+                 _     -> Nothing
 
 parseSum :: Parser ParseState (Expr ByteString)
 parseSum = do
@@ -75,11 +72,10 @@ parseSum = do
 
     where
     sumOp :: Parser ParseState BinOp
-    sumOp = parseSatisfy "sumOp" $ \t ->
-        case t of
-            TPlus  -> Just AddI
-            TMinus -> Just SubI
-            _      -> Nothing
+    sumOp = parseSatisfy "sumOp" $ \case
+                TPlus  -> Just AddI
+                TMinus -> Just SubI
+                _      -> Nothing
 
 parseProduct :: Parser ParseState (Expr ByteString)
 parseProduct = do
@@ -91,11 +87,10 @@ parseProduct = do
 
     where
     mulOp :: Parser ParseState BinOp
-    mulOp = parseSatisfy "mulOp" $ \t ->
-        case t of
-            TMul -> Just MulI
-            TDiv -> Just DivI
-            _    -> Nothing
+    mulOp = parseSatisfy "mulOp" $ \case
+                TMul -> Just MulI
+                TDiv -> Just DivI
+                _    -> Nothing
 
 parseApply :: Parser ParseState (Expr ByteString)
 parseApply = do
@@ -115,8 +110,7 @@ parseNonApply = parseLet
 parseNegated :: Parser ParseState (Expr ByteString)
 parseNegated = do
     parseNegate
-    e <- parseExpr
-    pure $ EUnPrimOp Negate e
+    EUnPrimOp Negate <$> parseExpr
 
 parseLet :: Parser ParseState (Expr ByteString)
 parseLet = do

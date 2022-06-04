@@ -146,7 +146,7 @@ parseToken = keyword
     constructor = TUpperStart <$> upperStart
 
 positioned :: Functor f => b -> f a -> f b
-positioned t s = (\_ -> t) <$> s
+positioned t s = t <$ s
 
 getPosition :: Parser LexState Int
 getPosition = Parser $ \ps -> Right (ps, ls_pos ps)
@@ -171,7 +171,7 @@ lowerStart :: Parser LexState ByteString
 lowerStart = alphaNumStartWith isLower
 
 integer :: Parser LexState Integer
-integer = (read . C8.unpack) <$> digits
+integer = read . C8.unpack <$> digits
 
 digits :: Parser LexState ByteString
 digits = Parser $ \ls ->
