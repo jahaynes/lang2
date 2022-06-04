@@ -19,14 +19,13 @@ library
                     vector,
                     wai-cors,
                     warp
-  exposed-modules:  Pretty.Common
-                    Pretty.Definition
-                    Pretty.Expression
-                    Pretty.Module
-                    Pretty.Operator
-                    Pretty.Term
-                    Pretty.Type
-                    Pretty.TypedExpression
+  exposed-modules:  BetterPretty.UglyModule
+                    BetterPretty.Pretty
+                    BetterPretty.PrettyExpr
+                    BetterPretty.PrettyFunDefn
+                    BetterPretty.PrettyModule
+                    BetterPretty.PrettyOp
+                    BetterPretty.PrettyTerm
                     Service.Controller
   ghc-options:      -Wall -O2
   hs-source-dirs:   src

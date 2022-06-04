@@ -5,6 +5,9 @@
 
 module Service.Controller (runController) where
 
+import BetterPretty.UglyModule
+import BetterPretty.Pretty
+import BetterPretty.PrettyModule
 import Common.State
 import Core.Definition
 import Cps.Cps
@@ -16,7 +19,6 @@ import Phase.ClosureConvert
 import Phase.EtaExpand
 import Phase.LambdaLift
 import Phase.Saturate
-import Pretty.Module
 import TypeCheck.CallGraph
 import TypeCheck.TypeCheck
 import TypeCheck.Types
@@ -57,19 +59,19 @@ instance ToJSON ProgramState where
 
         let txtTokens                 = decodeUtf8 $ either id tokensToByteString (getTokens ps)
             txtDefns                  = either decodeUtf8 moduleToText (getModule ps)
-            txtPrettyDefns            = either decodeUtf8 render (getModule ps)
+            txtPrettyDefns            = either decodeUtf8 (render . PrettyModule . fmap decodeUtf8) (getModule ps)
             txtCallGraph              = either decodeUtf8 (pack . unlines . map show . M.toList) (getCallGraph ps)
             txtTypeGroups             = either decodeUtf8 (pack . unlines . map show) (getTypeGroups ps)
             txtEtaExpanded            = either decodeUtf8 typedModuleToText (getEtaExpanded ps)
             txtSaturated              = either decodeUtf8 typedModuleToText (getSaturated ps)
             txtContified              = either decodeUtf8 moduleToText (getContified ps)
-            txtPrettyContified        = either decodeUtf8 render (getContified ps)
+            txtPrettyContified        = either decodeUtf8 (render . PrettyModule . fmap decodeUtf8) (getContified ps)
             txtOptimised              = either decodeUtf8 moduleToText (getOptimised ps)
-            txtPrettyOptimised        = either decodeUtf8 render (getOptimised ps)
+            txtPrettyOptimised        = either decodeUtf8 (render . PrettyModule . fmap decodeUtf8) (getOptimised ps)
             txtClosureConverted       = either decodeUtf8 moduleToText (getClosureConverted ps)
-            txtClosureConvertedPretty = either decodeUtf8 render (getClosureConverted ps)
+            txtClosureConvertedPretty = either decodeUtf8 (render . PrettyModule . fmap decodeUtf8) (getClosureConverted ps)
             txtLambdaLifted           = either decodeUtf8 moduleToText (getLambdaLifted ps)
-            txtLambdaLiftedPretty     = either decodeUtf8 render (getLambdaLifted ps)
+            txtLambdaLiftedPretty     = either decodeUtf8 (render . PrettyModule . fmap decodeUtf8) (getLambdaLifted ps)
 
         object [ "tokens"                 .= String txtTokens
                , "defns"                  .= String txtDefns
