@@ -13,18 +13,8 @@ library
                     containers,
                     vector,
                     vector-builder
-<<<<<<< HEAD
   exposed-modules:  Common.CallGraph
                     Common.State
-=======
-  exposed-modules:  Common.State
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> remove old types implementation
-=======
->>>>>>> remove old types implementation
-=======
->>>>>>> remove old types implementation
                     Core.Expression
                     Core.Module
                     Core.Operator
@@ -41,28 +31,12 @@ library
                     Parse.Parser
                     Parse.Token
                     Phase.ClosureConvert
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> eta expansion
-=======
                     Phase.DropTypes
->>>>>>> drop types
                     Phase.EtaExpand
                     Phase.LambdaLift
-<<<<<<< HEAD
-<<<<<<< HEAD
                     TypeCheck.ConstraintSolver
                     TypeCheck.TypeCheckTypes
                     TypeCheck.TypeInference
-=======
->>>>>>> remove old types implementation
-=======
->>>>>>> remove old types implementation
-=======
-                    Phase.LambdaLift
->>>>>>> remove old types implementation
   ghc-options:      -Wall -O2
   hs-source-dirs:   src
   default-language: Haskell2010
@@ -75,16 +49,7 @@ test-suite test-compiler-lib
                       Parse.ExpressionTest
                       Parse.LexerTest
                       Parse.LexAndParseTest
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
                       TypeCheck.TypeCheckTest
-=======
->>>>>>> remove old types implementation
-=======
->>>>>>> remove old types implementation
-=======
->>>>>>> remove old types implementation
     type:             exitcode-stdio-1.0
     main-is:          Tests.hs
     build-depends:    base, containers, hedgehog, vector

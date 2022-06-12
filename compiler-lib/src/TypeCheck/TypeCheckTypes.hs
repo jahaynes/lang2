@@ -1,8 +1,14 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+
 module TypeCheck.TypeCheckTypes where
 
 import Core.Types
 
 import Data.Map (Map, findWithDefault)
+
+newtype TypeCheckPlan s =
+    TypeCheckPlan [s]
+        deriving (Foldable, Show)
 
 newtype Subst s =
     Subst (Map s (Type s))

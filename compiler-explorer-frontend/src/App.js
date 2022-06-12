@@ -18,9 +18,7 @@ class App extends React.Component {
     const prettyDefns   = this.getAndClearElement("prettyDefns");
     const callGraph     = this.getAndClearElement("callGraph");
     const typeCheckPlan = this.getAndClearElement("typeCheckPlan");
-    const typedModule   = this.getAndClearElement("typedModule");
-    const etaExpanded   = this.getAndClearElement("etaExpanded");
-    const droppedTypes  = this.getAndClearElement("droppedTypes");
+    const inferred      = this.getAndClearElement("inferred");
 
     fetch("http://127.0.0.1:8080/lexAndParse", { method: 'POST', body: source.value })
       .then(resp => resp.json())
@@ -30,9 +28,7 @@ class App extends React.Component {
         prettyDefns.value   = ts.prettyDefns;
         callGraph.value     = ts.callGraph;
         typeCheckPlan.value = ts.typeCheckPlan;
-        typedModule.value   = ts.typedModule;
-        etaExpanded.value   = ts.etaExpanded;
-        droppedTypes.value  = ts.droppedTypes;
+        inferred.value      = ts.inferred;
       })
   }
 
@@ -52,25 +48,11 @@ class App extends React.Component {
           <textarea id='prettyDefns' className='editor' spellCheck='false' rows='14'></textarea>
         </div>
 
-        <label>Call Graph / Typecheck Plan</label>
+        <label>Call Graph / Typecheck Plan / Inferred</label>
         <div>
           <textarea id='callGraph' className='editor' spellCheck='false' rows='14'></textarea>
           <textarea id='typeCheckPlan' className='editor' spellCheck='false' rows='14'></textarea>
-        </div>
-
-        <label>Typechecking</label>
-        <div>
-          <textarea id='typedModule' className='editor' spellCheck='false' rows='14'></textarea>
-        </div>
-
-        <label>Eta Expanded</label>
-        <div>
-          <textarea id='etaExpanded' className='editor' spellCheck='false' rows='14'></textarea>
-        </div>
-
-        <label>Dropped types</label>
-        <div>
-          <textarea id='droppedTypes' className='editor' spellCheck='false' rows='14'></textarea>
+          <textarea id='inferred' className='editor' spellCheck='false' rows='14'></textarea>
         </div>
 
       </div>

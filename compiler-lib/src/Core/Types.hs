@@ -1,19 +1,4 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-{-# LANGUAGE DeriveFunctor #-}
-=======
 {-# LANGUAGE DeriveFunctor, OverloadedStrings #-}
->>>>>>> annotated expressions
-=======
-{-# LANGUAGE DeriveFunctor, OverloadedStrings #-}
->>>>>>> annotated expressions
-=======
-{-# LANGUAGE DeriveFunctor, OverloadedStrings #-}
->>>>>>> annotated expressions
 
 module Core.Types where
 
@@ -34,40 +19,7 @@ data Polytype s =
     Forall [s] (Type s)
         deriving (Eq, Show)
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-=======
->>>>>>> remove old types implementation
-=======
->>>>>>> remove old types implementation
-module Core.Types where
-
-data Type s = TyVar s
-            | TyCon s
-            | TyArr (Type s) (Type s)
-                deriving (Eq, Show)
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> remove old types implementation
-=======
-=======
->>>>>>> annotated expressions
-=======
->>>>>>> annotated expressions
 typeBool, typeInt, typeString :: Type ByteString
 typeBool = TyCon "Bool"
 typeInt = TyCon "Int"
 typeString = TyCon "String"
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> annotated expressions
-=======
->>>>>>> remove old types implementation
-=======
->>>>>>> annotated expressions
-=======
->>>>>>> remove old types implementation
-=======
->>>>>>> annotated expressions

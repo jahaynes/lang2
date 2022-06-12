@@ -41,23 +41,22 @@ unifyMany (t1 : ts1) (t2 : ts2) =
      su2 <- unifyMany (map (substituteType su1) ts1)
                       (map (substituteType su1) ts2)
      return (su2 `compose` su1)
-unifyMany t1 t2 = Left "unification mismatch"
+unifyMany _ _ = Left "unification mismatch"
 
 unifies :: (Eq s, Ord s) => Type s -> Type s -> Either ByteString (Subst s)
 unifies t1 t2 | t1 == t2 = pure (Subst mempty)
 unifies (TyVar v) t = v `bind` t
 unifies t (TyVar v) = v `bind` t
 unifies (TyArr t1 t2) (TyArr t3 t4) = unifyMany [t1, t2] [t3, t4]
-unifies t1 t2 = Left "Unification fail"
+unifies _ _ = Left "Unification fail"
 
 bind :: (Eq s, Ord s) => s -> Type s -> Either ByteString (Subst s)
 bind a t | t == TyVar a    = pure (Subst mempty)
          | occursCheck a t = Left "Infinite type"
          | otherwise       = pure (Subst $ M.singleton a t)
 
--- occursCheck ::  Substitutable a => s -> a -> Bool
+occursCheck :: Ord a => a -> Type a -> Bool
 occursCheck a t = a `S.member` freeInType t
-
 
 freeInType :: Ord s => Type s -> Set s
 freeInType TyCon{}         = S.empty

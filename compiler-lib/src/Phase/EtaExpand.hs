@@ -1,87 +1,14 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
 module Phase.EtaExpand (etaExpand) where
-
-import Common.State
-import Core.Definition
-import Core.Term
-import TypeCheck.TypedExpression
-import TypeCheck.Types
-=======
-=======
->>>>>>> eta expansion
-module Phase.EtaExpand where
 
 import Common.State
 import Core.Expression
 import Core.Module
 import Core.Term
 import Core.Types
-<<<<<<< HEAD
->>>>>>> eta expansion
-=======
->>>>>>> eta expansion
 
 import Control.Monad         (replicateM)
 import Data.ByteString.Char8 (ByteString, pack)
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-etaExpand :: TypedModule Scheme ByteString -> TypedModule Scheme ByteString
-etaExpand md = md { getFunDefnsT = evalState (mapM etaExpand' $ getFunDefnsT md) 0 }
-
-etaExpand' :: FunDefnT Scheme ByteString -> State Int (FunDefnT Scheme ByteString)
-etaExpand' (FunDefnT t s e) = FunDefnT t s <$> etaExpandExpr genSym e
-
--- TODO: check the non-term cases as well
-etaExpandExpr :: Show s => State Int s
-                        -> TypedExpr Scheme s
-                        -> State Int (TypedExpr Scheme s)
-
-etaExpandExpr symGen = go
-    where
-    go (TermT t term) =
-        if arity t == 0
-            then pure $ TermT t term
-            else do
-              syms <- replicateM (arity t) symGen
-              let (f:xs) = retype t (term:map Var syms)
-              pure $ LamT t syms (AppT t f xs)
-
-    go (LamT t vs body) =
-        LamT t vs <$> go body
-
-    go (AppT t f xs) =
-        AppT t <$> go f <*> mapM go xs
-
-    go (LetT t a b c) =
-        LetT t a <$> go b <*> go c
-
-    go (UnPrimOpT t o e) =
-        UnPrimOpT t o <$> go e
-
-    go (BinPrimOpT t o e1 e2) =
-        BinPrimOpT t o <$> go e1 <*> go e2
-
-    go (IfThenElseT ty p t f) =
-        IfThenElseT ty <$> go p <*> go t <*> go f
-
-genSym :: State Int ByteString
-genSym = do
-    n <- get
-    let s = pack $ "e" <> show n
-    put (n + 1)
-    pure s
-
--- TODO check free vars
-retype :: Scheme -> [Term s] -> [TypedExpr Scheme s]
-retype scheme [x] = [TermT scheme x]
-retype (Forall vs (TyArr t1 t2)) (f:xs) =
-    TermT (Forall vs t1) f : retype (Forall vs t2) xs
-retype _ _ = error "Bad retype input"
-=======
-=======
->>>>>>> eta expansion
 etaExpand :: TypedModule ByteString -> TypedModule ByteString
 etaExpand md = md { getTFunDefns = fst $ runState (mapM etaExpand' $ getTFunDefns md) 0 }
 
@@ -104,8 +31,6 @@ etaExpand' (TFunDefn t n e) = do
         let s = pack $ "e" <> show i
         put $! i + 1
         pure s
-
-
 
 -- Eta-expansion only makes sense if there's an enclosing lambda to expand
 data EnclosedBy = NonLambda
@@ -220,7 +145,3 @@ applyTypes = go
 
     underApplied acc (TyArr a b) = underApplied (a:acc) b
     underApplied acc           _ = UnderApplied $ reverse acc
-<<<<<<< HEAD
->>>>>>> eta expansion
-=======
->>>>>>> eta expansion

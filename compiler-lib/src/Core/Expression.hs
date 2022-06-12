@@ -30,23 +30,19 @@ data AExpr a s = ATerm a (Term s)
                | AClo a [s] [s] (AExpr a s)
                | ACallClo a s [s]
                    deriving (Eq, Functor, Show)
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> eta expansion
 
 annot :: AExpr a s -> a
 annot expr =
     case expr of
-      ATerm a tm             -> a
-      ALam a vs body         -> a
-      AApp a x ys            -> a
-      ALet a x y z           -> a
-      AUnPrimOp a o e        -> a
-      ABinPrimOp a o x y     -> a
-      AIfThenElse a pr tr fa -> a
-      AClo{}                 -> error "closure"
-      ACallClo{}             -> error "call closure"
+      ATerm a _           -> a
+      ALam a _ _          -> a
+      AApp a _ _          -> a
+      ALet a _ _ _        -> a
+      AUnPrimOp a _ _     -> a
+      ABinPrimOp a _ _ _  -> a
+      AIfThenElse a _ _ _ -> a
+      AClo{}              -> error "closure"
+      ACallClo{}          -> error "call closure"
 
 mapAnnot :: (a -> b) -> AExpr a s -> AExpr b s
 mapAnnot f expr =
@@ -60,8 +56,3 @@ mapAnnot f expr =
       AIfThenElse a pr tr fa -> AIfThenElse (f a) (mapAnnot f pr) (mapAnnot f tr) (mapAnnot f fa)
       AClo{}                 -> error "closure"
       ACallClo{}             -> error "call closure"
-<<<<<<< HEAD
-=======
->>>>>>> annotated expressions
-=======
->>>>>>> eta expansion
