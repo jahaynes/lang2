@@ -2,12 +2,12 @@
              OverloadedStrings,
              ScopedTypeVariables #-}
 
-module TypeCheck.CallGraphTest (callGraphTests) where
+module Common.CallGraphTest (callGraphTests) where
 
-import           Core.Definition
+import           Common.CallGraph
 import           Core.Expression
+import           Core.Module
 import           Core.Term
-import           TypeCheck.CallGraph
 
 import           Data.Map (Map)
 import           Data.Set (Set)
@@ -27,7 +27,7 @@ callGraphTests =
 
 test_build_graph_empty :: Property
 test_build_graph_empty = unitTest $
-    buildGraph [] === (mempty :: Map () (Set ()))
+    buildGraph' [] === (CallGraph mempty :: CallGraph ())
 
 test_build_graph :: Property
 test_build_graph = unitTest $ do
@@ -35,9 +35,10 @@ test_build_graph = unitTest $ do
     let defn1 = FunDefn "foo" (EApp (ETerm (Var "bar")) [])
         defn2 = FunDefn "bar" (EApp (ETerm (Var "foo")) [])
 
-    buildGraph [defn1, defn2] === ([ ("bar", ["foo"])
-                                   , ("foo", ["bar"]) ] :: Map String (Set String))
+    let CallGraph cg = buildGraph' [defn1, defn2] :: CallGraph String
 
+    cg === [ ("bar", ["foo"])
+           , ("foo", ["bar"]) ]
 
 
 test_empty_cycles :: Property

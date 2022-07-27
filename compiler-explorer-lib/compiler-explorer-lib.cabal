@@ -20,13 +20,11 @@ library
                     wai-cors,
                     warp
   exposed-modules:  Pretty.Common
-                    Pretty.Definition
                     Pretty.Expression
                     Pretty.Module
                     Pretty.Operator
                     Pretty.Term
-                    Pretty.Type
-                    Pretty.TypedExpression
+                    Pretty.TypedModule
                     Service.Controller
   ghc-options:      -Wall -O2
   hs-source-dirs:   src

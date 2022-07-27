@@ -21,6 +21,12 @@ instance Monad (State s) where
             State ry = f sx
         in ry s'
 
+instance MonadFail (State s) where
+    fail = error
+
+runState' :: s -> State s a -> (a, s)
+runState' = flip runState
+
 get :: State x x
 get = State $ \s -> (s, s)
 
