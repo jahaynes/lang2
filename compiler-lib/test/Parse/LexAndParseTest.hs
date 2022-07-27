@@ -2,14 +2,14 @@
 
 module Parse.LexAndParseTest where
 
-import           Core.Definition
 import           Core.Expression
+import           Core.Module
 import           Core.Term
-import           Parse.Definition
 import           Parse.Expression
 import           Parse.LexAndParse
 import           Parse.Lexer
-import           Parse.Parser 
+import           Parse.Module
+import           Parse.Parser
 import           Parse.Token
 
 import           Data.ByteString (ByteString)

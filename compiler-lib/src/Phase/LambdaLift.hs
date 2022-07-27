@@ -3,10 +3,9 @@
 module Phase.LambdaLift (lambdaLift) where
 
 import Common.State
-import Core.Definition
 import Core.Expression
+import Core.Module
 import Core.Term
-import Optimise.Alpha
 
 import           Data.ByteString.Char8 (ByteString, pack)
 import           Data.String           (IsString)
@@ -95,7 +94,7 @@ lambdaLiftDefn nameGen (FunDefn n fun) =
                     -- rename (recursive) references to it during the lift
                     Just oldName ->
                         let subst = foldr M.delete (M.singleton oldName newName) vs
-                        in alphaExpr subst body
+                        in error "alphaExpr subst body"
                     Nothing -> body
         lam' <- ELam vs <$> ll body'
         liftLambda $ FunDefn newName lam'
@@ -109,7 +108,7 @@ lambdaLiftDefn nameGen (FunDefn n fun) =
                     -- rename (recursive) references to it during the lift
                     Just oldName ->
                         let subst = foldr M.delete (M.singleton oldName newName) (fvs++vs)
-                        in alphaExpr subst body
+                        in error "alphaExpr subst body"
                     Nothing -> body
         clo' <- EClo fvs vs <$> ll body'
         liftLambda $ FunDefn newName clo'

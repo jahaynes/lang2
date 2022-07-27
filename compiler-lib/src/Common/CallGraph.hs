@@ -1,9 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module TypeCheck.CallGraph (buildGraph, findCycles, plan) where
+module Common.CallGraph where
 
-import Core.Definition
 import Core.Expression
+import Core.Module
 import Core.Term
 
 import           Data.ByteString.Char8 (ByteString, pack)
@@ -12,8 +12,15 @@ import qualified Data.Map as M
 import           Data.Set              (Set, (\\))
 import qualified Data.Set as S
 
-buildGraph :: (Ord s, Show s) => [FunDefn s] -> Map s (Set s)
-buildGraph fundefns = M.unions $ map go fundefns
+newtype CallGraph s =
+    CallGraph (Map s (Set s))
+        deriving (Eq, Show)
+
+buildGraph :: (Ord s, Show s) => Module s -> CallGraph s
+buildGraph = buildGraph' . getFunDefns
+
+buildGraph' :: (Ord s, Show s) => [FunDefn s] -> CallGraph s
+buildGraph' fundefns = CallGraph . M.unions $ map go fundefns
 
     where
     go (FunDefn n e) = M.singleton n (fn (S.singleton n) e) -- does including n in scope here hide mutual recursions?
@@ -48,8 +55,16 @@ findCycles graph = S.map S.fromList $ S.unions $ map (S.fromList . go []) $ M.ke
 plan :: [FunDefn ByteString] -> Either ByteString [Set ByteString]
 plan = solve . buildGraph
 
-solve :: Map ByteString (Set ByteString) -> Either ByteString [Set ByteString]
-solve = go []
+-- TODO This only removes the depended-upon definitions.  Remove the dependers too?
+planExcludingPretyped :: (Ord s, Show s) => Module s -> CallGraph s -> Either ByteString [Set s]
+planExcludingPretyped md (CallGraph cg) = do
+    let pretyped = S.fromList . map (\(TypeSig n _) -> n) $ getTypeSigs md
+    plan $ CallGraph (excludePretyped pretyped)
+    where
+    excludePretyped pretyped = fmap (\deps -> deps \\ pretyped) cg
+
+plan :: (Ord s, Show s) => CallGraph s -> Either ByteString [Set s]
+plan (CallGraph cg) = go [] cg
     where
     go solved graph
         | null graph = Right $ reverse solved
@@ -66,7 +81,7 @@ solve = go []
                     let graph' = graph `M.difference` soluble
                     go (M.keysSet soluble:solved) graph'
 
-findStandaloneCycle :: Map ByteString (Set ByteString) -> [Set ByteString] -> Either ByteString (Set ByteString)
+findStandaloneCycle :: (Ord s, Show s) => Map s (Set s) -> [Set s] -> Either ByteString (Set s)
 findStandaloneCycle graph = go []
     where
     go xs            [] = Left $ "Could not find standalone cycle among: " <> pack (show xs)

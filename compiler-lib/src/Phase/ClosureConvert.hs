@@ -1,8 +1,8 @@
 module Phase.ClosureConvert (closureConvert) where
 
 import Common.State
-import Core.Definition
 import Core.Expression
+import Core.Module
 import FreeVars.FreeVars
 
 import           Data.ByteString.Char8 (ByteString)
