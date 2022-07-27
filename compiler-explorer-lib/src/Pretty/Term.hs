@@ -5,8 +5,7 @@ module Pretty.Term where
 import Core.Term (Term (..))
 
 import Data.Text    (Text)
-import Text.Builder (Builder)
-import Text.Builder (char, decimal, text)
+import Text.Builder (Builder, char, decimal, text)
 
 printTerm :: Term Text -> Builder
 printTerm t =

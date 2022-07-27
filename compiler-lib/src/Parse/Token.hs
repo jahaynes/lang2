@@ -40,6 +40,8 @@ data Token = TLet
            | TMul
            | TDiv
 
+           | TDollar
+
            | TMinus
            | TNegate
            | TAmbiguous

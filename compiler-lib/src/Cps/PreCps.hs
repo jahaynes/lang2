@@ -7,6 +7,8 @@ import Core.Term
 import           Data.Set (Set)
 import qualified Data.Set as S
 
+-- Might not be necessary since types are available
+
 preCpsFunDefn :: Ord s => FunDefn s -> FunDefn s
 preCpsFunDefn (FunDefn n e) = FunDefn n (go mempty Inspect e)
 

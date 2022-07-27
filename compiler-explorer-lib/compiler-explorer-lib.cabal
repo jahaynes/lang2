@@ -24,6 +24,7 @@ library
                     Pretty.Module
                     Pretty.Operator
                     Pretty.Term
+                    Pretty.TypedModule
                     Service.Controller
   ghc-options:      -Wall -O2
   hs-source-dirs:   src

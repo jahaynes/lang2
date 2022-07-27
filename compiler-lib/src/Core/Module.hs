@@ -36,11 +36,20 @@ data FunDefn s =
 -----------------------------------------------
 
 data TypedModule s =
-    TypedModule { getTFunDefns :: [TFunDefn s]
+    TypedModule { getTFunDefns :: [TFunDefn s] -- TODO.  datatypes and typesigs
                 } deriving Show
 
+untypeModule :: TypedModule s -> Module s
+untypeModule tm = Module { getDataDefns = []    -- TODO.  datatypes and typesigs
+                         , getTypeSigs  = []
+                         , getFunDefns  = map untypeDefn (getTFunDefns tm)
+                         }
+
 data TFunDefn s =
-    TFunDefn (Polytype s) s (AExpr (Type s) s)
+    TFunDefn s (AExpr (Polytype s) s)
         deriving (Eq, Show)
+
+untypeDefn :: TFunDefn s -> FunDefn s
+untypeDefn (TFunDefn n aexpr) = FunDefn n (stripAnnot aexpr)
 
 -----------------------------------------------

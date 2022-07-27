@@ -21,6 +21,7 @@ library
                     Core.Term
                     Core.Types
                     Cps.Cps
+                    Cps.CpsTyped
                     Cps.PreCps
                     FreeVars.FreeVars
                     Optimise.Alpha
@@ -31,9 +32,11 @@ library
                     Parse.Parser
                     Parse.Token
                     Phase.ClosureConvert
+                    Phase.ClosureConvertTyped
                     Phase.DropTypes
                     Phase.EtaExpand
                     Phase.LambdaLift
+                    Phase.Saturate
                     TypeCheck.ConstraintSolver
                     TypeCheck.TypeCheckTypes
                     TypeCheck.TypeInference
@@ -49,6 +52,7 @@ test-suite test-compiler-lib
                       Parse.ExpressionTest
                       Parse.LexerTest
                       Parse.LexAndParseTest
+                      Phase.EtaExpandTest
                       TypeCheck.TypeCheckTest
     type:             exitcode-stdio-1.0
     main-is:          Tests.hs

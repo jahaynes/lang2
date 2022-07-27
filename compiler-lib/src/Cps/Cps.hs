@@ -11,6 +11,8 @@ data CpsState s =
              , _symGen :: !(Int -> s)
              }
 
+-- TODO see if gensym can be genvar!
+
 cps :: Module ByteString -> Module ByteString
 cps md =
     let funDefs' = evalState (mapM cpsFunDef $ getFunDefns md) (CpsState 0 (\n -> pack $ "c" <> show n))
@@ -31,12 +33,12 @@ cpsM :: Expr s
 cpsM e@ETerm{} = pure e
 
 cpsM (ELam vs body) = do
-    k     <- genSym
+    ETerm (Var k) <- genVar
     body' <- cpsC body k
     pure $ ELam (vs ++ [k]) body'
 
 cpsM e = do
-    k     <- genSym
+    ETerm (Var k) <- genVar
     body' <- cpsC e k
     pure $ ELam [k] body'
 
@@ -93,6 +95,9 @@ genSym = do
     CpsState n f <- get
     put $! CpsState (n + 1) f
     pure $ f n
+
+genVar :: State (CpsState s) (Expr s)
+genVar = ETerm . Var <$> genSym
 
 cpsK :: Expr s
      -> (Expr s -> State (CpsState s) (Expr s))

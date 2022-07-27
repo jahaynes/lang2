@@ -29,10 +29,10 @@ test_primitives = unitTest $ do
     let st = InferState 0 mempty (PolytypeEnv mempty)
 
     let r = fst $ runState' st $ do
-                PartialInference _ ity ics <- infer $ ETerm (LitInt 0)
-                PartialInference _ bty bcs <- infer $ ETerm (LitBool True)
-                PartialInference _ sty scs <- infer $ ETerm (LitString "str")
-                pure (ity, bty, sty, ics ++ bcs ++ scs)
+                PartialInference ity ics <- infer $ ETerm (LitInt 0)
+                PartialInference bty bcs <- infer $ ETerm (LitBool True)
+                PartialInference sty scs <- infer $ ETerm (LitString "str")
+                pure (annot ity, annot bty, annot sty, ics ++ bcs ++ scs)
 
     r === (TyCon "Int", TyCon "Bool", TyCon "String", [])
 
@@ -48,9 +48,8 @@ test_generalisations = unitTest $ do
     let Right (TypedModule tFunDefns) =
             inferModule md (TypeCheckPlan [S.singleton "fst", S.singleton "snd"])
 
-    -- TODO once normalisation is done better, this should probably be a -> b -> a, etc.
-    map getNameAndType tFunDefns === [ ("snd", Forall [] (TyVar "b" `TyArr` (TyVar "c" `TyArr` TyVar "c")))
-                                     , ("fst", Forall [] (TyVar "b" `TyArr` (TyVar "c" `TyArr` TyVar "b"))) ]
+    map getNameAndType tFunDefns === [ ("snd", Forall ["b", "c"] (TyVar "b" `TyArr` (TyVar "c" `TyArr` TyVar "c")))
+                                     , ("fst", Forall ["b", "c"] (TyVar "b" `TyArr` (TyVar "c" `TyArr` TyVar "b"))) ]
 
 test_top_level_recursion :: Property
 test_top_level_recursion = unitTest $ do
@@ -115,11 +114,11 @@ test_mutual_recursion = unitTest $ do
     let Right (TypedModule tFunDefns) =
             inferModule md (TypeCheckPlan [S.fromList ["yep", "yesnt"]])
 
-    map getNameAndType tFunDefns === [ ( "yep",   Forall [] (TyArr (TyVar "f") (TyCon "Bool")) )
-                                     , ( "yesnt", Forall [] (TyArr (TyVar "f") (TyCon "Bool")) ) ]
+    map getNameAndType tFunDefns === [ ( "yep",   Forall ["f"] (TyArr (TyVar "f") (TyCon "Bool")) )
+                                     , ( "yesnt", Forall ["f"] (TyArr (TyVar "f") (TyCon "Bool")) ) ]
 
 unitTest :: PropertyT IO () -> Property
 unitTest = withTests 1 . property
 
 getNameAndType :: TFunDefn s -> (s, Polytype s)
-getNameAndType (TFunDefn polyType name _) = (name, polyType)
+getNameAndType (TFunDefn name ex) = (name, annot ex)

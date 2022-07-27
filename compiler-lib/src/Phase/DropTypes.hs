@@ -4,7 +4,7 @@ import Core.Expression
 import Core.Module
 
 dropTypes :: TFunDefn s -> FunDefn s
-dropTypes (TFunDefn _ n e) = FunDefn n (dropTypes' e)
+dropTypes (TFunDefn n e) = FunDefn n (dropTypes' e)
 
 dropTypes' :: AExpr t s -> Expr s
 dropTypes' aexpr =

@@ -5,6 +5,7 @@ import Parse.ExpressionTest    (exprTests)
 import Parse.LexerTest         (lexerTests)
 import Parse.LexAndParseTest   (lexAndParseTests)
 import TypeCheck.TypeCheckTest (typeCheckTests)
+import Phase.EtaExpandTest     (etaExpandTests)
 
 main :: IO ()
 main = mapM_ checkParallel [ callGraphTests
@@ -12,4 +13,5 @@ main = mapM_ checkParallel [ callGraphTests
                            , lexerTests
                            , lexAndParseTests
                            , typeCheckTests
+                           , etaExpandTests
                            ]

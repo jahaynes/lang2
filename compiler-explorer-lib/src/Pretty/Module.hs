@@ -17,17 +17,13 @@ render md =
     let txtModule = fmap decodeUtf8 md
         dataDefs  = map printDataDefn $ getDataDefns txtModule
         funDefs   = map printFunDefn  $ getFunDefns txtModule
-    in TB.run . TB.intercalate "\n\n" $ concat [dataDefs, funDefs]
+    in TB.run . TB.intercalate "\n\n" $ mconcat [dataDefs, funDefs]
 
 moduleToText :: Module ByteString -> Text
 moduleToText md =
     let dataDefs = map (TB.text . pack . show) $ getDataDefns md
         funDefs  = map (TB.text . pack . show) $ getFunDefns md
-    in TB.run . TB.intercalate "\n\n" $ concat [dataDefs, funDefs]
-
-
-
-
+    in TB.run . TB.intercalate "\n\n" $ mconcat [dataDefs, funDefs]
 
 printFunDefn :: FunDefn Text -> Builder
 printFunDefn (FunDefn f (ELam vs x)) =

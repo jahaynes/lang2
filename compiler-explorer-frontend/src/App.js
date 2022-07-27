@@ -11,24 +11,32 @@ class App extends React.Component {
   }
 
   lexAndParse() {
-    const source        = document.getElementById("text");
+    const source = document.getElementById("text")
 
-    const tokens        = this.getAndClearElement("tokens");
-    const defns         = this.getAndClearElement("defns");
-    const prettyDefns   = this.getAndClearElement("prettyDefns");
-    const callGraph     = this.getAndClearElement("callGraph");
-    const typeCheckPlan = this.getAndClearElement("typeCheckPlan");
-    const inferred      = this.getAndClearElement("inferred");
+    const tokens           = this.getAndClearElement("tokens")
+    const prettyDefns      = this.getAndClearElement("prettyDefns")
+    const inferred         = this.getAndClearElement("inferred")
+    const inferredPretty   = this.getAndClearElement("inferredPretty")
+    const etaExpanded      = this.getAndClearElement("etaExpanded")
+    const etaPretty        = this.getAndClearElement("etaPretty")
+    const contifiedPretty  = this.getAndClearElement("contifiedPretty")
+    const contifiedUntyped = this.getAndClearElement("contifiedUntyped")
+    const closureConverted = this.getAndClearElement("closureConverted")
 
     fetch("http://127.0.0.1:8080/lexAndParse", { method: 'POST', body: source.value })
       .then(resp => resp.json())
       .then((ts) => {
-        tokens.value        = ts.tokens;
-        defns.value         = ts.defns;
-        prettyDefns.value   = ts.prettyDefns;
-        callGraph.value     = ts.callGraph;
-        typeCheckPlan.value = ts.typeCheckPlan;
-        inferred.value      = ts.inferred;
+        tokens.value           = ts.tokens;
+        prettyDefns.value      = ts.prettyDefns;
+        inferred.value         = ts.inferred;
+        inferredPretty.value   = ts.inferredPretty;
+        etaExpanded.value      = ts.etaExpanded;
+        etaPretty.value        = ts.etaPretty;
+        //saturated.value        = ts.saturated;
+        //saturatedPretty.value  = ts.saturatedPretty;
+        contifiedPretty.value  = ts.contifiedPretty;
+        contifiedUntyped.value = ts.contifiedUntyped;
+        closureConverted.value = ts.closureConverted;
       })
   }
 
@@ -44,17 +52,31 @@ class App extends React.Component {
 
         <label>Definitions / Pretty</label>
         <div>
-          <textarea id='defns' className='editor' spellCheck='false' rows='14'></textarea>
           <textarea id='prettyDefns' className='editor' spellCheck='false' rows='14'></textarea>
         </div>
 
-        <label>Call Graph / Typecheck Plan / Inferred</label>
+        <label>Type Inference / Pretty</label>
         <div>
-          <textarea id='callGraph' className='editor' spellCheck='false' rows='14'></textarea>
-          <textarea id='typeCheckPlan' className='editor' spellCheck='false' rows='14'></textarea>
           <textarea id='inferred' className='editor' spellCheck='false' rows='14'></textarea>
+          <textarea id='inferredPretty' className='editor' spellCheck='false' rows='14'></textarea>
         </div>
 
+        <label>Eta Expanded</label>
+        <div>
+          <textarea id='etaExpanded' className='editor' spellCheck='false' rows='14'></textarea>
+          <textarea id='etaPretty' className='editor' spellCheck='false' rows='14'></textarea>
+        </div>
+
+        <label>Contified</label>
+        <div>
+          <textarea id='contifiedPretty' className='editor' spellCheck='false' rows='14'></textarea>
+          <textarea id='contifiedUntyped' className='editor' spellCheck='false' rows='14'></textarea>
+        </div>
+
+        <label>Closure Converted</label>
+        <div>
+          <textarea id='closureConverted' className='editor' spellCheck='false' rows='14'></textarea>
+        </div>
       </div>
     );
   }

@@ -56,3 +56,18 @@ mapAnnot f expr =
       AIfThenElse a pr tr fa -> AIfThenElse (f a) (mapAnnot f pr) (mapAnnot f tr) (mapAnnot f fa)
       AClo{}                 -> error "closure"
       ACallClo{}             -> error "call closure"
+
+stripAnnot :: AExpr t s -> Expr s
+stripAnnot = go
+  where
+  go expr = 
+    case expr of
+      ATerm _ tm             -> ETerm tm
+      ALam _ vs body         -> ELam vs (go body)
+      AApp _ x ys            -> EApp (go x) (map go ys)
+      ALet _ x y z           -> ELet x (go y) (go z)
+      AUnPrimOp _ o e        -> EUnPrimOp o (go e)
+      ABinPrimOp _ o x y     -> EBinPrimOp o (go x) (go y)
+      AIfThenElse _ pr tr fa -> IfThenElse (go pr) (go tr) (go fa)
+      AClo{}                 -> error "closure"
+      ACallClo{}             -> error "call closure"

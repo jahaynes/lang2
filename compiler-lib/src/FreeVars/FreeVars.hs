@@ -1,10 +1,12 @@
-module FreeVars.FreeVars (FreeVars (FreeVars, getFree), exprFreeVars, getFreeVars) where
+module FreeVars.FreeVars (FreeVars (FreeVars), getFree, exprFreeVars, typedExprFreeVars) where
 
 import Common.State
 import Core.Expression
 import Core.Term
+import Core.Types
 
-import           Data.Set      (Set, (\\))
+import           Data.ByteString (ByteString)
+import           Data.Set        (Set, (\\))
 import qualified Data.Set as S
 
 data FreeVars s =
@@ -55,6 +57,45 @@ exprFreeVars e =
             mapM_ exprFreeVars [p, t, f]
 
         CallClo{} ->
+            error "TODO?"
+
+
+typedExprFreeVars :: Ord s => AExpr t s -> State (FreeVars s) ()
+typedExprFreeVars e =
+
+    case e of
+
+        ATerm _ te ->
+            termFreeVars te
+
+        ALam _ vs b -> do
+            addToScope vs
+            typedExprFreeVars b
+            removeFromScope vs
+
+        AClo _ fvs _ _ ->
+            mapM_ tryInsert fvs
+
+        AApp _ f xs -> do
+            typedExprFreeVars f
+            mapM_ typedExprFreeVars xs
+
+        ALet _ a b c -> do
+            addToScope [a]
+            typedExprFreeVars b
+            typedExprFreeVars c
+            removeFromScope [a]
+
+        AUnPrimOp _ _ a ->
+            typedExprFreeVars a
+
+        ABinPrimOp _ _ a b ->
+            mapM_ typedExprFreeVars [a, b]
+
+        AIfThenElse _ p t f ->
+            mapM_ typedExprFreeVars [p, t, f]
+
+        ACallClo{} ->
             error "TODO?"
 
 termFreeVars :: Ord s => Term s -> State (FreeVars s) ()

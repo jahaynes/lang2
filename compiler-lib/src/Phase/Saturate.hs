@@ -1,73 +1,73 @@
 module Phase.Saturate (saturate) where
 
-import Core.Definition
+import Core.Expression
+import Core.Module
 import Core.Term
-import TypeCheck.TypedExpression
-import TypeCheck.Types
+import Core.Types
 
 import qualified Data.Map as M
 import           Data.Maybe    (fromMaybe)
 
-saturate :: Ord s => TypedModule Scheme s -> TypedModule Scheme s
-saturate md = md { getFunDefnsT = map saturate' $ getFunDefnsT md }
+--saturate :: Ord s => TypedModule Scheme s -> TypedModule Scheme s
+saturate md = md { getTFunDefns = map saturate' $ getTFunDefns md }
 
-saturate' :: Ord s => FunDefnT Scheme s -> FunDefnT Scheme s
-saturate' (FunDefnT t n e) = FunDefnT t n (saturateExpr e)
+--saturate' :: Ord s => FunDefnT Scheme s -> FunDefnT Scheme s
+saturate' (TFunDefn n e) = TFunDefn n (saturateExpr e)
 
-saturateExpr :: Ord s => TypedExpr Scheme s -> TypedExpr Scheme s
-saturateExpr (TermT t term) =
-    TermT t term
+--saturateExpr :: Ord s => TypedExpr Scheme s -> TypedExpr Scheme s
+saturateExpr (ATerm t term) =
+    ATerm t term
 
-saturateExpr (LamT t vs body) =
-    LamT t vs (saturateExpr body)
+saturateExpr (ALam t vs body) =
+    ALam t vs (saturateExpr body)
 
-saturateExpr (AppT _ (LamT _ vs body) xs)
+saturateExpr (AApp _ (ALam _ vs body) xs)
 
     -- TODO make sure not to duplicate work!
     | length vs == length xs = saturateExpr (substitute vs body xs)
 
-saturateExpr (AppT t f xs) =
-    AppT t (saturateExpr f) (map saturateExpr xs)
+saturateExpr (AApp t f xs) =
+    AApp t (saturateExpr f) (map saturateExpr xs)
 
-saturateExpr (LetT t a b c) =
-    LetT t a (saturateExpr b) (saturateExpr c)
+saturateExpr (ALet t a b c) =
+    ALet t a (saturateExpr b) (saturateExpr c)
 
-saturateExpr (UnPrimOpT t op e1) =
-    UnPrimOpT t op (saturateExpr e1)
+saturateExpr (AUnPrimOp t op e1) =
+    AUnPrimOp t op (saturateExpr e1)
 
-saturateExpr (BinPrimOpT t op e1 e2) =
-    BinPrimOpT t op (saturateExpr e1) (saturateExpr e2)
+saturateExpr (ABinPrimOp t op e1 e2) =
+    ABinPrimOp t op (saturateExpr e1) (saturateExpr e2)
 
-saturateExpr (IfThenElseT t p tr f) =
-    IfThenElseT t (saturateExpr p) (saturateExpr tr) (saturateExpr f)
+saturateExpr (AIfThenElse t p tr f) =
+    AIfThenElse t (saturateExpr p) (saturateExpr tr) (saturateExpr f)
 
-substitute :: Ord s => [s] -> TypedExpr Scheme s -> [TypedExpr Scheme s] -> TypedExpr Scheme s
+-- substitute :: Ord s => [s] -> TypedExpr Scheme s -> [TypedExpr Scheme s] -> TypedExpr Scheme s
 substitute vs' body' xs' = go (M.fromList $ zip vs' xs') body'
 
     where
-    go subst term@(TermT _ (Var v)) =
+    go subst term@(ATerm _ (Var v)) =
           fromMaybe term (M.lookup v subst)
 
-    go _ t@TermT{} = t
+    go _ t@ATerm{} = t
 
     -- TODO is this enough to prevent variable capture
-    go subst (LamT t vs body) =
+    go subst (ALam t vs body) =
         let subst' = foldr M.delete subst vs
-        in LamT t vs (go subst' body)
+        in ALam t vs (go subst' body)
 
-    go subst (AppT t f xs) =
-        AppT t (go subst f) (map (go subst) xs)
+    go subst (AApp t f xs) =
+        AApp t (go subst f) (map (go subst) xs)
 
-    go subst (LetT t a b c) =
+    go subst (ALet t a b c) =
         let subst' = M.delete a subst
-        in LetT t a (go subst' b) (go subst' c)
+        in ALet t a (go subst' b) (go subst' c)
 
-    go subst (UnPrimOpT t op e1) =
-        UnPrimOpT t op (go subst e1)
+    go subst (AUnPrimOp t op e1) =
+        AUnPrimOp t op (go subst e1)
 
-    go subst (BinPrimOpT t op e1 e2) =
-        BinPrimOpT t op (go subst e1) (go subst e2)
+    go subst (ABinPrimOp t op e1 e2) =
+        ABinPrimOp t op (go subst e1) (go subst e2)
 
-    go subst (IfThenElseT t p tr f) =
-        IfThenElseT t (go subst p) (go subst tr) (go subst f)
+    go subst (AIfThenElse t p tr f) =
+        AIfThenElse t (go subst p) (go subst tr) (go subst f)
 
