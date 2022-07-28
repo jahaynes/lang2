@@ -18,7 +18,7 @@ import Phase.LambdaLift
 import Pretty.Module
 import Pretty.TypedModule
 import TypeCheck.TypeCheckTypes
-import TypeCheck.TypeInference
+import TypeCheck.TypeInference2
 
 import           Data.Aeson
 import           Data.ByteString             (ByteString)

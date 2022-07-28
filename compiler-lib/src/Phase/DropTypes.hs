@@ -7,12 +7,12 @@ dropModuleTypes :: TypedModule s -> Module s
 dropModuleTypes tm = 
     Module { getDataDefns = [] -- TODO
            , getTypeSigs  = [] -- TODO
-           , getFunDefns  = map dropFundefTypes $ getTFunDefns tm
+           , getFunDefns  = error "TODO" -- map dropFundefTypes $ getTFunDefns tm
            }
 
-dropFundefTypes :: TFunDefn s -> FunDefn s
-dropFundefTypes (TFunDefn n e) =
-    FunDefn n (dropExprTypes e)
+--dropFundefTypes :: TFunDefn s -> FunDefn s
+--dropFundefTypes (TFunDefn n e) =
+--    FunDefn n (dropExprTypes e)
 
 dropExprTypes :: AExpr t s -> Expr s
 dropExprTypes = go

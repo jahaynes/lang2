@@ -4,6 +4,9 @@ module Core.Expression where
 
 import Core.Operator (BinOp, UnOp)
 import Core.Term     (Term)
+import Core.Types
+
+import Debug.Trace (trace)
 
               -- Visible in source code
 data Expr s = ETerm (Term s)
@@ -31,6 +34,30 @@ data AExpr a s = ATerm a (Term s)
                | ACallClo a s [s]
                    deriving (Eq, Functor, Show)
 
+
+
+data ExprT s = TermT (Type s) (Term s)
+             | LamT (Polytype s) [s] (ExprT s)
+             | AppT (Type s) (ExprT s) [ExprT s]
+             | LetT (Type s) s (ExprT s) (ExprT s)
+             | UnPrimOpT (Type s) UnOp (ExprT s)
+             | BinPrimOpT (Type s) BinOp (ExprT s) (ExprT s)
+             | IfThenElseT (Type s) (ExprT s) (ExprT s) (ExprT s)
+                 deriving (Eq, Show)
+            -- TODO if necessary: clo/callclo
+
+-- is it invalid to call this on a polytype?
+annot' :: ExprT s -> Type s
+annot' expr =
+  case expr of
+    TermT t _ -> t
+    LamT (Forall _ t) _ _ -> trace "WARN-annot'-called-polytype" t
+    AppT t _ _ -> t
+    LetT t _ _ _ -> t
+    UnPrimOpT t _ _ -> t
+    BinPrimOpT t _ _ _ -> t
+    IfThenElseT t _ _ _ -> t
+
 annot :: AExpr a s -> a
 annot expr =
     case expr of
@@ -43,6 +70,18 @@ annot expr =
       AIfThenElse a _ _ _ -> a
       AClo{}              -> error "closure"
       ACallClo{}          -> error "call closure"
+
+-- probably the wrong approach
+mapAnnot' :: (Type s -> Type s) -> ExprT s -> ExprT s
+mapAnnot' f expr =
+    case expr of
+      TermT t tm             -> TermT (f t) tm
+      LamT (Forall _ t) vs body -> LamT (undefined {-f t-}) vs (mapAnnot' f body)
+      AppT t x ys            -> AppT (f t) (mapAnnot' f x) (map (mapAnnot' f) ys)
+      LetT t x y z           -> LetT (f t) x (mapAnnot' f y) (mapAnnot' f z)
+      UnPrimOpT t o e        -> UnPrimOpT (f t) o (mapAnnot' f e)
+      BinPrimOpT t o x y     -> BinPrimOpT (f t) o (mapAnnot' f x) (mapAnnot' f y)
+      IfThenElseT t pr tr fa -> IfThenElseT (f t) (mapAnnot' f pr) (mapAnnot' f tr) (mapAnnot' f fa)
 
 mapAnnot :: (a -> b) -> AExpr a s -> AExpr b s
 mapAnnot f expr =

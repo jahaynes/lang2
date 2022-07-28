@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module TypeCheck.TypeInference (InferState (..), PartialInference (..), PolytypeEnv (..), infer, inferModule) where
+module TypeCheck.TypeInference2 (InferState (..), PartialInference (..), PolytypeEnv (..), infer, inferModule) where
 
 import Common.State
 import Core.Expression
@@ -29,20 +29,6 @@ newtype PolytypeEnv s =
     PolytypeEnv (Map s (Polytype s))
        deriving Show
 
-
-{-
-    TODO CHECK:
-    This seems wrong:
-
-    someapp x = (\y. y)
-
-    became:
-
-    someapp : forall a b. a -> b -> b
-    someapp x = (\y. (y : a))
-
--}
-
 -- TODO make typecheck plan from in here
 
 inferModule :: Module ByteString
@@ -56,25 +42,21 @@ inferModule md (TypeCheckPlan tcp) = do
 
         typeCheckPlan' = TypeCheckPlan $ map (map (\n -> (n, funDefnMap ! n)) . S.toList) tcp
 
-    -- wrong typedExpressions
     (typedExpressions, _polytypeEnv') <- foldM inferTopLevelGroup ([], polyTypeEnv) typeCheckPlan'
 
-    let tm = TypedModule { getTFunDefns = map asTypedFunDefn typedExpressions }
+    pure $ TypedModule { getTFunDefns = map asTypedFunDefn typedExpressions }
 
-    -- Wrong -- y :: forall a. a
-    pure tm
-
-asTypedFunDefn :: (s, AExpr (Polytype s) s) -> TFunDefn s
+asTypedFunDefn :: (s, ExprT s) -> TFunDefn s
 asTypedFunDefn (name, ex) = TFunDefn name ex
 
 data PartialInference s =
-    PartialInference { pi_typedExpr   :: !(AExpr (Type s) s)
+    PartialInference { pi_typedExpr   :: !(ExprT s)
                      , pi_constraints :: ![Constraint s]
                      } deriving Show
 
-inferTopLevelGroup :: ([(ByteString, AExpr (Polytype ByteString) ByteString)], PolytypeEnv ByteString)
+inferTopLevelGroup :: ([(ByteString, ExprT ByteString)], PolytypeEnv ByteString)
                    -> [(ByteString, Expr ByteString)]
-                   -> Either ByteString ([(ByteString, AExpr (Polytype ByteString) ByteString)], PolytypeEnv ByteString)
+                   -> Either ByteString ([(ByteString, ExprT ByteString)], PolytypeEnv ByteString)
 inferTopLevelGroup (as, env) group =
 
     let (partialInferences, st) =
@@ -93,7 +75,7 @@ inferTopLevelGroup (as, env) group =
                 forM freshTopLevelTyVars $ \(n, fv, e) -> do
 
                     PartialInference te cs <- infer e
-                    let ty = annot te
+                    let ty = annot' te
 
                     pure (n, PartialInference { pi_typedExpr   = te
                                               , pi_constraints = Constraint fv ty : cs })
@@ -102,9 +84,9 @@ inferTopLevelGroup (as, env) group =
 
 -- Constrain/closeover the inference results, and insert them into the environment
 -- This is wrong
-updateEnv :: ([(ByteString, AExpr (Polytype ByteString) ByteString)], PolytypeEnv ByteString)
+updateEnv :: ([(ByteString, ExprT ByteString)], PolytypeEnv ByteString)
           -> [(ByteString, PartialInference ByteString)]
-          -> Either ByteString ([(ByteString, AExpr (Polytype ByteString) ByteString)], PolytypeEnv ByteString)
+          -> Either ByteString ([(ByteString, ExprT ByteString)], PolytypeEnv ByteString)
 updateEnv (as, env) partialInferences = do
     subst <- runSolve (concatMap (pi_constraints . snd) partialInferences)
 
@@ -112,47 +94,19 @@ updateEnv (as, env) partialInferences = do
     where
     go :: Subst ByteString
        -> (ByteString, PartialInference ByteString)
-       -> ([(ByteString, AExpr (Polytype ByteString) ByteString)], PolytypeEnv ByteString)
-       -> ([(ByteString, AExpr (Polytype ByteString) ByteString)], PolytypeEnv ByteString)
+       -> ([(ByteString, ExprT ByteString)], PolytypeEnv ByteString)
+       -> ([(ByteString, ExprT ByteString)], PolytypeEnv ByteString)
     go subst (name, pinf) (tes, PolytypeEnv env') =
-
         --let typedExpr = mapAnnot (closeOver . substituteType subst)
         --              $ pi_typedExpr pinf
-
-        let typedExpr = mapAnnot (generalize (PolytypeEnv mempty) . substituteType subst)
+        let typedExpr = mapAnnot' (generalize (PolytypeEnv mempty) . substituteType subst)
                       $ pi_typedExpr pinf
-
-            -- correct
-            -- ALam ("b" -> ("c" -> "c")) ["x","y"]
-            --      (ATerm "c" (Var "y"))
-            --foo = pi_typedExpr pinf 
-
-            -- correct
-            -- ALam ("b" -> ("c" -> "c")) ["x","y"]
-            --      (ATerm "c" (Var "y"))
-            --foo2 = mapAnnot (substituteType subst) foo
-
-            -- correct
-            -- ALam (Forall ["b","c"] ("b" -> ("c" -> "c"))) ["x","y"]
-            --      (ATerm (Forall ["c"] "c") (Var "y"))
-            --foo3 = mapAnnot (generalize (PolytypeEnv mempty)) foo2
-
-            -- incorrect
-            -- ALam (Forall ["a","b"] ("a" -> ("b" -> "b"))) ["x","y"]
-            --      (ATerm (Forall ["a"] "a") (Var "y"))
-            -- foo4 = mapAnnot normalize foo3
-
             -- avoiding normalize in this step
             -- note: normalize probably shouldn't be used on a functor!
             -- closeOver = normalize . generalize (PolytypeEnv mempty)
-
-            polyType = annot typedExpr
-
+            polyType = annot' typedExpr
         in ( (name, typedExpr):tes
-           , PolytypeEnv (M.insert name polyType env') )
-
-
-
+           , PolytypeEnv (M.insert name (Forall undefined polyType) env') )
 
 lookupPolytype :: ByteString -> State (InferState ByteString) (Type ByteString)
 lookupPolytype x = do
@@ -168,20 +122,20 @@ infer expr =
     case expr of
 
         ETerm b@LitBool{} ->
-            pure PartialInference { pi_typedExpr   = ATerm typeBool b
+            pure PartialInference { pi_typedExpr   = TermT typeBool b
                                   , pi_constraints = [] }
 
         ETerm i@LitInt{} ->
-            pure PartialInference { pi_typedExpr   = ATerm typeInt i
+            pure PartialInference { pi_typedExpr   = TermT typeInt i
                                   , pi_constraints = [] }
 
         ETerm s@LitString{} ->
-            pure PartialInference { pi_typedExpr   = ATerm typeString s
+            pure PartialInference { pi_typedExpr   = TermT typeString s
                                   , pi_constraints = [] }
 
         ETerm v@(Var v') -> do
             t <- lookupPolytype v'
-            pure PartialInference { pi_typedExpr   = ATerm t v
+            pure PartialInference { pi_typedExpr   = TermT t v
                                   , pi_constraints = [] }
 
         ETerm (DCons _) ->
@@ -191,64 +145,66 @@ infer expr =
             tvs <- replicateM (length vs) fresh
             let scs = map (Forall []) tvs
             PartialInference e' cs <- inEnv (zip vs scs) (infer e)
-            let ty = foldr TyArr (annot e') tvs
-            let pi2 = PartialInference { pi_typedExpr   = ALam ty vs e'
-                                       , pi_constraints = cs }
-            pure pi2
+            let ty = foldr TyArr (annot' e') tvs
+            pure PartialInference { pi_typedExpr   = LamT (Forall undefined ty) vs e'
+                                  , pi_constraints = cs }
 
         EApp f xs -> do
             PartialInference f' c1 <-      infer f
             inferences             <- mapM infer xs
             let xs' = map pi_typedExpr   inferences
-            let ts  = map annot xs'
+            let ts  = map annot' xs'
             let cs  = map pi_constraints inferences
-            let t1  = annot f'
+            let t1  = annot' f'
             tv       <- fresh
-            pure PartialInference { pi_typedExpr   = AApp tv f' xs'
-                                  , pi_constraints = c1 ++ concat cs ++ [Constraint t1 (foldr TyArr tv ts)] }
+
+            let cs' = c1 ++ concat cs ++ [Constraint t1 (foldr TyArr tv ts)]
+
+            pure PartialInference { pi_typedExpr   = AppT tv f' xs'
+                                  , pi_constraints = cs' }
 
         ELet x e1 e2 -> do
             tv <- fresh
             PartialInference e1' c1 <- inEnv [(x, Forall [] tv)] $ infer e1
-            let t1 = annot e1'
+            let t1 = annot' e1'
             case runSolve c1 of
                 Left err -> error $ show err
                 Right sub -> do
                     penv <- getPolytypeEnv <$> get
                     let sc = generalize (substitutePolytypeEnv sub penv) (substituteType sub t1)
                     PartialInference e2' c2 <- inEnv [(x, sc)] $ infer e2
-                    let t2 = annot e2'
-                    pure PartialInference { pi_typedExpr   = ALet t2 x e1' e2'
+                    let t2 = annot' e2'
+                    pure PartialInference { pi_typedExpr   = LetT t2 x e1' e2'
                                           , pi_constraints = c1 ++ c2 }
 
         EUnPrimOp op e -> do
             PartialInference e' c <- infer e
             tv <- fresh
-            let t  = annot e'
+            let t  = annot' e'
                 u1 = TyArr t tv
             u2 <- unOp op
-            pure PartialInference { pi_typedExpr   = AUnPrimOp tv op e'
+            pure PartialInference { pi_typedExpr   = UnPrimOpT tv op e'
                                   , pi_constraints = c ++ [Constraint u1 u2] }
 
         EBinPrimOp op e1 e2 -> do
             PartialInference e1' c1 <- infer e1
-            let t1 = annot e1'
+            let t1 = annot' e1'
             PartialInference e2' c2 <- infer e2
-            let t2 = annot e2'
+            let t2 = annot' e2'
             tv <- fresh
             let u1 = t1 `TyArr` (t2 `TyArr` tv)
             u2 <- binOp op
-            pure PartialInference { pi_typedExpr   = ABinPrimOp tv op e1' e2'
+            pure PartialInference { pi_typedExpr   = BinPrimOpT tv op e1' e2'
                                   , pi_constraints = c1 ++ c2 ++ [Constraint u1 u2] }
 
         IfThenElse p tr fl -> do
             PartialInference p' c1 <- infer p
-            let t1 = annot p'
+            let t1 = annot' p'
             PartialInference tr' c2 <- infer tr
-            let t2 = annot tr'
+            let t2 = annot' tr'
             PartialInference fl' c3 <- infer fl
-            let t3 = annot fl'
-            pure PartialInference { pi_typedExpr   = AIfThenElse t2 p' tr' fl'
+            let t3 = annot' fl'
+            pure PartialInference { pi_typedExpr   = IfThenElseT t2 p' tr' fl'
                                   , pi_constraints = c1 ++ c2 ++ c3 ++ [Constraint t1 typeBool, Constraint t2 t3] }
 
         EClo{} ->

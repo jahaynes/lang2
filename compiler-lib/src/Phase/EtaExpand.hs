@@ -18,57 +18,51 @@ expandDefn :: TFunDefn ByteString
            -> State EtaState (TFunDefn ByteString)
 expandDefn (TFunDefn n e) = TFunDefn n <$> expandExpr e
 
-expandExpr :: Eq s => AExpr (Polytype s) ByteString
-                   -> State EtaState (AExpr (Polytype s) ByteString)
-expandExpr e@(ATerm (Forall _ t) term) =
+expandExpr :: ExprT ByteString
+           -> State EtaState (ExprT ByteString)
+expandExpr e@(TermT t term) =
     case (t, term) of
         (TyArr{}, Var f) -> functionCallToLambda f t
         (TyArr{},     _) -> error "Unexpected type arrow for non-var term"
         _                -> pure e
 
 -- TODO lam?
-expandExpr (ALam t vs body) = do
+expandExpr (LamT t vs body) = do
     body' <- expandExpr body
     pure $ case body' of
-               ALam _ ivs ib -> ALam t (vs++ivs) ib -- Merge the two lambdas
-               _             -> ALam t vs body'
+               LamT _ ivs ib -> LamT t (vs++ivs) ib -- Merge the two lambdas
+               _             -> LamT t vs body'
 
 -- An app whose type is an arrow is under applied
 -- what does this mean when intending to return a lambda?
-expandExpr e@(AApp (Forall _ t) f xs) =
+expandExpr e@(AppT t f xs) =
     case t of
         TyArr{} -> do
-            let tf = let Forall _ tf' = annot f in tf'
+            let tf = undefined -- let Forall _ tf' = annot f in tf'
             (at, t', vs, args) <- underAppliedToLambda tf xs
-            pure $ ALam (Forall [] t') vs (AApp (Forall [] at) f (xs ++ args))
+            pure $ LamT (undefined t') vs (AppT at f (xs ++ args))
         _       -> pure e
 
-expandExpr (ALet t a b c) =
+expandExpr (LetT t a b c) =
     -- The outer type *should* still be the same
-    ALet t a <$> expandExpr b
+    LetT t a <$> expandExpr b
              <*> expandExpr c
 
-expandExpr (AUnPrimOp t o a) =
-    AUnPrimOp t o <$> expandExpr a
+expandExpr (UnPrimOpT t o a) =
+    UnPrimOpT t o <$> expandExpr a
 
-expandExpr (ABinPrimOp t o a b) =
-    ABinPrimOp t o <$> expandExpr a
+expandExpr (BinPrimOpT t o a b) =
+    BinPrimOpT t o <$> expandExpr a
                    <*> expandExpr b
 
-expandExpr (AIfThenElse t pr tr fl) =
-    AIfThenElse t <$> expandExpr pr
+expandExpr (IfThenElseT t pr tr fl) =
+    IfThenElseT t <$> expandExpr pr
                   <*> expandExpr tr
                   <*> expandExpr fl
 
-expandExpr AClo{} =
-    error "AClo"
-
-expandExpr ACallClo{} =
-    error "ACallClo"
-
-underAppliedToLambda :: Eq s => Type s
-                             -> [AExpr (Polytype s) ByteString]
-                             -> State EtaState (Type s, Type s, [ByteString], [AExpr (Polytype s) ByteString])
+underAppliedToLambda :: Type ByteString
+                     -> [ExprT ByteString]
+                     -> State EtaState (Type ByteString, Type ByteString, [ByteString], [ExprT ByteString])
 
 underAppliedToLambda at [] = go [] at
     where
@@ -78,11 +72,11 @@ underAppliedToLambda at [] = go [] at
     go acc t = do
         let acc' = reverse acc
             vs   = map fst acc'
-            args = map (\(v, vt) -> ATerm (Forall [] vt) (Var v)) acc'
+            args = map (\(v, vt) -> TermT vt (Var v)) acc'
         pure (t, at, vs, args)
 
 underAppliedToLambda (TyArr a b) (x:xs) =
-    let xt' = let Forall _ xt = annot x in xt
+    let xt' = undefined -- let Forall _ xt = annot x in xt
     in if xt' == a
         then underAppliedToLambda b xs
         else error "Type mismatch"
@@ -90,19 +84,19 @@ underAppliedToLambda (TyArr a b) (x:xs) =
 underAppliedToLambda _ _ = error "bad underapply"
 
 functionCallToLambda :: ByteString
-                     -> Type s
-                     -> State EtaState (AExpr (Polytype s) ByteString)
+                     -> Type ByteString
+                     -> State EtaState (ExprT ByteString)
 functionCallToLambda f t' = go [] t'
     where
     go acc (TyArr a b) = genSym >>= \v -> go ((v, a):acc) b
     go acc t =
         let acc' = reverse acc
-            args = map (\(v,vt) -> ATerm (Forall [] vt) (Var v)) acc'
+            args = map (\(v,vt) -> TermT vt (Var v)) acc'
             vs   = map fst acc'
-            body = AApp (Forall [] t)
-                        (ATerm (Forall [] t') $ Var f)
+            body = AppT t
+                        (TermT t' $ Var f)
                         args
-        in pure $ ALam (Forall [] t') vs body
+        in pure $ LamT (undefined t') vs body
 
 genSym :: State EtaState ByteString
 genSym = do

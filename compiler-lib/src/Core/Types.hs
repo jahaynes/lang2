@@ -20,6 +20,6 @@ data Polytype s =
         deriving (Eq, Show)
 
 typeBool, typeInt, typeString :: Type ByteString
-typeBool = TyCon "Bool"
-typeInt = TyCon "Int"
+typeBool   = TyCon "Bool"
+typeInt    = TyCon "Int"
 typeString = TyCon "String"

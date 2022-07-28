@@ -37,7 +37,7 @@ data FunDefn s =
 
 data TypedModule s =
     TypedModule { getTFunDefns :: [TFunDefn s] -- TODO.  datatypes and typesigs
-                } deriving Show
+            } deriving Show
 
 untypeModule :: TypedModule s -> Module s
 untypeModule tm = Module { getDataDefns = []    -- TODO.  datatypes and typesigs
@@ -46,10 +46,10 @@ untypeModule tm = Module { getDataDefns = []    -- TODO.  datatypes and typesigs
                          }
 
 data TFunDefn s =
-    TFunDefn s (AExpr (Polytype s) s)
+    TFunDefn s (ExprT s)
         deriving (Eq, Show)
 
 untypeDefn :: TFunDefn s -> FunDefn s
-untypeDefn (TFunDefn n aexpr) = FunDefn n (stripAnnot aexpr)
+untypeDefn (TFunDefn n aexpr) = error "TODO" -- FunDefn n (stripAnnot aexpr)
 
 -----------------------------------------------
