@@ -13,7 +13,7 @@ library
                     containers,
                     vector,
                     vector-builder
-  exposed-modules:  Common.CallGraph
+  exposed-modules:  Common.Graph
                     Common.State
                     Core.Expression
                     Core.Module
@@ -32,9 +32,7 @@ library
                     Phase.DropTypes
                     Phase.EtaExpand
                     Phase.LambdaLift
-                    TypeCheck.ConstraintSolver
-                    TypeCheck.TypeCheckTypes
-                    TypeCheck.TypeInference2
+                    TypeCheck.NewTypeCheck
   ghc-options:      -Wall -O2
   hs-source-dirs:   src
   default-language: Haskell2010
@@ -43,7 +41,7 @@ test-suite test-compiler-lib
     build-depends:    bytestring,
                       compiler-lib
     ghc-options:      -Wall -O2
-    other-modules:    Common.CallGraphTest
+    other-modules:    Common.GraphTest
                       Parse.ExpressionTest
                       Parse.LexerTest
                       Parse.LexAndParseTest
