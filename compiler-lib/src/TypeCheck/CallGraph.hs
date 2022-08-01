@@ -1,13 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module TypeCheck.CallGraph where
+module TypeCheck.CallGraph (buildGraph, findCycles, plan) where
 
 import Core.Definition
 import Core.Expression
 import Core.Term
 
 import           Data.ByteString.Char8 (ByteString, pack)
-import           Data.List             (partition)
 import           Data.Map              (Map, (!))
 import qualified Data.Map as M
 import           Data.Set              (Set, (\\))
@@ -45,20 +44,6 @@ findCycles graph = S.map S.fromList $ S.unions $ map (S.fromList . go []) $ M.ke
                 Just outs ->
                     let path' = path ++ [b]
                     in concatMap (go path') (S.toList outs)
-
--- only exists to be tested?
-mergeIntersections :: Ord a => [Set a] -> [Set a]
-mergeIntersections       [] = []
-mergeIntersections (xs:xss) =
-    let (disjoint, joint) = partition (S.null . S.intersection xs) xss
-    in mconcat (xs:joint) : mergeIntersections disjoint
-
-
-findLeaves :: Ord a => Map a a -> Set a
-findLeaves graph =
-    let outs = S.fromList $ M.elems graph
-        ins  = M.keysSet graph
-    in outs \\ ins
 
 plan :: [FunDefn ByteString] -> Either ByteString [Set ByteString]
 plan = solve . buildGraph
