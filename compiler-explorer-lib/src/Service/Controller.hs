@@ -23,10 +23,7 @@ import TypeCheck.Types
 
 import           Data.Aeson
 import           Data.ByteString             (ByteString)
-import           Data.Map                    (Map)
-import qualified Data.Map as M
-import           Data.Set                    (Set)
-import           Data.Text                   (Text, pack)
+import           Data.Text                   (Text)
 import           Data.Text.Encoding          (decodeUtf8, encodeUtf8)
 import           Data.Vector                 (Vector)
 import           Network.Wai.Handler.Warp    (run)
@@ -40,8 +37,8 @@ data ProgramState =
     ProgramState { getSource           :: Text
                  , getTokens           :: Either ByteString (Vector Token)
                  , getModule           :: Either ByteString (Module ByteString)
-                 , getCallGraph        :: Either ByteString (Map ByteString (Set ByteString))
-                 , getTypeGroups       :: Either ByteString [Set ByteString]
+                 , getCallGraph        :: Either ByteString (Graph ByteString)
+                 , getTypeGroups       :: Either ByteString [Cycle ByteString]
                  , getTypedModule      :: Either ByteString (TypedModule Scheme ByteString)
                  , getEtaExpanded      :: Either ByteString (TypedModule Scheme ByteString)
                  , getSaturated        :: Either ByteString (TypedModule Scheme ByteString)
@@ -58,8 +55,8 @@ instance ToJSON ProgramState where
         let txtTokens                 = decodeUtf8 $ either id tokensToByteString (getTokens ps)
             txtDefns                  = either decodeUtf8 moduleToText (getModule ps)
             txtPrettyDefns            = either decodeUtf8 render (getModule ps)
-            txtCallGraph              = either decodeUtf8 (pack . unlines . map show . M.toList) (getCallGraph ps)
-            txtTypeGroups             = either decodeUtf8 (pack . unlines . map show) (getTypeGroups ps)
+            txtCallGraph              = decodeUtf8 $ either id renderGraph (getCallGraph ps)
+            txtTypeGroups             = decodeUtf8 $ either id renderCycles (getTypeGroups ps)
             txtEtaExpanded            = either decodeUtf8 typedModuleToText (getEtaExpanded ps)
             txtSaturated              = either decodeUtf8 typedModuleToText (getSaturated ps)
             txtContified              = either decodeUtf8 moduleToText (getContified ps)

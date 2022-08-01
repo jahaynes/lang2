@@ -9,8 +9,6 @@ import           Core.Expression
 import           Core.Term
 import           TypeCheck.CallGraph
 
-import           Data.Map (Map)
-import           Data.Set (Set)
 import           Hedgehog hiding (Var)
 
 callGraphTests :: Group
@@ -27,7 +25,7 @@ callGraphTests =
 
 test_build_graph_empty :: Property
 test_build_graph_empty = unitTest $
-    buildGraph [] === (mempty :: Map () (Set ()))
+    buildGraph ([] :: [FunDefn ()]) === mempty
 
 test_build_graph :: Property
 test_build_graph = unitTest $ do
@@ -35,41 +33,41 @@ test_build_graph = unitTest $ do
     let defn1 = FunDefn "foo" (EApp (ETerm (Var "bar")) [])
         defn2 = FunDefn "bar" (EApp (ETerm (Var "foo")) [])
 
-    buildGraph [defn1, defn2] === ([ ("bar", ["foo"])
-                                   , ("foo", ["bar"]) ] :: Map String (Set String))
+    buildGraph [defn1, defn2] === (Graph ([ ("bar", ["foo"])
+                                          , ("foo", ["bar"]) ]) :: Graph String)
 
 
 
 test_empty_cycles :: Property
 test_empty_cycles = unitTest $
-    let input = mempty :: Map () (Set ())
+    let input = mempty :: Graph ()
     in findCycles input === mempty
 
 test_no_cycles :: Property
 test_no_cycles = unitTest $
-    let input = [ ('a', ['b'])
-                , ('c', ['d']) ]
+    let input = Graph [ ('a', ['b'])
+                      , ('c', ['d']) ]
     in findCycles input === mempty
 
 test_one_cycle :: Property
 test_one_cycle = unitTest $
-    let input = [ ('a', ['b'])
-                , ('b', ['a']) ]
+    let input = Graph [ ('a', ['b'])
+                      , ('b', ['a']) ]
     in findCycles input === [ ['a', 'b'] ]
 
 test_mixed_cycles :: Property
 test_mixed_cycles = unitTest $
-    let input = [ ('a', ['b'])
-                , ('b', ['a', 'c']) ]
+    let input = Graph [ ('a', ['b'])
+                      , ('b', ['a', 'c']) ]
     in findCycles input === [ ['a', 'b'] ]
 
 test_disjoint_cycles :: Property
 test_disjoint_cycles = unitTest $
-    let input = [ ('*', ['1', 'a'])
-                , ('1', ['2'])
-                , ('2', ['1'])
-                , ('a', ['b'])
-                , ('b', ['a']) ]
+    let input = Graph [ ('*', ['1', 'a'])
+                      , ('1', ['2'])
+                      , ('2', ['1'])
+                      , ('a', ['b'])
+                      , ('b', ['a']) ]
     in findCycles input === [ ['a', 'b'], ['1', '2'] ]
 
 
