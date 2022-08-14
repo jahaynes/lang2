@@ -21,14 +21,14 @@ instance Monad (State s) where
             State ry = f sx
         in ry s'
 
+instance MonadFail (State s) where
+    fail = error
+
 get :: State x x
 get = State $ \s -> (s, s)
 
 put :: x -> State x ()
 put x = State $ const ((), x)
-
-getThenApply :: (x-> x) -> State x x
-getThenApply f = get >>= \x -> put (f x) >> pure x
 
 modify' :: (x -> x) -> State x ()
 modify' f = State $ \x ->
@@ -39,6 +39,9 @@ modify' f = State $ \x ->
 
 evalState :: State s a -> s -> a
 evalState x = fst . runState x
+
+evalState' :: s -> State s a -> a
+evalState' = flip evalState
 
 execState :: State s a -> s -> s
 execState x = snd . runState x

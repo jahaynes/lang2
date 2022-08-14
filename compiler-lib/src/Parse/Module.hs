@@ -1,17 +1,16 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Parse.Definition where
+module Parse.Module where
 
-import Core.Definition
+import Core.Module
+import Core.Types
 
 import Core.Expression
 import Parse.Expression
 import Parse.Parser
 import Parse.Token
-import TypeCheck.Types
 
-import Data.ByteString (ByteString)
-
+import           Data.ByteString (ByteString)
 import           Data.Vector      ((!?))
 import qualified Data.IntSet as IS
 

@@ -2,13 +2,15 @@
              OverloadedStrings,
              ScopedTypeVariables #-}
 
-module TypeCheck.CallGraphTest (callGraphTests) where
+module Common.CallGraphTest (callGraphTests) where
 
-import           Core.Definition
+import           Common.CallGraph
 import           Core.Expression
+import           Core.Module
 import           Core.Term
-import           TypeCheck.CallGraph
 
+import           Data.Map (Map)
+import           Data.Set (Set)
 import           Hedgehog hiding (Var)
 
 callGraphTests :: Group
@@ -25,7 +27,7 @@ callGraphTests =
 
 test_build_graph_empty :: Property
 test_build_graph_empty = unitTest $
-    buildGraph ([] :: [FunDefn ()]) === mempty
+    buildGraph' [] === (CallGraph mempty :: CallGraph ())
 
 test_build_graph :: Property
 test_build_graph = unitTest $ do
@@ -33,41 +35,42 @@ test_build_graph = unitTest $ do
     let defn1 = FunDefn "foo" (EApp (ETerm (Var "bar")) [])
         defn2 = FunDefn "bar" (EApp (ETerm (Var "foo")) [])
 
-    buildGraph [defn1, defn2] === (Graph ([ ("bar", ["foo"])
-                                          , ("foo", ["bar"]) ]) :: Graph String)
+    let CallGraph cg = buildGraph' [defn1, defn2] :: CallGraph String
 
+    cg === [ ("bar", ["foo"])
+           , ("foo", ["bar"]) ]
 
 
 test_empty_cycles :: Property
 test_empty_cycles = unitTest $
-    let input = mempty :: Graph ()
+    let input = mempty :: Map () (Set ())
     in findCycles input === mempty
 
 test_no_cycles :: Property
 test_no_cycles = unitTest $
-    let input = Graph [ ('a', ['b'])
-                      , ('c', ['d']) ]
+    let input = [ ('a', ['b'])
+                , ('c', ['d']) ]
     in findCycles input === mempty
 
 test_one_cycle :: Property
 test_one_cycle = unitTest $
-    let input = Graph [ ('a', ['b'])
-                      , ('b', ['a']) ]
+    let input = [ ('a', ['b'])
+                , ('b', ['a']) ]
     in findCycles input === [ ['a', 'b'] ]
 
 test_mixed_cycles :: Property
 test_mixed_cycles = unitTest $
-    let input = Graph [ ('a', ['b'])
-                      , ('b', ['a', 'c']) ]
+    let input = [ ('a', ['b'])
+                , ('b', ['a', 'c']) ]
     in findCycles input === [ ['a', 'b'] ]
 
 test_disjoint_cycles :: Property
 test_disjoint_cycles = unitTest $
-    let input = Graph [ ('*', ['1', 'a'])
-                      , ('1', ['2'])
-                      , ('2', ['1'])
-                      , ('a', ['b'])
-                      , ('b', ['a']) ]
+    let input = [ ('*', ['1', 'a'])
+                , ('1', ['2'])
+                , ('2', ['1'])
+                , ('a', ['b'])
+                , ('b', ['a']) ]
     in findCycles input === [ ['a', 'b'], ['1', '2'] ]
 
 

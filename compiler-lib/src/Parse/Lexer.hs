@@ -64,6 +64,7 @@ disambiguateNegation = go [] TAmbiguous
     f TColon          = TAmbiguous
     f TArr            = TAmbiguous
     f TAmbiguous      = TAmbiguous
+    f TDollar         = TAmbiguous -- check
 
 lex' :: ByteString -> Parser LexState a -> Either ByteString a
 lex' s p =
@@ -124,6 +125,7 @@ parseToken = keyword
            <|> positioned TPlus   (string "+")
            <|> positioned TArr    (string "->")
            <|> positioned TMinus  (string "-")
+           <|> positioned TDollar (string "$")
            <|> positioned TMul    (string "*")
            <|> positioned TDiv    (string "/")
            <|> positioned TLambda (string "\\")

@@ -3,7 +3,7 @@ module Core.Operator where
 data UnOp = Negate
           | EShow
           | Err
-              deriving (Eq, Show)
+              deriving (Eq, Ord, Show)
 
 data BinOp = AddI
            | SubI
@@ -22,4 +22,4 @@ data BinOp = AddI
            | OrB
 
            | ConcatS
-               deriving (Eq, Show)
+               deriving (Eq, Ord, Show)

@@ -6,24 +6,16 @@
 module Service.Controller (runController) where
 
 import Common.State
-import Core.Definition
-import Cps.Cps
-import Cps.PreCps
-import Optimise.Alpha
+import Core.Module
 import Parse.LexAndParse
 import Parse.Token
-import Phase.ClosureConvert
-import Phase.EtaExpand
-import Phase.LambdaLift
-import Phase.Saturate
 import Pretty.Module
-import TypeCheck.CallGraph
-import TypeCheck.TypeCheck
-import TypeCheck.Types
+import Pretty.TypedModule
+import TypeSystem.TypeCheck
 
 import           Data.Aeson
 import           Data.ByteString             (ByteString)
-import           Data.Text                   (Text)
+import           Data.Text                   (Text, pack)
 import           Data.Text.Encoding          (decodeUtf8, encodeUtf8)
 import           Data.Vector                 (Vector)
 import           Network.Wai.Handler.Warp    (run)
@@ -34,139 +26,53 @@ type Api = "lexAndParse" :> ReqBody '[PlainText] Text
                          :> Post '[JSON] ProgramState
 
 data ProgramState =
-    ProgramState { getSource           :: Text
-                 , getTokens           :: Either ByteString (Vector Token)
-                 , getModule           :: Either ByteString (Module ByteString)
-                 , getCallGraph        :: Either ByteString (Graph ByteString)
-                 , getTypeGroups       :: Either ByteString [Cycle ByteString]
-                 , getTypedModule      :: Either ByteString (TypedModule Scheme ByteString)
-                 , getEtaExpanded      :: Either ByteString (TypedModule Scheme ByteString)
-                 , getSaturated        :: Either ByteString (TypedModule Scheme ByteString)
-                 , getContified        :: Either ByteString (Module ByteString)
-                 , getOptimised        :: Either ByteString (Module ByteString)
-                 , getClosureConverted :: Either ByteString (Module ByteString)
-                 , getLambdaLifted     :: Either ByteString (Module ByteString)
+    ProgramState { getSource   :: Text
+                 , getTokens   :: Either ByteString (Vector Token)
+                 , getModule   :: Either ByteString (Module ByteString)
+                 , getInferred :: Either ByteString (ModuleT ByteString)
                  }
 
 instance ToJSON ProgramState where
 
     toJSON ps = do
 
-        let txtTokens                 = decodeUtf8 $ either id tokensToByteString (getTokens ps)
-            txtDefns                  = either decodeUtf8 moduleToText (getModule ps)
-            txtPrettyDefns            = either decodeUtf8 render (getModule ps)
-            txtCallGraph              = decodeUtf8 $ either id renderGraph (getCallGraph ps)
-            txtTypeGroups             = decodeUtf8 $ either id renderCycles (getTypeGroups ps)
-            txtEtaExpanded            = either decodeUtf8 typedModuleToText (getEtaExpanded ps)
-            txtSaturated              = either decodeUtf8 typedModuleToText (getSaturated ps)
-            txtContified              = either decodeUtf8 moduleToText (getContified ps)
-            txtPrettyContified        = either decodeUtf8 render (getContified ps)
-            txtOptimised              = either decodeUtf8 moduleToText (getOptimised ps)
-            txtPrettyOptimised        = either decodeUtf8 render (getOptimised ps)
-            txtClosureConverted       = either decodeUtf8 moduleToText (getClosureConverted ps)
-            txtClosureConvertedPretty = either decodeUtf8 render (getClosureConverted ps)
-            txtLambdaLifted           = either decodeUtf8 moduleToText (getLambdaLifted ps)
-            txtLambdaLiftedPretty     = either decodeUtf8 render (getLambdaLifted ps)
+        let txtTokens         = decodeUtf8 $ either id tokensToByteString (getTokens ps)
+            txtDefns          = either decodeUtf8 moduleToText (getModule ps)
+            txtPrettyDefns    = either decodeUtf8 render (getModule ps)
+            txtInferred       = either decodeUtf8 (\(ModuleT tdefs) -> pack . unlines . map show $ tdefs) (getInferred ps)
+            txtInferredPretty = either decodeUtf8 renderTypedModule (getInferred ps)
 
-        object [ "tokens"                 .= String txtTokens
-               , "defns"                  .= String txtDefns
-               , "prettyDefns"            .= String txtPrettyDefns
-               , "callGraph"              .= String txtCallGraph
-               , "typeGroups"             .= String txtTypeGroups
-               , "etaExpanded"            .= String txtEtaExpanded
-               , "saturated"              .= String txtSaturated
-               , "contified"              .= String txtContified
-               , "prettyContified"        .= String txtPrettyContified
-               , "optimised"              .= String txtOptimised
-               , "prettyOptimised"        .= String txtPrettyOptimised
-               , "closureConverted"       .= String txtClosureConverted
-               , "closureConvertedPretty" .= String txtClosureConvertedPretty
-               , "lambdaLifted"           .= String txtLambdaLifted
-               , "lambdaLiftedPretty"     .= String txtLambdaLiftedPretty
+        object [ "tokens"         .= String txtTokens
+               , "defns"          .= String txtDefns
+               , "prettyDefns"    .= String txtPrettyDefns
+               , "inferred"       .= String txtInferred
+               , "inferredPretty" .= String txtInferredPretty
                ]
 
 fromSource :: Text -> ProgramState
-fromSource txt = ProgramState txt na na na na na na na na na na na
+fromSource txt = ProgramState txt na na na
     where
     na = Left "Not Available"
 
 server :: Server Api
-server = routeLexAndParse
-
-    where
-    routeLexAndParse :: Text -> Handler ProgramState
-    routeLexAndParse = pure . transform
-
-transform :: Text -> ProgramState
-transform = execState pipe
-          . fromSource
+server = pure . execState pipe . fromSource
 
 pipe :: State ProgramState ()
 pipe = do
-    lexAndParser
-    phaseBuildGraph
-    typeCheck
-    phaseEtaExpand
-    phaseSaturate
-    phaseContify
-    optimise
-    phaseClosureConvert
-    phaseLambdaLift
+    phaseLexAndParse
+    phaseTypeCheck
 
     where
-    lexAndParser :: State ProgramState ()
-    lexAndParser = modify' $ \ps ->
+    phaseLexAndParse :: State ProgramState ()
+    phaseLexAndParse = modify' $ \ps ->
         let (eTokens, eMd) = lexAndParse . encodeUtf8 $ getSource ps
         in ps { getTokens = eTokens
               , getModule = eMd
               }
 
-    phaseBuildGraph :: State ProgramState ()
-    phaseBuildGraph = modify' $ \ps ->
-        ps { getCallGraph  = buildGraph . getFunDefns <$> getModule ps
-           , getTypeGroups = plan . getFunDefns =<< getModule ps
-           }
-
-    typeCheck :: State ProgramState ()
-    typeCheck = modify' $ \ps ->
-
-        let md = getModule ps
-
-            (_, typedDefns) =
-                case runTypeCheck <$> getModule ps of
-                    Left e       -> (Left e, Left e)
-                    Right (a, b) -> (Right a, Right b)
-
-            typedModule = TypedModule <$> (getDataDefns <$> md)
-                                      <*> (getTypeSigs <$> md)
-                                      <*> typedDefns
-
-        in ps { getTypedModule = typedModule }
-
-    phaseEtaExpand :: State ProgramState ()
-    phaseEtaExpand = modify' $ \ps ->
-        ps { getEtaExpanded = etaExpand <$> getTypedModule ps }
-
-    phaseSaturate :: State ProgramState ()
-    phaseSaturate = modify' $ \ps ->
-        ps { getSaturated = saturate <$> getEtaExpanded ps }
-
-    phaseContify :: State ProgramState ()
-    phaseContify = modify' $ \ps ->
-        let preContified = preCps <$> getSaturated ps
-        in ps { getContified = cps <$> preContified }
-
-    optimise :: State ProgramState ()
-    optimise = modify' $ \ps ->
-        ps { getOptimised = alphas <$> getContified ps }
-
-    phaseClosureConvert :: State ProgramState ()
-    phaseClosureConvert = modify' $ \ps ->
-        ps { getClosureConverted = closureConvert <$> getOptimised ps }
-
-    phaseLambdaLift :: State ProgramState ()
-    phaseLambdaLift = modify' $ \ps ->
-        ps { getLambdaLifted = lambdaLift <$> getClosureConverted ps }
+    phaseTypeCheck :: State ProgramState ()
+    phaseTypeCheck = modify' $ \ps ->
+        ps { getInferred = inferModule =<< getModule ps }
 
 runController :: Int -> IO ()
 runController port = run port . simpleCors $ serve (Proxy :: Proxy Api) server 

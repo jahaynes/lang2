@@ -2,9 +2,9 @@
 
 module Parse.LexAndParse where
 
-import Core.Definition
-import Parse.Definition
+import Core.Module
 import Parse.Lexer
+import Parse.Module
 import Parse.Parser
 import Parse.Token
 
