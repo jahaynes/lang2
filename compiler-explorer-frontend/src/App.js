@@ -17,14 +17,16 @@ class App extends React.Component {
     const prettyDefns    = this.getAndClearElement("prettyDefns")
     const inferred       = this.getAndClearElement("inferred")
     const inferredPretty = this.getAndClearElement("inferredPretty")
+    const etaExpanded    = this.getAndClearElement("etaExpanded")
 
     fetch("http://127.0.0.1:8080/lexAndParse", { method: 'POST', body: source.value })
       .then(resp => resp.json())
       .then((ts) => {
-        tokens.value           = ts.tokens;
-        prettyDefns.value      = ts.prettyDefns;
-        inferred.value         = ts.inferred;
-        inferredPretty.value   = ts.inferredPretty;
+        tokens.value         = ts.tokens;
+        prettyDefns.value    = ts.prettyDefns;
+        inferred.value       = ts.inferred;
+        inferredPretty.value = ts.inferredPretty;
+        etaExpanded.value    = ts.etaExpanded;
       })
   }
 
@@ -47,6 +49,11 @@ class App extends React.Component {
         <div>
           <textarea id='inferred' className='editor' spellCheck='false' rows='14'></textarea>
           <textarea id='inferredPretty' className='editor' spellCheck='false' rows='14'></textarea>
+        </div>
+
+        <label>Eta Expanded</label>
+        <div>
+          <textarea id='etaExpanded' className='editor' spellCheck='false' rows='14'></textarea>
         </div>
 
       </div>

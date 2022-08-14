@@ -26,6 +26,7 @@ library
                     Parse.Module
                     Parse.Parser
                     Parse.Token
+                    Phase.EtaExpand
                     TypeCheck.ConstraintSolver
                     TypeSystem.Common
                     TypeSystem.Ftv
@@ -45,6 +46,7 @@ test-suite test-compiler-lib
                       Parse.ExpressionTest
                       Parse.LexerTest
                       Parse.LexAndParseTest
+                      Phase.EtaExpandTest
                       TypeCheck.TypeCheckTest
     type:             exitcode-stdio-1.0
     main-is:          Tests.hs

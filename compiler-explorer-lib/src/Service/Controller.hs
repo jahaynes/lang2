@@ -7,6 +7,7 @@ module Service.Controller (runController) where
 
 import Common.State
 import Core.Module
+import Phase.EtaExpand
 import Parse.LexAndParse
 import Parse.Token
 import Pretty.Module
@@ -26,10 +27,11 @@ type Api = "lexAndParse" :> ReqBody '[PlainText] Text
                          :> Post '[JSON] ProgramState
 
 data ProgramState =
-    ProgramState { getSource   :: Text
-                 , getTokens   :: Either ByteString (Vector Token)
-                 , getModule   :: Either ByteString (Module ByteString)
-                 , getInferred :: Either ByteString (ModuleT ByteString)
+    ProgramState { getSource      :: Text
+                 , getTokens      :: Either ByteString (Vector Token)
+                 , getModule      :: Either ByteString (Module ByteString)
+                 , getInferred    :: Either ByteString (ModuleT ByteString)
+                 , getEtaExpanded :: Either ByteString (ModuleT ByteString)
                  }
 
 instance ToJSON ProgramState where
@@ -41,16 +43,18 @@ instance ToJSON ProgramState where
             txtPrettyDefns    = either decodeUtf8 render (getModule ps)
             txtInferred       = either decodeUtf8 (\(ModuleT tdefs) -> pack . unlines . map show $ tdefs) (getInferred ps)
             txtInferredPretty = either decodeUtf8 renderTypedModule (getInferred ps)
+            txtEtaExpanded    = either decodeUtf8 renderTypedModule (getEtaExpanded ps)
 
         object [ "tokens"         .= String txtTokens
                , "defns"          .= String txtDefns
                , "prettyDefns"    .= String txtPrettyDefns
                , "inferred"       .= String txtInferred
                , "inferredPretty" .= String txtInferredPretty
+               , "etaExpanded"    .= String txtEtaExpanded
                ]
 
 fromSource :: Text -> ProgramState
-fromSource txt = ProgramState txt na na na
+fromSource txt = ProgramState txt na na na na
     where
     na = Left "Not Available"
 
@@ -61,6 +65,7 @@ pipe :: State ProgramState ()
 pipe = do
     phaseLexAndParse
     phaseTypeCheck
+    phaseEtaExpand
 
     where
     phaseLexAndParse :: State ProgramState ()
@@ -73,6 +78,10 @@ pipe = do
     phaseTypeCheck :: State ProgramState ()
     phaseTypeCheck = modify' $ \ps ->
         ps { getInferred = inferModule =<< getModule ps }
+
+    phaseEtaExpand :: State ProgramState ()
+    phaseEtaExpand = modify' $ \ps ->
+        ps { getEtaExpanded = etaExpand <$> getInferred ps }
 
 runController :: Int -> IO ()
 runController port = run port . simpleCors $ serve (Proxy :: Proxy Api) server 
