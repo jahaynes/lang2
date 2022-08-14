@@ -82,10 +82,10 @@ inferGroup env untyped = do
 
     pure (n', env'', funDefnTs)
 
-cleanup :: Ord s => Subst s
-                 -> Map s (Polytype s)
-                 -> (s, ExprT s)
-                 -> FunDefnT s
+cleanup :: Subst ByteString
+        -> Map ByteString (Polytype ByteString)
+        -> (ByteString, ExprT ByteString)
+        -> FunDefnT ByteString
 cleanup subst env (name, expr) = do
 
     -- Substitute type metavariables for types
@@ -95,7 +95,15 @@ cleanup subst env (name, expr) = do
     let t = typeOf expr'
     let q = Quant . S.toList $ ftvType t `S.difference` ftvEnv env
 
-    let norm = id -- TODO
-
     -- Normalise
     norm $ FunDefnT name q expr'
+
+norm :: FunDefnT ByteString -> FunDefnT ByteString
+norm (FunDefnT name (Quant qs) expr) =
+    let normed = take (length qs) . map numToVar $ [0..]
+        sub = M.fromList $ zip qs normed
+    in FunDefnT name (Quant normed) (mapType (go sub) expr)
+    where
+    go   _ t@TyCon{} = t
+    go sub (TyVar v) = TyVar (sub ! v)
+    go sub (TyArr a b) = TyArr (go sub a) (go sub b)
