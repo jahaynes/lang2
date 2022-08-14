@@ -40,11 +40,14 @@ inferExpr env expr =
                  , AppT tv f' xs' )
 
         ELet a b c -> do
-            tv        <- freshTVar
-            let env' = M.insert a (Forall [] tv) env
+            tv <- freshTVar
+            ta <- freshTVar
+            let env' = M.insert a (Forall [] ta) env
             (csb, b') <- inferExpr env' b
             (csc, c') <- inferExpr env' c
-            pure ( Constraint tv (typeOf b') : csb ++ csc
+            pure ( Constraint ta (typeOf b')
+                 : Constraint tv (typeOf c')
+                 : csb ++ csc
                  , LetT tv a b' c' )
 
         EUnPrimOp op e -> do
