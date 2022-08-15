@@ -46,8 +46,8 @@ test_generalisations = unitTest $ do
 
     let r = map getPolyType . getFunDefnTs <$> inferModule md
 
-    r === Right [ Forall ["c0", "d0"] (TyVar "c0" ->> (TyVar "d0" ->> TyVar "c0"))
-                , Forall ["e0", "f0"] (TyVar "e0" ->> (TyVar "f0" ->> TyVar "f0")) ]
+    r === Right [ Forall ["a0", "b0"] (TyVar "a0" ->> (TyVar "b0" ->> TyVar "a0"))
+                , Forall ["a0", "b0"] (TyVar "a0" ->> (TyVar "b0" ->> TyVar "b0")) ]
 
 test_top_level_recursion :: Property
 test_top_level_recursion = unitTest $ do
@@ -87,7 +87,7 @@ test_nested_recursion = unitTest $ do
 
     let r = map getPolyType . getFunDefnTs <$> inferModule md
 
-    r === Right [Forall [] (TyCon "Int" ->> (TyCon "Int" ->> (TyCon "Int" ->> TyCon "Int")))]
+    r === Right [Forall [] (TyCon "Int" ->> TyCon "Int")]
 
 test_mutual_recursion :: Property
 test_mutual_recursion = unitTest $ do
@@ -108,8 +108,8 @@ test_mutual_recursion = unitTest $ do
 
     let r = map getPolyType . getFunDefnTs <$> inferModule md
 
-    r === Right [ Forall ["c0"] (TyArr (TyVar "c0") (TyCon "Bool"))
-                , Forall ["f0"] (TyArr (TyVar "f0") (TyCon "Bool")) ]
+    r === Right [ Forall ["a0"] (TyArr (TyVar "a0") (TyCon "Bool"))
+                , Forall ["a0"] (TyArr (TyVar "a0") (TyCon "Bool")) ]
 
 unitTest :: PropertyT IO () -> Property
 unitTest = withTests 1 . property
