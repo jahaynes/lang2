@@ -8,6 +8,7 @@ import TypeSystem.InferOperator
 import TypeSystem.InferTerm
 import TypeCheck.ConstraintSolver (Constraint (..))
 
+import           Control.Monad   (replicateM)
 import           Data.ByteString (ByteString)
 import           Data.Functor    ((<&>))
 import           Data.Map        (Map)
@@ -24,8 +25,9 @@ inferExpr env expr =
             inferTerm env t <&> \t' -> ([], t')
 
         ELam vs e -> do
-            tvs      <- freshlyLabel vs
-            (cs, e') <- inferExpr (env <> (Forall [] <$> tvs)) e
+            tvs <- replicateM (length vs) freshTVar
+            let env' = M.fromList $ zip vs (Forall [] <$> tvs)
+            (cs, e') <- inferExpr (env <> env') e
             let ty = foldr TyArr (typeOf e') tvs
             pure ( cs
                  , LamT ty vs e' )
@@ -72,7 +74,3 @@ inferExpr env expr =
             pure ( c1 ++ c2 ++ c3 ++ [ Constraint (typeOf p') typeBool
                                      , Constraint (typeOf tr') (typeOf fl')]
                  , IfThenElseT (typeOf tr') p' tr' fl' )
-
-freshlyLabel :: Ord s => [s]
-                      -> State (GroupState ByteString) (Map s (Type ByteString))
-freshlyLabel ns = M.fromList <$> mapM (\n -> freshTVar <&> \f -> (n, f)) ns

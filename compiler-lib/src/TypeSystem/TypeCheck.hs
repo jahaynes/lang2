@@ -12,6 +12,7 @@ import TypeSystem.InferExpression
 
 import           Control.Monad   (forM)
 import           Data.ByteString (ByteString)
+import           Data.Functor    ((<&>))
 import           Data.List       (foldl')
 import           Data.Map        ((!), Map)
 import           Data.Set        (Set)
@@ -81,6 +82,9 @@ inferGroup env untyped = do
     n' <- getVarNum <$> get
 
     pure (n', env'', funDefnTs)
+
+    where
+    freshlyLabel ns = M.fromList <$> mapM (\n -> freshTVar <&> \f -> (n, f)) ns
 
 cleanup :: Subst ByteString
         -> Map ByteString (Polytype ByteString)
