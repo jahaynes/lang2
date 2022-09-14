@@ -65,50 +65,68 @@ printType = TB.intercalate " -> " . unbuild []
 indent :: Int -> Builder
 indent i = TB.text $ T.replicate (2*i) " "
 
--- TODO divide and conquer
 printAnfExpression :: Int
                    -> NExp ByteString
                    -> Builder
-
 printAnfExpression ind expr =
 
     case expr of
 
-        AExp (ATerm term) ->
-            printTerm (decodeUtf8 <$> term)
+        AExp aexp ->
+            printAExp ind aexp
 
-        AExp (ALam vs body) ->
-            let body' = printAnfExpression ind body
-            in
-            mconcat ["(\\", printVars vs, ". ", body', ")"]
-
-        AExp (AClo fvs vs body) ->
-            let fvs'  = mconcat ["{", printVars fvs, "}"]
-                vs'   = printVars vs
-                body' = printAnfExpression ind body
-            in mconcat ["(\\", fvs', " ", vs', ". ", body', ")"]
-
-        CExp (CApp f xs) ->
-            let f'  = printAnfExpression ind (AExp f)
-                xs' = map (printAnfExpression ind . AExp) xs
-            in TB.intercalate " " (f':xs')
+        CExp cexp ->
+            printCExp ind cexp
 
         NLet a b c ->
             TB.intercalate "\n" [ indent ind <> "let " <> bytestring a <> " = " <> printAnfExpression ind b <> " in"
                                 , indent ind <> printAnfExpression ind c ]
 
-        AExp (AUnPrimOp op a) ->
-            TB.intercalate " " [ printUnOp op
-                               , printAnfExpression ind (AExp a) ]
+printAExp :: Int
+          -> AExp ByteString
+          -> Builder
+printAExp ind aexp =
 
-        AExp (ABinPrimOp op a b) ->
-            let x = TB.intercalate " " [ printAnfExpression ind (AExp a)
+    case aexp of
+
+        ATerm term ->
+            printTerm (decodeUtf8 <$> term)
+
+        ALam vs body ->
+            let body' = printAnfExpression ind body
+            in
+            mconcat ["(\\", printVars vs, ". ", body', ")"]
+
+        AClo fvs vs body ->
+            let fvs'  = mconcat ["{", printVars fvs, "}"]
+                vs'   = printVars vs
+                body' = printAnfExpression ind body
+            in mconcat ["(\\", fvs', " ", vs', ". ", body', ")"]
+
+        AUnPrimOp op a ->
+            TB.intercalate " " [ printUnOp op
+                               , printAExp ind a ]
+
+        ABinPrimOp op a b ->
+            let x = TB.intercalate " " [ printAExp ind a
                                        , printBinOp op
-                                       , printAnfExpression ind (AExp b) ]
+                                       , printAExp ind b ]
             in mconcat ["(", x, ")"]
 
-        CExp (CIfThenElse pr tr fl) ->
-            TB.intercalate "\n" [ indent  ind    <> "if "   <> printAnfExpression  ind    (AExp pr)
+printCExp :: Int
+          -> CExp ByteString
+          -> Builder
+printCExp ind cexp =
+
+    case cexp of
+
+        CApp f xs ->
+            let f'  = printAExp ind f
+                xs' = map (printAExp ind) xs
+            in TB.intercalate " " (f':xs')
+
+        CIfThenElse pr tr fl ->
+            TB.intercalate "\n" [ indent  ind    <> "if "   <> printAExp ind pr
                                 , indent (ind+2) <> "then " <> printAnfExpression (ind+2) tr
                                 , indent (ind+2) <> "else " <> printAnfExpression (ind+2) fl ]
 
