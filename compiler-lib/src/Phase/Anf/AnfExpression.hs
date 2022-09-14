@@ -14,6 +14,7 @@ data NExp s = AExp (AExp s)
 data AExp s = ATerm (Term s)
             | ALam [s] (NExp s)
             | AClo [s] [s] (NExp s)
+            | AUnPrimOp UnOp (AExp s)
             | ABinPrimOp BinOp (AExp s) (AExp s)
                 deriving Show
 

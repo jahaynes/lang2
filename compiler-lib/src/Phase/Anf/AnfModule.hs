@@ -66,8 +66,9 @@ normExpr expr k =
                 fl' <- norm fl
                 k $ CExp $ CIfThenElse pr' tr' fl'
 
-        UnPrimOpT{} ->
-            error "Not implemented"
+        UnPrimOpT _ op a ->
+            normAtom a $ \a' ->
+                k $ AExp $ AUnPrimOp op a'
 
         -- Guess
         BinPrimOpT _ op a b ->

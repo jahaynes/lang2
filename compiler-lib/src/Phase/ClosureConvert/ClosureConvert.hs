@@ -80,6 +80,9 @@ closureConvertDefn topLevelScope (FunDefAnfT n q fun) =
                     ABinPrimOp o <$> cca a
                                  <*> cca b
 
+                AUnPrimOp o a ->
+                    AUnPrimOp o <$> cca a
+
 addToScope :: Ord s => [s] -> State (ConvState s) ()
 addToScope vs = modify' $ \cs -> cs { getScope = getScope cs <> S.fromList vs }
 

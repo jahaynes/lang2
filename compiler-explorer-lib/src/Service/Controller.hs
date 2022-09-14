@@ -15,7 +15,7 @@ import Phase.EtaExpand
 import Pretty.AnfModule
 import Pretty.Module
 import Pretty.TypedModule
-import Runtimes.CeskMachine2
+import Runtimes.CeskMachine
 import TypeSystem.TypeCheck
 
 import           Control.Monad.IO.Class      (liftIO)

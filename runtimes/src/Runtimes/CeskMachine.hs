@@ -2,21 +2,27 @@
 
 module Runtimes.CeskMachine (runMachine) where
 
-import Common.CallGraph
-import Common.Writer
+import Common.State
 import Core.Operator
 import Core.Term
 import Phase.Anf.AnfExpression
 import Phase.Anf.AnfModule (AnfModule (..), FunDefAnfT (..))
 
-import           Control.Monad   (foldM, unless)
+import           Control.Monad   (foldM)
 import           Data.ByteString (ByteString)
 import           Data.Functor    ((<&>))
-import           Data.List       (foldl')
 import           Data.Map.Strict ((!), Map)
 import qualified Data.Map as M
-import qualified Data.Set as S
-import           Text.Printf     (printf)
+
+{-
+    TODO:
+        * Make sure returns are happening (and items are leaving env scope)
+        * Add a Stack to go along with a heap?
+        * Pre-compile / partially evaluate?
+        * Ints as Addr - instead of heap?
+        * Use recursion/planning to trim down env
+        * Do lambda lifting!
+-}
 
 newtype Addr =
     Addr Int
@@ -28,16 +34,9 @@ data Val s = VBool !Bool
            | VClo ![s] !(NExp s) !(Env s)
                deriving Show
 
-data Kont s = KHalt
-            | KLet !s !(NExp s) !(Env s) !(Kont s)
-                deriving Show
-
 data Cesk s =
-    Cesk { getCode  :: !(NExp s)
-         , getEnv   :: !(Env s)
-         , getStore :: !(Store s)
-         , getKont  :: !(Kont s)
-         , getFree  :: !Addr
+    Cesk { getCode :: !(NExp s)
+         , getEnv  :: !(Env s)
          } deriving Show
 
 newtype Env s =
@@ -48,230 +47,171 @@ newtype Store s =
     Store (Map Addr (Val s))
         deriving Show
 
+data Heap s =
+    Heap { getStore :: !(Store s)
+         , getFree  :: !Addr
+         } deriving Show
+
+instance Ord s => Semigroup (Env s) where
+    Env e1 <> Env e2 = Env (e1 <> e2)
+
+instance Ord s => Monoid (Env s) where
+    mempty = Env mempty
+
+heap0 :: Heap s
+heap0 = Heap (Store mempty) (Addr 0)
+
 runMachine :: AnfModule ByteString -> IO ()
 runMachine modu = do
 
-        -- Figure out the order in which to load the top-levels
-    let Right plan   = map S.toList <$> createPlan (buildGraphAnf modu)
-        topLevelsMap = M.fromList . map (\(FunDefAnfT n _ e) -> (n, e)) $ getFunDefAnfTs modu
+    let topLevels = map (\(FunDefAnfT n _ e) -> (n, e)) $ getFunDefAnfTs modu
 
-        -- Prep the machine
-        initialMachine = (Env mempty, Store mempty, Addr 0)
+    let a = evalState' heap0 $ do
+                env             <- bindTopLevels topLevels
+                VClo [] start _ <- lkup env "main"
+                evalExpr env start
 
-    prepped <- foldM (prepTopLevelGroup topLevelsMap)
-                     initialMachine
-                     plan
+    print a
 
-    printMachine prepped
+lkup :: (Ord k, Show k) => Env k -> k -> State (Heap s) (Val s)
+lkup (Env e) n = do
+    Heap (Store s) _ <- get
+    case M.lookup n e of
+        Nothing -> error $ "Not found in env: " <> show n
+        Just addr ->
+            case M.lookup addr s of
+                Nothing -> error "Not found in store"
+                Just v -> pure v
 
-prepTopLevelGroup :: (Ord s, Show s) => Map s (NExp s)
-                                     -> (Env s, Store s, Addr)
-                                     -> [s]
-                                     -> IO (Env s, Store s, Addr)
-prepTopLevelGroup topLevelsMap machine@(env, store, addr) group = do
+evalExpr :: (Ord s, Semigroup s, Show s) => Env s -> NExp s -> State (Heap s) (Val s)
+evalExpr env (AExp aexp) = evalAexp env aexp
+evalExpr env (CExp cexp) = evalCexp env cexp
+evalExpr env@(Env e) (NLet a b c) = do
+    bAddr <- allocVal =<< evalExpr env b
+    let localEnv = Env $ M.insert a bAddr e
+    evalExpr localEnv c
 
-    let namedExprs = map (\g -> (g, topLevelsMap ! g)) group
+evalAexp :: (Ord s, Semigroup s, Show s) => Env s -> AExp s -> State (Heap s) (Val s)
+evalAexp env aexp =
 
-        ((env', store', addr'), logs) =
-                runWriter [] (bindEvalMutRecursive env store addr namedExprs)
+    case aexp of
 
-    unless (null logs) $ do
-            putStrLn $ show namedExprs ++ " logs:"
-            mapM_ print logs
-            putStrLn ""
+        ATerm t -> evalTerm env t
 
-    pure (env', store', addr')
-
-bindEvalMutRecursive :: (Ord s, Show s) => Env s
-                                        -> Store s
-                                        -> Addr
-                                        -> [(s, NExp s)]
-                                        -> Writer String (Env s, Store s, Addr)
-bindEvalMutRecursive env store addr namedExprs = do
-
-    let addrs =
-            take (length namedExprs) $ iterate next addr
-
-        namedAddresses =
-            zipWith (\(g, _) a -> (g, a)) namedExprs addrs
-
-        env' =
-            foldl' prepEnv env namedAddresses
-
-        addressedExprs =
-            zipWith (\(_, e) a -> (a, e)) namedExprs addrs
-
-        addr' =
-            next $ last addrs
-
-    foldM prepStore (env', store, addr') addressedExprs
-
-    where
-    prepEnv (Env e) (g, a) =
-        Env $ M.insert g a e
-
-    prepStore (env', store', addr') (a, ex) = do
-        (val, addr'') <- evalExpr env' store' addr' ex
-        store''       <- insertStore a val store'
-        pure (env', store'', addr'')
-
-printMachine :: Show s => (Env s, Store s, Addr) -> IO ()
-printMachine (Env env, Store store, _) = do
-    putStrLn "Env:"
-    mapM_ print $ M.toList env
-    putStrLn "\nStore:"
-    mapM_ print $ M.toList store
-
-insertEnv :: (Ord s, Show s) => s -> Addr -> Env s -> Writer String (Env s)
-insertEnv v a (Env env) = do
-    write $ printf "Binding %s at %s" (show v) (show a)
-    pure . Env $ M.insert v a env
-
-insertStore :: Addr -> Val s -> Store s -> Writer String (Store s)
-insertStore k v (Store store) =
-    pure . Store $ M.insert k v store
-
-next :: Addr -> Addr
-next (Addr a) = Addr (a + 1)
-
-evalExpr :: (Ord s, Show s) => Env s
-                            -> Store s
-                            -> Addr
-                            -> NExp s
-                            -> Writer String (Val s, Addr)
-evalExpr env store addr expr =
-
-    case expr of
-
-        AExp aexp -> do
-            val <- evalAtom env store aexp
-            pure (val, addr)
-
-        CExp cexp ->
-            evalCexp env store addr cexp
-
-        NLet v bexpr body -> do
-            (val, addr') <- evalExpr env store addr bexpr
-            env'         <- insertEnv v addr' env
-            store'       <- insertStore addr' val store
-            let addr'' = next addr'
-            evalExpr env' store' addr'' body -- is this a Kont?
-
-evalCexp :: (Ord s, Show s) => Env s
-                            -> Store s
-                            -> Addr
-                            -> CExp s
-                            -> Writer String (Val s, Addr)
-evalCexp env store addr cexp =
-
-    case cexp of
-
-        CApp f xs -> do
-            f'  <-       evalAtom env store  f
-            xs' <- mapM (evalAtom env store) xs
-            write $ "Calling " ++ show f
-            (e', env', s', a') <- applyProc store addr f' xs'
-            evalExpr env' s' a' e'
-
-        CIfThenElse pr tr fl -> do
-            pr' <- evalBool env store pr
-            if pr'
-                then evalExpr env store addr tr
-                else evalExpr env store addr fl
-
-evalAtom :: (Ord s, Show s) => Env s
-                            -> Store s
-                            -> AExp s
-                            -> Writer String (Val s)
-evalAtom env store expr =
-
-    case expr of
-
-        ATerm term -> do
-            write (printf "Evaling term %s in env %s and store %s" (show term) (show env) (show store))
-            evalTerm env store term
-
-        ALam vs body ->
-            pure $ VClo vs body (Env mempty) -- env -- shouldn't have env here?
-
-        AClo fvs vs body -> do
-            let Env e   = env
-                closEnv = Env . M.fromList $ map (\v -> (v, e ! v)) fvs
-            pure $ VClo vs body closEnv
+        {-
+        TODO  To/From string typeclass?
+        AUnPrimOp EShow a -> do
+            a' <- evalAexp env a
+            pure . VString $ show a'
+        -}
 
         ABinPrimOp op a b ->
-
+            bothM (evalAexp env) (a, b) <&> \(a', b') ->
             case op of
+                AddI    -> arith (+) a' b'
+                SubI    -> arith (-) a' b'
+                MulI    -> arith (*) a' b'
+                DivI    -> arith div a' b'
+                ModI    -> arith mod a' b'
+                LtEqI   -> comparison (<=) a' b'
+                LtI     -> comparison (<)  a' b'
+                GtEqI   -> comparison (>=) a' b'
+                GtI     -> comparison (>)  a' b'
+                EqA     -> eqA  a' b'
+                AndB    -> logical (&&) a' b'
+                OrB     -> logical (||) a' b'
+                ConcatS -> stringy (<>) a' b'
 
-                AddI -> evalAdd <$> evalInt env store a
-                                <*> evalInt env store b
+        ALam vs body ->
+            pure $ VClo vs body env
 
-                SubI -> evalSub <$> evalInt env store a
-                                <*> evalInt env store b
+        AClo fvs vs body ->
+            let Env e = env
+                cloEnv = Env . M.fromList $ map (\fv -> (fv, e ! fv)) fvs
+            in pure $ VClo vs body cloEnv
 
-                EqA -> evalEq <$> evalAtom env store a
-                              <*> evalAtom env store b
+stringy :: (s -> s -> s) -> Val s -> Val s -> Val s
+stringy f (VString a) (VString b) = VString $ f a b
+stringy _ _ _                     = error "Expected stringlike"
 
-    where
-    evalAdd a b = VInt $ a + b
-    evalSub a b = VInt $ a - b
-    evalEq (VBool a) (VBool b) = VBool $ a == b
-    evalEq (VInt a) (VInt b) = VBool $ a == b
-    evalEq (VString a) (VString b) = VBool $ a == b
+arith :: (Integer -> Integer -> Integer) -> Val s -> Val s -> Val s
+arith f (VInt a) (VInt b) = VInt $ f a b
+arith _ _ _               = error "Expected integers"
 
-evalTerm :: (Ord s, Show s) => Env s
-                            -> Store s
-                            -> Term s
-                            -> Writer String (Val s)
-evalTerm (Env env) (Store store) term =
+logical :: (Bool -> Bool -> Bool) -> Val s -> Val s -> Val s
+logical f (VBool a) (VBool b) = VBool $ f a b
+logical _ _ _                 = error "Expected booleans"
+
+comparison :: (Integer -> Integer -> Bool) -> Val s -> Val s -> Val s
+comparison f (VInt a) (VInt b) = VBool $ f a b
+comparison _ _ _               = error "Expected integers"
+
+eqA :: Eq a => Val a -> Val a -> Val s
+eqA    (VInt a)    (VInt b) = VBool $ a == b
+eqA   (VBool a)   (VBool b) = VBool $ a == b
+eqA (VString a) (VString b) = VBool $ a == b
+eqA VClo{} VClo{}           = error "comparing closures"
+eqA _ _                     = error "Mistyped equality"
+
+evalTerm :: (Ord s, Semigroup s, Show s) => Env s -> Term s -> State (Heap s) (Val s)
+evalTerm env term =
     case term of
-        DCons{}     -> error "Not implemented"
         LitBool b   -> pure $ VBool b
         LitInt i    -> pure $ VInt i
         LitString s -> pure $ VString s
         Var v       ->
-            case M.lookup v env of
-                Nothing   -> dumpErrorLog ("Bad v: " ++ show v)
-                Just addr ->
-                    case M.lookup addr store of
-                        Nothing  -> dumpErrorLog ("Bad addr: " ++ show addr)
-                        Just val -> pure val
+            -- This evaluates on the lookup, maybe do it on insert instead?
+            lkup env v >>= \case
+                VClo [] body _ -> evalExpr env body
+                val            -> pure val
+        DCons{}     -> error "not implemented"
 
-dumpErrorLog :: String -> Writer String a
-dumpErrorLog msg = do
-    lg <- reverse <$> getLog
-    error $ unlines (msg:"":lg)
+evalCexp :: (Ord s, Semigroup s, Show s) => Env s -> CExp s -> State (Heap s) (Val s)
+evalCexp env cexp =
 
-evalInt :: (Ord s, Show s) => Env s
-                           -> Store s
-                           -> AExp s
-                           -> Writer String Integer
-evalInt env store a =
-    evalAtom env store a <&> \case
-        VInt a' -> a'
-        _       -> error "Nope"
+    case cexp of
 
-evalBool :: (Ord s, Show s) => Env s
-                            -> Store s
-                            -> AExp s
-                            -> Writer String Bool
-evalBool env store b =
-    evalAtom env store b <&> \case
-        VBool b' -> b'
-        _        -> error "Nope"
+        CApp f xs -> do
+            xs'  <- mapM (\x -> allocVal =<< evalAexp env x) xs
+            VClo vs body cloEnv <- evalAexp env f
+            let vsMap = Env . M.fromList $ zip vs xs'
+            let new = vsMap <> cloEnv <> env -- earlier has precedence
+            evalExpr new body
 
-applyProc :: (Ord s, Show s) => Store s
-                             -> Addr
-                             -> Val s
-                             -> [Val s]
-                             -> Writer String (NExp s, Env s, Store s, Addr)
-applyProc store (Addr a) f xs =
+        CIfThenElse pr tr fl ->
+            evalAexp env pr >>= \case
+                VBool b ->
+                    if b
+                        then evalExpr env tr
+                        else evalExpr env fl
+                _ -> error "Mistyped predicate"
 
-    case f of
-        VClo vs e p -> do
-            let as = map Addr [a ..]
-            p' <- foldM (\env (v, adr) -> insertEnv v adr env) p (zip vs as)
-            s' <- foldM (\sto (adr, x) -> insertStore adr x sto) store (zip as xs)
-            pure (e, p', s', Addr $! a + length vs)
+bindTopLevels :: (Ord s, Show s) => [(s, NExp s)]
+                                 -> State (Heap s) (Env s)
+bindTopLevels = foldM step (Env mempty)
+    where
+    step (Env env) (n, e) = do
+        addr <- allocVal (topLevelToVal e)
+        pure . Env $ M.insert n addr env
 
-        _ -> error "Expected a closure"
+    topLevelToVal :: Ord s => NExp s -> Val s
+    topLevelToVal expr =
+        case expr of
+            AExp (ALam vs body) -> VClo vs body (Env mempty)
+            _ -> VClo [] expr (Env mempty)
+
+allocVal :: (Show s) => Val s -> State (Heap s) Addr
+allocVal v = do
+    Heap (Store s) addr <- get
+    let s' = M.insert addr v s
+    put $ Heap (Store s') (next addr)
+    pure addr
+
+next :: Addr -> Addr
+next (Addr a) = Addr (a+1)
+
+bothM :: Monad m => (a -> m b) -> (a, a) -> m (b, b)
+bothM f (x, y) = do
+    fx <- f x
+    fy <- f y
+    pure (fx, fy)

@@ -65,6 +65,7 @@ printType = TB.intercalate " -> " . unbuild []
 indent :: Int -> Builder
 indent i = TB.text $ T.replicate (2*i) " "
 
+-- TODO divide and conquer
 printAnfExpression :: Int
                    -> NExp ByteString
                    -> Builder
@@ -95,11 +96,11 @@ printAnfExpression ind expr =
         NLet a b c ->
             TB.intercalate "\n" [ indent ind <> "let " <> bytestring a <> " = " <> printAnfExpression ind b <> " in"
                                 , indent ind <> printAnfExpression ind c ]
-{-
-        (AUnPrimOp _ op a) ->
+
+        AExp (AUnPrimOp op a) ->
             TB.intercalate " " [ printUnOp op
-                               , printAnfExpression ind a ]
--}
+                               , printAnfExpression ind (AExp a) ]
+
         AExp (ABinPrimOp op a b) ->
             let x = TB.intercalate " " [ printAnfExpression ind (AExp a)
                                        , printBinOp op
