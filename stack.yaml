@@ -6,6 +6,7 @@ packages:
 - compiler-lib
 - compiler-explorer-lib
 - compiler-explorer
+- runtimes
 
 ghc-options:
  "$locals": -fwrite-ide-info

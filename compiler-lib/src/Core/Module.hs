@@ -41,6 +41,6 @@ data FunDefnT s =
     FunDefnT s (Quant s) (ExprT s)
         deriving (Eq, Show)
 
-data ModuleT s =
+newtype ModuleT s =
     ModuleT { getFunDefnTs :: [FunDefnT s]
             } deriving Show

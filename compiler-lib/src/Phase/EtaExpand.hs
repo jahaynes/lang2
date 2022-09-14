@@ -102,4 +102,4 @@ genSym :: State EtaState ByteString
 genSym = do
     EtaState fc <- get
     put $ EtaState $! fc+1
-    pure . pack $ "eta_" <> (show fc)
+    pure . pack $ "eta_" <> show fc

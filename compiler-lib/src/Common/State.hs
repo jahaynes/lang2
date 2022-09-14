@@ -45,3 +45,6 @@ evalState' = flip evalState
 
 execState :: State s a -> s -> s
 execState x = snd . runState x
+
+runState' :: s -> State s a -> (a, s)
+runState' = flip runState

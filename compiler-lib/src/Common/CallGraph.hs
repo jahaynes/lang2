@@ -5,6 +5,8 @@ module Common.CallGraph where
 import Core.Expression
 import Core.Module
 import Core.Term
+import Phase.Anf.AnfExpression
+import Phase.Anf.AnfModule
 
 import           Data.ByteString.Char8 (ByteString, pack)
 import           Data.Map              (Map, (!))
@@ -27,6 +29,7 @@ buildGraph' fundefns = CallGraph . M.unions $ map go fundefns
 
         where
         fn scope (ETerm (Var v))    = S.singleton v \\ scope
+        fn     _ (ETerm DCons{})    = error "dcons"
         fn     _ (ETerm       _)    = mempty
         fn scope (ELam vs body)     = fn (foldr S.insert scope vs) body
         fn scope (EApp f xs)        = mconcat $ map (fn scope) (f:xs)
@@ -34,6 +37,38 @@ buildGraph' fundefns = CallGraph . M.unions $ map go fundefns
         fn scope (EUnPrimOp _ a)    = fn scope a
         fn scope (EBinPrimOp _ a b) = fn scope a <> fn scope b
         fn scope (IfThenElse p t f) = mconcat $ map (fn scope) [p, t, f]
+
+buildGraphAnf :: (Ord s, Show s) => AnfModule s -> CallGraph s
+buildGraphAnf = buildGraphAnf' . getFunDefAnfTs
+
+buildGraphAnf' :: (Ord s, Show s) => [FunDefAnfT s] -> CallGraph s
+buildGraphAnf' fundefns = CallGraph . M.unions $ map go fundefns
+
+    where
+    go (FunDefAnfT n _ e) = M.singleton n (fn e (S.singleton n))
+
+        where
+        fn (AExp aexp)  = fna aexp
+        fn (CExp cexp)  = fnc cexp
+        fn (NLet a b c) = fnl a b c
+
+        fna aexp scope =
+            case aexp of
+                ATerm (Var v) -> S.singleton v \\ scope
+                ATerm DCons{} -> error "dcons"
+                ATerm      _  -> mempty
+                ALam vs body  -> fn body (foldr S.insert scope vs)
+                AClo fvs vs body -> fn body (foldr S.insert scope (fvs++vs))
+                ABinPrimOp _ a b -> fna a scope <> fna b scope
+
+        fnc cexp scope =
+            case cexp of
+                CApp f xs            -> mconcat $ map (`fna` scope) (f:xs)
+                CIfThenElse pr tr fl -> mconcat [ fna pr scope, fn tr scope, fn fl scope]
+
+        fnl a b c scope =
+            let scope' = S.insert a scope
+            in fn b scope' <> fn c scope'
 
 -- Cleanup
 -- use a Seq too
@@ -54,10 +89,10 @@ findCycles graph = S.map S.fromList $ S.unions $ map (S.fromList . go []) $ M.ke
 planExcludingPretyped :: (Ord s, Show s) => Module s -> CallGraph s -> Either ByteString [Set s]
 planExcludingPretyped md (CallGraph cg) = do
     let pretyped = S.fromList . map (\(TypeSig n _) -> n) $ getTypeSigs md
-    plan $ CallGraph (fmap (\\ pretyped) cg)
+    createPlan $ CallGraph (fmap (\\ pretyped) cg)
 
-plan :: (Ord s, Show s) => CallGraph s -> Either ByteString [Set s]
-plan (CallGraph cg) = go [] cg
+createPlan :: (Ord s, Show s) => CallGraph s -> Either ByteString [Set s]
+createPlan (CallGraph cg) = go [] cg
     where
     go solved graph
         | null graph = Right $ reverse solved
