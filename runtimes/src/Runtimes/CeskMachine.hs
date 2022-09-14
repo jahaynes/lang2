@@ -176,7 +176,10 @@ evalCexp env cexp =
             VClo vs body cloEnv <- evalAexp env f
             let vsMap = Env . M.fromList $ zip vs xs'
             let new = vsMap <> cloEnv <> env -- earlier has precedence
+
+            -- This is the step in?
             evalExpr new body
+            -- Step out and continue with old env?
 
         CIfThenElse pr tr fl ->
             evalAexp env pr >>= \case
