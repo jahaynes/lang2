@@ -73,9 +73,10 @@ parseSum = do
     where
     sumOp :: Parser ParseState BinOp
     sumOp = parseSatisfy "sumOp" $ \case
-                TPlus  -> Just AddI
-                TMinus -> Just SubI
-                _      -> Nothing
+                TPlusPlus -> Just ConcatS
+                TPlus     -> Just AddI
+                TMinus    -> Just SubI
+                _         -> Nothing
 
 parseProduct :: Parser ParseState (Expr ByteString)
 parseProduct = do

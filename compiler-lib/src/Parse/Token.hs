@@ -36,6 +36,7 @@ data Token = TLet
            | TColon
            | TArr
 
+           | TPlusPlus
            | TPlus
            | TMul
            | TDiv

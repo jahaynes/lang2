@@ -64,6 +64,7 @@ disambiguateNegation = go [] TAmbiguous
     f TColon          = TAmbiguous
     f TArr            = TAmbiguous
     f TAmbiguous      = TAmbiguous
+    f TPlusPlus       = TAmbiguous
     f TDollar         = TAmbiguous -- check
 
 lex' :: ByteString -> Parser LexState a -> Either ByteString a
@@ -115,26 +116,27 @@ parseToken = keyword
           <|> positioned TElse (string "else" <* notFollowedBy isAlphaNum)
 
     operator :: Parser LexState Token
-    operator = positioned TEqEq   (string "==")
-           <|> positioned TGtEq   (string ">=")
-           <|> positioned TGt     (string ">")
-           <|> positioned TLtEq   (string "<=")
-           <|> positioned TLt     (string "<")
-           <|> positioned TEq     (string "=")
-           <|> positioned TColon  (string ":")
-           <|> positioned TPlus   (string "+")
-           <|> positioned TArr    (string "->")
-           <|> positioned TMinus  (string "-")
-           <|> positioned TDollar (string "$")
-           <|> positioned TMul    (string "*")
-           <|> positioned TDiv    (string "/")
-           <|> positioned TLambda (string "\\")
-           <|> positioned TDot    (string ".")
-           <|> positioned TLParen (string "(")
-           <|> positioned TRParen (string ")")
-           <|> positioned TAnd    (string "&&")
-           <|> positioned TOr     (string "||")
-           <|> positioned TPipe   (string "|")
+    operator = positioned TEqEq     (string "==")
+           <|> positioned TGtEq     (string ">=")
+           <|> positioned TGt       (string ">")
+           <|> positioned TLtEq     (string "<=")
+           <|> positioned TLt       (string "<")
+           <|> positioned TEq       (string "=")
+           <|> positioned TColon    (string ":")
+           <|> positioned TPlusPlus (string "++")
+           <|> positioned TPlus     (string "+")
+           <|> positioned TArr      (string "->")
+           <|> positioned TMinus    (string "-")
+           <|> positioned TDollar   (string "$")
+           <|> positioned TMul      (string "*")
+           <|> positioned TDiv      (string "/")
+           <|> positioned TLambda   (string "\\")
+           <|> positioned TDot      (string ".")
+           <|> positioned TLParen   (string "(")
+           <|> positioned TRParen   (string ")")
+           <|> positioned TAnd      (string "&&")
+           <|> positioned TOr       (string "||")
+           <|> positioned TPipe     (string "|")
 
     litBool = TLitBool <$> boolean
 

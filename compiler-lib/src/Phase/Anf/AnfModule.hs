@@ -70,7 +70,6 @@ normExpr expr k =
             normAtom a $ \a' ->
                 k $ AExp $ AUnPrimOp op a'
 
-        -- Guess
         BinPrimOpT _ op a b ->
             normAtom a $ \a' ->
                 normAtom b $ \b' ->
@@ -129,10 +128,10 @@ normAtom e k =
                             (CExp $ CIfThenElse pr' tr' fl')
                             rest
 
-        UnPrimOpT{} ->
-            error "Not implemented"
+        UnPrimOpT _ op a ->
+            normAtom a $ \a' ->
+                k $ AUnPrimOp op a'
 
-        -- Guess
         BinPrimOpT _ op a b ->
             normAtom a $ \a' ->
                 normAtom b $ \b' ->

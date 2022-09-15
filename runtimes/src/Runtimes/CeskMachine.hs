@@ -8,7 +8,7 @@ import Core.Term
 import Phase.Anf.AnfExpression
 import Phase.Anf.AnfModule (AnfModule (..), FunDefAnfT (..))
 
-import           Control.Monad   (foldM)
+import           Control.Monad   ((<=<), foldM)
 import           Data.ByteString (ByteString)
 import           Data.Functor    ((<&>))
 import           Data.Map.Strict ((!), Map)
@@ -172,7 +172,7 @@ evalCexp env cexp =
     case cexp of
 
         CApp f xs -> do
-            xs'  <- mapM (\x -> allocVal =<< evalAexp env x) xs
+            xs'  <- mapM (allocVal <=< evalAexp env) xs
             VClo vs body cloEnv <- evalAexp env f
             let vsMap = Env . M.fromList $ zip vs xs'
             let new = vsMap <> cloEnv <> env -- earlier has precedence
