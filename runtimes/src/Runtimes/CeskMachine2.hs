@@ -66,14 +66,14 @@ newtype Env s =
     Env (Map s Ptr)
         deriving Show
 
-newtype Store s =
-    Store (Map HeapAddr (Val s))
+newtype Heap s =
+    Heap (Map HeapAddr (Val s))
         deriving Show
 
 data Machine s =
     Machine { getStack     :: !(Stack s)
             , getStackFree :: !(StackAddr)
-            , getHeap      :: !(Store s)
+            , getHeap      :: !(Heap s)
             , getFree      :: !HeapAddr
             } deriving Show
 
@@ -105,7 +105,7 @@ class (Ord s, Semigroup s, FromString s, Show s) => Stringish s where
 instance Stringish SByteString
 
 machine0 :: Machine s
-machine0 = Machine (Stack mempty) (StackAddr 0) (Store mempty) (HeapAddr 0)
+machine0 = Machine (Stack mempty) (StackAddr 0) (Heap mempty) (HeapAddr 0)
 
 runMachine :: AnfModule ByteString -> IO ()
 runMachine modu = do
@@ -121,14 +121,14 @@ runMachine modu = do
 
 lkup :: (Ord k, Show k) => Env k -> k -> State (Machine s) (Val s)
 lkup (Env e) n = do
-    Machine (Stack stack) _ (Store store) _ <- get
+    Machine (Stack stack) _ (Heap heap) _ <- get
     case M.lookup n e of
 
         Nothing ->
             error $ "Not found in env: " <> show n
 
         Just (HeapA addr) ->
-            case M.lookup addr store of
+            case M.lookup addr heap of
                 Nothing -> error "Not found in heap"
                 Just v  -> pure v
 
@@ -310,24 +310,24 @@ allocChoice val =
 allocHeap :: Show s => Val s
                     -> State (Machine s) HeapAddr
 allocHeap v = do
-    Machine stack freeStack (Store s) freeHeap <- get
-    let s' = Store $ M.insert freeHeap v s
+    Machine stack freeStack (Heap s) freeHeap <- get
+    let s' = Heap $ M.insert freeHeap v s
     put $ Machine stack freeStack s' (next freeHeap)
-    trace (renderStoreStack stack s') $
+    trace (renderHeapStack stack s') $
         pure freeHeap
 
 allocStack :: Show s => Val s
                      -> State (Machine s) StackAddr
 allocStack v = do
-    Machine (Stack s) freeStack store freeHeap <- get
+    Machine (Stack s) freeStack heap freeHeap <- get
     let s' = Stack $ M.insert freeStack v s
-    put $ Machine s' (next' freeStack) store freeHeap
-    trace (renderStoreStack s' store) $
+    put $ Machine s' (next' freeStack) heap freeHeap
+    trace (renderHeapStack s' heap) $
         pure freeStack
 
-renderStoreStack :: Show s => Stack s -> Store s -> String
-renderStoreStack (Stack stack) (Store store) =
-    ("Stack:\n" ++ renderMap stack ++ "\nStore:\n" ++ renderMap store ++ "\n")
+renderHeapStack :: Show s => Stack s -> Heap s -> String
+renderHeapStack (Stack stack) (Heap heap) =
+    ("Stack:\n" ++ renderMap stack ++ "\nHeap:\n" ++ renderMap heap ++ "\n")
 
 renderMap :: (Show k, Show v) => Map k v -> String
 renderMap m = unlines
