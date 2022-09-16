@@ -22,6 +22,8 @@ class App extends React.Component {
     const anfPretty              = this.getAndClearElement("anfPretty")
     const closureConverted       = this.getAndClearElement("closureConverted")
     const closureConvertedPretty = this.getAndClearElement("closureConvertedPretty")
+    const lambdaLifted           = this.getAndClearElement("lambdaLifted")
+    const lambdaLiftedPretty     = this.getAndClearElement("lambdaLiftedPretty")
 
     fetch("http://127.0.0.1:8080/lexAndParse", { method: 'POST', body: source.value })
       .then(resp => resp.json())
@@ -35,6 +37,8 @@ class App extends React.Component {
         anfPretty.value              = ts.anfPretty;
         closureConverted.value       = ts.closureConverted;
         closureConvertedPretty.value = ts.closureConvertedPretty;
+        lambdaLifted.value           = ts.lambdaLifted;
+        lambdaLiftedPretty.value     = ts.lambdaLiftedPretty;
       })
   }
 
@@ -74,6 +78,12 @@ class App extends React.Component {
         <div>
           <textarea id='closureConverted' className='editor' spellCheck='false' rows='14'></textarea>
           <textarea id='closureConvertedPretty' className='editor' spellCheck='false' rows='14'></textarea>
+        </div>
+
+        <label>Lambda Lifted</label>
+        <div>
+          <textarea id='lambdaLifted' className='editor' spellCheck='false' rows='14'></textarea>
+          <textarea id='lambdaLiftedPretty' className='editor' spellCheck='false' rows='14'></textarea>
         </div>
 
       </div>

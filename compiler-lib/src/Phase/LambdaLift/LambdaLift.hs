@@ -1,13 +1,14 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Phase.LambdaLift (lambdaLift) where
+module Phase.LambdaLift.LambdaLift (lambdaLift) where
 
 import Common.State
---import Core.Expression
---import Core.Module
+import Core.Module
 import Core.Term
+import Core.Types
 import Phase.Anf.AnfExpression
 import Phase.Anf.AnfModule
+import Phase.LambdaLift.Alpha
 
 import           Data.ByteString.Char8 (ByteString, pack)
 import           Data.String           (IsString)
@@ -30,20 +31,21 @@ lambdaLift' funDefs =
     in
     lifted ls ++ funDefs'
 
-alphaExpr = undefined
-
 lambdaLiftDefn :: (Ord s, Show s, IsString s) => (s -> State (LiftState s) s)
                                               -> FunDefAnfT s
                                               -> State (LiftState s) (FunDefAnfT s)
-lambdaLiftDefn nameGen (FunDefAnfT t n (AExp fun)) =
+lambdaLiftDefn nameGen fd@(FunDefAnfT t n fun) =
 
     case fun of
-        ALam vs body -> do
+
+        AExp (ALam vs body) -> do
             body' <- ll body
-            pure $ FunDefAnfT undefined n (AExp (ALam vs body'))
+            pure $ FunDefAnfT t n (AExp (ALam vs body'))
+
+        nonA -> pure fd
 
         _ ->
-            error "lambda-lifting non-lambda!"
+            error $ "lambda-lifting non-lambda: " ++ show fun
 
     where
     --ll :: NExp s -> State (LiftState s) (NExp s)
@@ -91,6 +93,8 @@ lambdaLiftDefn nameGen (FunDefAnfT t n (AExp fun)) =
                 ABinPrimOp o <$> lla a
                              <*> lla b
 
+            _ -> error $ show aexp
+
     --llc :: CExp s -> State (LiftState s) (CExp s)
     llc cexp =
 
@@ -101,8 +105,9 @@ lambdaLiftDefn nameGen (FunDefAnfT t n (AExp fun)) =
             CApp f xs -> do
                 f'  <- lla f
                 xs' <- mapM lla xs
-                b <- extractLets f' [] [] xs'
-                _ b
+                -- b <- extractLets f' [] [] xs'
+                --pure $ _ b
+                pure $ CApp f' xs'
 
             CIfThenElse pr tr fl ->
                 CIfThenElse <$> lla pr
@@ -119,30 +124,21 @@ lambdaLiftDefn nameGen (FunDefAnfT t n (AExp fun)) =
                     -- rename (recursive) references to it during the lift
                     Just oldName ->
                         let subst = foldr M.delete (M.singleton oldName newName) vs
-                        in alphaExpr subst body
+                        in alphaNExp subst body
                     Nothing -> body
         lam' <- ALam vs <$> ll body'
-        liftLambda $ FunDefAnfT newName undefined (AExp lam')
+        liftLambda $ FunDefAnfT newName (Quant []) (AExp lam')
         pure . ATerm $ Var newName
-
-    liftLambdaOrClosure mName (AClo fvs vs body) = do
-        newName <- nameGen "lclo"
-        let body' =
-                case mName of
-                    -- If this lambda has a name
-                    -- rename (recursive) references to it during the lift
-                    Just oldName ->
-                        let subst = foldr M.delete (M.singleton oldName newName) (fvs++vs)
-                        in alphaExpr subst body
-                    Nothing -> body
-        clo' <- AClo fvs vs <$> ll body'
-        liftLambda $ FunDefAnfT newName undefined (AExp clo')
-        undefined -- pure $ CallClo newName fvs
 
     liftLambdaOrClosure _ _ =
         error "Tried to lift non-lambda/closure"
 
     -- TODO test
+    extractLets :: AExp s
+                -> [(s, NExp s)]
+                -> [AExp s]
+                -> [AExp s]
+                -> State (LiftState s) (NExp s)
     extractLets f lets args es =
 
         case es of

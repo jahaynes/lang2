@@ -12,6 +12,7 @@ import Parse.Token
 import Phase.Anf.AnfModule
 import Phase.ClosureConvert.ClosureConvert
 import Phase.EtaExpand
+import Phase.LambdaLift.LambdaLift
 import Pretty.AnfModule
 import Pretty.Module
 import Pretty.TypedModule
@@ -40,6 +41,7 @@ data ProgramState =
                  , getEtaExpanded      :: Either ByteString (ModuleT ByteString)
                  , getAnfConverted     :: Either ByteString (AnfModule ByteString)
                  , getClosureConverted :: Either ByteString (AnfModule ByteString)
+                 , getLambdaLifted     :: Either ByteString (AnfModule ByteString)
                  }
 
 instance ToJSON ProgramState where
@@ -56,6 +58,8 @@ instance ToJSON ProgramState where
             txtAnfPretty              = either decodeUtf8 renderAnfModule (getAnfConverted ps)
             txtClosureConverted       = either decodeUtf8 (\(AnfModule anfdefs) -> pack . unlines . map show $ anfdefs) (getClosureConverted ps)
             txtClosureConvertedPretty = either decodeUtf8 renderAnfModule (getClosureConverted ps)
+            txtLambdaLifted           = either decodeUtf8 (\(AnfModule anfdefs) -> pack . unlines . map show $ anfdefs) (getLambdaLifted ps)
+            txtLambdaLiftedPretty     = either decodeUtf8 renderAnfModule (getLambdaLifted ps)
 
         object [ "tokens"                 .= String txtTokens
                , "defns"                  .= String txtDefns
@@ -67,17 +71,19 @@ instance ToJSON ProgramState where
                , "anfPretty"              .= String txtAnfPretty
                , "closureConverted"       .= String txtClosureConverted
                , "closureConvertedPretty" .= String txtClosureConvertedPretty
+               , "lambdaLifted"           .= String txtLambdaLifted
+               , "lambdaLiftedPretty"     .= String txtLambdaLiftedPretty
                ]
 
 fromSource :: Text -> ProgramState
-fromSource txt = ProgramState txt na na na na na na
+fromSource txt = ProgramState txt na na na na na na na
     where
     na = Left "Not Available"
 
 server :: Server Api
 server src = do
     let ps = execState pipe $ fromSource src
-    case getClosureConverted ps of
+    case getLambdaLifted ps of
         Left e -> error $ "Controller:\n" ++ show e
         Right machine -> do
             liftIO $ handleAnyDeep print (runMachine machine)
@@ -90,6 +96,7 @@ pipe = do
     phaseEtaExpand
     phaseAnfConvert
     phaseClosureConvert
+    phaseLambdaLift
 
     where
     phaseLexAndParse :: State ProgramState ()
@@ -114,6 +121,10 @@ pipe = do
     phaseClosureConvert :: State ProgramState ()
     phaseClosureConvert = modify' $ \ps ->
         ps { getClosureConverted = closureConvert <$> getAnfConverted ps }
+
+    phaseLambdaLift :: State ProgramState ()
+    phaseLambdaLift = modify' $ \ps ->
+        ps { getLambdaLifted = lambdaLift <$> getClosureConverted ps }
 
 runController :: Int -> IO ()
 runController port = run port . simpleCors $ serve (Proxy :: Proxy Api) server 

@@ -32,7 +32,8 @@ library
                     Phase.ClosureConvert.ClosureConvert
                     Phase.ClosureConvert.FreeVars
                     Phase.EtaExpand
-                    Phase.LambdaLift
+                    Phase.LambdaLift.Alpha
+                    Phase.LambdaLift.LambdaLift
                     TypeCheck.ConstraintSolver
                     TypeSystem.Common
                     TypeSystem.Ftv
