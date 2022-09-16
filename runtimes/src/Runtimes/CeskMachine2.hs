@@ -34,8 +34,13 @@ newtype StackAddr =
     StackAddr Int
         deriving (Eq, Ord, Show)
 
+newtype StaticAddr =
+    StaticAddr Int
+        deriving (Eq, Ord, Show)
+
 -- merge into Val
-data Ptr = HeapA !HeapAddr
+data Ptr = StaticA !StaticAddr
+         | HeapA !HeapAddr
          | StackA !StackAddr
          | StackInt !Integer
          | StackBool !Bool
@@ -70,11 +75,17 @@ newtype Heap s =
     Heap (Map HeapAddr (Val s))
         deriving Show
 
+newtype Static s =
+    Static (Map StaticAddr (Val s))
+        deriving Show
+
 data Machine s =
-    Machine { getStack     :: !(Stack s)
-            , getStackFree :: !(StackAddr)
-            , getHeap      :: !(Heap s)
-            , getFree      :: !HeapAddr
+    Machine { getStatic     :: !(Static s)
+            , getStaticFree :: !(StaticAddr)
+            , getStack      :: !(Stack s)
+            , getStackFree  :: !(StackAddr)
+            , getHeap       :: !(Heap s)
+            , getFree       :: !HeapAddr
             } deriving Show
 
 newtype Stack s =
@@ -105,7 +116,9 @@ class (Ord s, Semigroup s, FromString s, Show s) => Stringish s where
 instance Stringish SByteString
 
 machine0 :: Machine s
-machine0 = Machine (Stack mempty) (StackAddr 0) (Heap mempty) (HeapAddr 0)
+machine0 = Machine (Static mempty) (StaticAddr 0)
+                   (Stack mempty)  (StackAddr 0)
+                   (Heap mempty)   (HeapAddr 0)
 
 runMachine :: AnfModule ByteString -> IO ()
 runMachine modu = do
@@ -121,11 +134,16 @@ runMachine modu = do
 
 lkup :: (Ord k, Show k) => Env k -> k -> State (Machine s) (Val s)
 lkup (Env e) n = do
-    Machine (Stack stack) _ (Heap heap) _ <- get
+    Machine (Static static) _ (Stack stack) _ (Heap heap) _ <- get
     case M.lookup n e of
 
         Nothing ->
             error $ "Not found in env: " <> show n
+
+        Just (StaticA addr) ->
+            case M.lookup addr static of
+                Nothing -> error "Not found in static"
+                Just v  -> pure v
 
         Just (HeapA addr) ->
             case M.lookup addr heap of
@@ -289,7 +307,7 @@ bindTopLevels :: (Ord s, Show s) => [(s, NExp s)]
 bindTopLevels = foldM step (Env mempty)
     where
     step (Env env) (n, e) = do
-        addr <- HeapA <$> allocHeap (topLevelToVal e)
+        addr <- StaticA <$> allocStatic (topLevelToVal e)
         pure . Env $ M.insert n addr env
 
     topLevelToVal :: Ord s => NExp s -> Val s
@@ -300,31 +318,58 @@ bindTopLevels = foldM step (Env mempty)
 
 allocChoice :: Show s => Val s
                       -> State (Machine s) Ptr
-allocChoice val =
-    case val of
-        VBool b   -> pure $ StackBool b
-        VInt i    -> pure $ StackInt i
-        VString{} -> HeapA <$> allocHeap val
-        VClo{}    -> HeapA <$> allocHeap val
+allocChoice val = do
+
+    ptr <- go val
+    machine <- get
+    trace (renderHeapStack (getStack machine) (getHeap machine)) $ pure ptr
+
+    where
+    go val =
+        case val of
+            VBool b   -> pure $ StackBool b
+            VInt i    -> pure $ StackInt i
+            VString{} -> HeapA <$> allocHeap val
+            VClo _ _ (Env env) | M.null env -> StaticA <$> allocStatic val -- TODO should have already been called at init?
+                               | otherwise  -> HeapA <$> allocHeap val
 
 allocHeap :: Show s => Val s
                     -> State (Machine s) HeapAddr
 allocHeap v = do
-    Machine stack freeStack (Heap s) freeHeap <- get
-    let s' = Heap $ M.insert freeHeap v s
-    put $ Machine stack freeStack s' (next freeHeap)
-    trace (renderHeapStack stack s') $
-        pure freeHeap
+    machine <- get
+    let freeHeap  = getFree machine
+        freeHeap' = next freeHeap
+        Heap heap = getHeap machine
+        heap'     = Heap $ M.insert freeHeap v heap
+    put $ machine { getHeap = heap'
+                  , getFree = freeHeap' }
+    pure freeHeap
 
 allocStack :: Show s => Val s
                      -> State (Machine s) StackAddr
 allocStack v = do
-    Machine (Stack s) freeStack heap freeHeap <- get
-    let s' = Stack $ M.insert freeStack v s
-    put $ Machine s' (next' freeStack) heap freeHeap
-    trace (renderHeapStack s' heap) $
-        pure freeStack
+    machine <- get
+    let stackFree   = getStackFree machine
+        stackFree'  = next' stackFree
+        Stack stack = getStack machine
+        stack'      = Stack $ M.insert stackFree v stack
+    put $ machine { getStack = stack'
+                  , getStackFree = stackFree' }
+    pure stackFree
 
+allocStatic :: Show s => Val s
+                      -> State (Machine s) StaticAddr
+allocStatic v = do
+    machine <- get
+    let staticFree    = getStaticFree machine
+        staticFree'   = next'' staticFree
+        Static static = getStatic machine
+        static'       = Static $ M.insert staticFree v static
+    put $ machine { getStatic = static'
+                  , getStaticFree = staticFree' }
+    pure staticFree
+
+-- TODO just pass in machine
 renderHeapStack :: Show s => Stack s -> Heap s -> String
 renderHeapStack (Stack stack) (Heap heap) =
     ("Stack:\n" ++ renderMap stack ++ "\nHeap:\n" ++ renderMap heap ++ "\n")
@@ -339,6 +384,9 @@ next (HeapAddr a) = HeapAddr (a+1)
 
 next' :: StackAddr -> StackAddr
 next' (StackAddr a) = StackAddr (a+1)
+
+next'' :: StaticAddr -> StaticAddr
+next'' (StaticAddr a) = StaticAddr (a+1)
 
 bothM :: Applicative m => (a -> m b) -> (a, a) -> m (b, b)
 bothM f (x, y) = (,) <$> f x <*> f y
