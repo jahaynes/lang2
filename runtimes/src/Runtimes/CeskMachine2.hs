@@ -39,7 +39,6 @@ data Ptr = HeapA !HeapAddr
          | StackA !StackAddr
          | StackInt !Integer
          | StackBool !Bool
-          -- Allow int and bool here too, so they don't go onto the heap?
               deriving (Eq, Ord, Show)
 
 data Val s = VBool !Bool
@@ -253,7 +252,7 @@ evalCexp env cexp =
             VClo vs body cloEnv <- evalAexp env f
 
             -- Preserve the current stack
-            currentStack <- getStack <$> get
+            (currentStack, currentStackAddr) <- getStackAndAddr
 
             -- Put the parameters onto the stack for the function call
             allocatedParams <- map StackA <$> mapM allocStack params
@@ -262,7 +261,7 @@ evalCexp env cexp =
             val <- evalExpr new body
 
             -- Restore the current level of stack
-            putStack currentStack
+            putStackAndAddr currentStack currentStackAddr
 
             pure val
 
@@ -274,8 +273,16 @@ evalCexp env cexp =
                         else evalExpr env fl
                 _ -> error "Mistyped predicate"
 
-putStack :: Stack s -> State (Machine s) ()
-putStack st = modify' $ \machine -> machine { getStack = st }
+putStackAndAddr :: Stack s
+                -> StackAddr
+                -> State (Machine s) ()
+putStackAndAddr st addr = modify' $ \machine -> machine { getStack     = st
+                                                        , getStackFree = addr }
+
+getStackAndAddr :: State (Machine s) (Stack s, StackAddr)
+getStackAndAddr = do
+    machine <- get
+    pure (getStack machine, getStackFree machine)
 
 bindTopLevels :: (Ord s, Show s) => [(s, NExp s)]
                                  -> State (Machine s) (Env s)
