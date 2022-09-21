@@ -11,7 +11,7 @@ import Parse.LexAndParse
 import Parse.Token
 import Phase.Anf.AnfModule
 import Phase.ClosureConvert.ClosureConvert
-import Phase.EtaExpand
+import Phase.EtaExpand.EtaExpand
 import Phase.LambdaLift.LambdaLift
 import Pretty.AnfModule
 import Pretty.Module

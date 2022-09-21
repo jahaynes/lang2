@@ -9,7 +9,7 @@ import Core.Expression
 import Core.Module
 import Core.Term
 import Core.Types
-import Phase.EtaExpand
+import Phase.EtaExpand.EtaExpand
 
 import           Data.ByteString
 import           Hedgehog hiding (Var)
@@ -24,17 +24,17 @@ etaExpandTests =
 expandNoMissingArguments :: Property
 expandNoMissingArguments =
     unitTest $
-        evalState (expandDefn missing0) (EtaState 0) === missing0
+        evalState (expandDefn missing0) (EtaState 0 mempty mempty) === missing0
 
 expandOneMissingArgument :: Property
 expandOneMissingArgument =
     unitTest $
-        evalState (expandDefn missing1) (EtaState 1) === missing0
+        evalState (expandDefn missing1) (EtaState 1 mempty mempty) === missing0
 
 expandTwoMissingArguments :: Property
 expandTwoMissingArguments =
     unitTest $
-        evalState (expandDefn missing2) (EtaState 0) === missing0
+        evalState (expandDefn missing2) (EtaState 0 mempty mempty) === missing0
 
 -- TODO dedupe
 (->>) :: Type s -> Type s -> Type s

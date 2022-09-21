@@ -31,7 +31,8 @@ library
                     Phase.Anf.AnfModule
                     Phase.ClosureConvert.ClosureConvert
                     Phase.ClosureConvert.FreeVars
-                    Phase.EtaExpand
+                    Phase.EtaExpand.EtaExpand
+                    Phase.EtaExpand.EtaSaturate
                     Phase.LambdaLift.Alpha
                     Phase.LambdaLift.LambdaLift
                     TypeCheck.ConstraintSolver

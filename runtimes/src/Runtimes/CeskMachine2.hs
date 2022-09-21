@@ -123,6 +123,8 @@ machine0 = Machine (Static mempty) (StaticAddr 0)
 runMachine :: AnfModule ByteString -> IO ()
 runMachine modu = do
 
+    putStrLn ""
+
     let topLevels = map (\(FunDefAnfT n _ e) -> (SByteString n, SByteString <$> e)) $ getFunDefAnfTs modu
 
     let a = evalState' machine0 $ do
