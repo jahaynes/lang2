@@ -16,7 +16,7 @@ import Phase.LambdaLift.LambdaLift
 import Pretty.AnfModule
 import Pretty.Module
 import Pretty.TypedModule
-import Runtimes.CeskMachine2
+import Runtimes.AbstractMachine
 import TypeSystem.TypeCheck
 
 import           Control.Monad.IO.Class      (liftIO)

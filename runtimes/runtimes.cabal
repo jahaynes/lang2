@@ -12,8 +12,7 @@ library
                     bytestring,
                     containers,
                     compiler-lib
-  exposed-modules:  Runtimes.CeskMachine
-                    Runtimes.CeskMachine2
+  exposed-modules:  Runtimes.AbstractMachine
   ghc-options:      -Wall -O2
   hs-source-dirs:   src
   default-language: Haskell2010

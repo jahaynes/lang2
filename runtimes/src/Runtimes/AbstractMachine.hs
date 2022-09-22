@@ -1,6 +1,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving, LambdaCase, OverloadedStrings #-}
 
-module Runtimes.CeskMachine2 (runMachine) where
+module Runtimes.AbstractMachine (runMachine) where
 
 import Common.State
 import Core.Operator
@@ -19,11 +19,9 @@ import           Text.Printf           (printf)
 {-
     TODO:
         * Make sure returns are happening (and items are leaving env scope)
-        * Add a Stack to go along with a heap?
         * Pre-compile / partially evaluate?
         * Ints as Addr - instead of heap?
         * Use recursion/planning to trim down env
-        * Do lambda lifting!
 -}
 
 newtype HeapAddr =
@@ -61,11 +59,6 @@ instance Show s => Show (Val s) where
             cloEnv' = show $ M.toList cloEnv
             body'   = show body
         in printf "(\\%s %s {%s})" vs' body' cloEnv'
-
-data Cesk s =
-    Cesk { getCode :: !(NExp s)
-         , getEnv  :: !(Env s)
-         } deriving Show
 
 newtype Env s =
     Env (Map s Ptr)
@@ -114,6 +107,16 @@ instance FromString SByteString where
 class (Ord s, Semigroup s, FromString s, Show s) => Stringish s where
 
 instance Stringish SByteString
+
+{-
+    TODO:
+        * Make sure returns are happening (and items are leaving env scope)
+        * Add a Stack to go along with a heap?
+        * Pre-compile / partially evaluate?
+        * Ints as Addr - instead of heap?
+        * Use recursion/planning to trim down env
+        * Do lambda lifting!
+-}
 
 machine0 :: Machine s
 machine0 = Machine (Static mempty) (StaticAddr 0)
