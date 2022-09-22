@@ -39,21 +39,35 @@ inferModule md = do
     let typeSigs = M.fromList . map (\(TypeSig n t) -> (n, Forall [] t)) $ getTypeSigs md
 
     -- TODO data definitions could accompany typeSigs here
-    let (_, _, defs') = foldl' go (0, typeSigs, []) untyped
-
-    Right (ModuleT defs')
+    case foldl' go (Right $ GroupInference 0 typeSigs []) untyped of
+        Left ex -> Left ex
+        Right (GroupInference _ _ defs') -> Right (ModuleT defs')
 
     where
-    go (n, e, fds) un =
-        let (n', e', fds') = evalState (inferGroup e un) (GroupState n mempty)
-        in (n', e <> e', fds <> fds')
+    go eGroupInference un =
+
+        case eGroupInference of
+
+            Left ex -> Left ex
+
+            Right (GroupInference n e fds) ->
+
+                case evalState (inferGroup e un) (GroupState n mempty) of
+
+                    Left ex -> Left ex
+
+                    Right (GroupInference n' e' fds') ->
+                        Right $ GroupInference n' (e <> e') (fds <> fds')
+
+data GroupInference =
+    GroupInference !Int
+                   !(Map ByteString (Polytype ByteString))
+                   ![FunDefnT ByteString]
 
 inferGroup :: Map ByteString (Polytype ByteString)
            -> Set (FunDefn ByteString)
            -> State (GroupState ByteString)
-                    (Int
-                    , Map ByteString (Polytype ByteString)
-                    , [FunDefnT ByteString] )
+                    (Either ByteString GroupInference)
 
 inferGroup env untyped = do
 
@@ -71,17 +85,21 @@ inferGroup env untyped = do
         pure (cs, (n, tex)))
 
     -- Deduce the types from the constraints
-    let Right sub = runSolve $ concatMap fst inferences
+    case runSolve $ concatMap fst inferences of
 
-    -- Define them as functions
-    let funDefnTs = cleanup sub env' . snd <$> inferences
+        Left e -> pure $ Left e
 
-    -- Put the newly-inferred types into the enviromment
-    let env'' = M.fromList . map (\(FunDefnT n (Quant vs) expr) -> (n, Forall vs (typeOf expr))) $ funDefnTs
+        Right sub -> do
 
-    n' <- getVarNum <$> get
+            -- Define them as functions
+            let funDefnTs = cleanup sub env' . snd <$> inferences
 
-    pure (n', env'', funDefnTs)
+            -- Put the newly-inferred types into the enviromment
+            let env'' = M.fromList . map (\(FunDefnT n (Quant vs) expr) -> (n, Forall vs (typeOf expr))) $ funDefnTs
+
+            n' <- getVarNum <$> get
+
+            pure . Right $ GroupInference n' env'' funDefnTs
 
     where
     freshlyLabel ns = M.fromList <$> mapM (\n -> freshTVar <&> \f -> (n, f)) ns
