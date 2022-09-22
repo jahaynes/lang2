@@ -67,8 +67,7 @@ closureConvertDefn topLevelScope (FunDefAnfT n q fun) =
 
                 ALam vs body -> do
                     body' <- go body
-                    ConvState currentScope <- get
-                    let scope = S.fromList vs <> topLevelScope <> currentScope
+                    let scope = S.fromList vs <> topLevelScope
                     let fvs = S.toList . getFree . snd $ runState (nexpFreeVars body') (FreeVars scope mempty)
                     pure $ if null fvs
                             then ALam     vs body'

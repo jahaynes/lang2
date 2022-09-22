@@ -77,6 +77,9 @@ lambdaLiftDefn nameGen fd@(FunDefAnfT t n fun) =
             ALam{} ->
                 liftLambdaOrClosure Nothing aexp
 
+            AClo{} ->
+                liftLambdaOrClosure Nothing aexp
+
             AUnPrimOp o a ->
                 AUnPrimOp o <$> lla a
 
@@ -110,6 +113,22 @@ lambdaLiftDefn nameGen fd@(FunDefAnfT t n fun) =
                         in alphaNExp subst body
                     Nothing -> body
         lam' <- AExp . ALam vs <$> ll body'
+        let q = generalise lam'
+        liftLambda $ FunDefAnfT newName q lam'
+        pure . ATerm $ Var newName
+
+    -- TODO dedupe with above
+    liftLambdaOrClosure mName (AClo fvs vs body) = do
+        newName <- nameGen "lclo"
+        let body' =
+                case mName of
+                    -- If this lambda has a name
+                    -- rename (recursive) references to it during the lift
+                    Just oldName ->
+                        let subst = foldr M.delete (M.singleton oldName newName) vs
+                        in alphaNExp subst body
+                    Nothing -> body
+        lam' <- AExp . AClo fvs vs <$> ll body'
         let q = generalise lam'
         liftLambda $ FunDefAnfT newName q lam'
         pure . ATerm $ Var newName
