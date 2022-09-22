@@ -13,6 +13,7 @@ class App extends React.Component {
   lexAndParse() {
     const source = document.getElementById("text")
 
+    const output                 = this.getAndClearElement("output")
     const tokens                 = this.getAndClearElement("tokens")
     const prettyDefns            = this.getAndClearElement("prettyDefns")
     const inferred               = this.getAndClearElement("inferred")
@@ -28,6 +29,7 @@ class App extends React.Component {
     fetch("http://127.0.0.1:8080/lexAndParse", { method: 'POST', body: source.value })
       .then(resp => resp.json())
       .then((ts) => {
+        output.value                 = ts.output;
         tokens.value                 = ts.tokens;
         prettyDefns.value            = ts.prettyDefns;
         inferred.value               = ts.inferred;
@@ -46,14 +48,15 @@ class App extends React.Component {
     return (
       <div className="App">
 
-        <label>Source / Tokens</label>
+        <label>Source / Output</label>
         <div>
           <textarea id='text' className='editor' spellCheck='false' rows='14' onChange={e => this.lexAndParse()}></textarea>
-          <textarea id='tokens' className='editor' spellCheck='false' rows='14'></textarea>
+          <textarea id='output' className='editor' spellCheck='false' rows='14'></textarea>
         </div>
 
-        <label>Definitions / Pretty</label>
+        <label>Tokens / Definitions</label>
         <div>
+          <textarea id='tokens' className='editor' spellCheck='false' rows='14'></textarea>
           <textarea id='prettyDefns' className='editor' spellCheck='false' rows='14'></textarea>
         </div>
 

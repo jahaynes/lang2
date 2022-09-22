@@ -123,10 +123,8 @@ machine0 = Machine (Static mempty) (StaticAddr 0)
                    (Stack mempty)  (StackAddr 0)
                    (Heap mempty)   (HeapAddr 0)
 
-runMachine :: AnfModule ByteString -> IO ()
+runMachine :: AnfModule ByteString -> ByteString
 runMachine modu = do
-
-    putStrLn ""
 
     let topLevels = map (\(FunDefAnfT n _ e) -> (SByteString n, SByteString <$> e)) $ getFunDefAnfTs modu
 
@@ -135,7 +133,7 @@ runMachine modu = do
                 VClo [] start _ <- lkup env (SByteString "main")
                 evalExpr env start
 
-    print a
+    pack $ show a
 
 lkup :: (Ord k, Show k) => Env k -> k -> State (Machine s) (Val s)
 lkup (Env e) n = do

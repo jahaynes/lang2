@@ -35,6 +35,7 @@ type Api = "lexAndParse" :> ReqBody '[PlainText] Text
 
 data ProgramState =
     ProgramState { getSource           :: Text
+                 , getOutput           :: ByteString
                  , getTokens           :: Either ByteString (Vector Token)
                  , getModule           :: Either ByteString (Module ByteString)
                  , getInferred         :: Either ByteString (ModuleT ByteString)
@@ -49,6 +50,7 @@ instance ToJSON ProgramState where
     toJSON ps = do
 
         let txtTokens                 = decodeUtf8 $ either id tokensToByteString (getTokens ps)
+            txtOutput                 = decodeUtf8 $ getOutput ps
             txtDefns                  = either decodeUtf8 moduleToText (getModule ps)
             txtPrettyDefns            = either decodeUtf8 render (getModule ps)
             txtInferred               = either decodeUtf8 (\(ModuleT tdefs) -> pack . unlines . map show $ tdefs) (getInferred ps)
@@ -61,7 +63,8 @@ instance ToJSON ProgramState where
             txtLambdaLifted           = either decodeUtf8 (\(AnfModule anfdefs) -> pack . unlines . map show $ anfdefs) (getLambdaLifted ps)
             txtLambdaLiftedPretty     = either decodeUtf8 renderAnfModule (getLambdaLifted ps)
 
-        object [ "tokens"                 .= String txtTokens
+        object [ "output"                 .= String txtOutput
+               , "tokens"                 .= String txtTokens
                , "defns"                  .= String txtDefns
                , "prettyDefns"            .= String txtPrettyDefns
                , "inferred"               .= String txtInferred
@@ -76,7 +79,7 @@ instance ToJSON ProgramState where
                ]
 
 fromSource :: Text -> ProgramState
-fromSource txt = ProgramState txt na na na na na na na
+fromSource txt = ProgramState txt "" na na na na na na na
     where
     na = Left "Not Available"
 
@@ -84,10 +87,10 @@ server :: Server Api
 server src = do
     let ps = execState pipe $ fromSource src
     case getLambdaLifted ps of
-        Left e -> error $ "Controller:\n" ++ show e
+        Left e -> pure ps { getOutput = e }
         Right machine -> do
-            liftIO $ handleAnyDeep print (runMachine machine)
-            pure ps
+            let output = runMachine machine
+            pure ps { getOutput = output }
 
 pipe :: State ProgramState ()
 pipe = do
