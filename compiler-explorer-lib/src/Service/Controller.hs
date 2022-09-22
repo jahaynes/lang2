@@ -19,7 +19,6 @@ import Pretty.TypedModule
 import Runtimes.AbstractMachine
 import TypeSystem.TypeCheck
 
-import           Control.Monad.IO.Class      (liftIO)
 import           Data.Aeson
 import           Data.ByteString             (ByteString)
 import           Data.Text                   (Text, pack)
@@ -28,7 +27,6 @@ import           Data.Vector                 (Vector)
 import           Network.Wai.Handler.Warp    (run)
 import           Network.Wai.Middleware.Cors (simpleCors)
 import           Servant
-import           UnliftIO.Exception
 
 type Api = "lexAndParse" :> ReqBody '[PlainText] Text
                          :> Post '[JSON] ProgramState

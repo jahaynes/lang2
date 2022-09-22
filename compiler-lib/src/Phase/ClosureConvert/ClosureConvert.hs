@@ -35,14 +35,26 @@ closureConvertDefn topLevelScope (FunDefAnfT n q fun) =
     go expr =
 
         case expr of
-            CExp cexp  -> CExp <$> ccc cexp
-            AExp aexp  -> AExp <$> cca aexp
+
+            CExp cexp ->
+                CExp <$> ccc cexp
+
+            AExp aexp ->
+                AExp <$> cca aexp
+
+            NLet a (AExp (ALam vs body)) c -> do
+                addToScope [a]
+                b' <- AExp <$> cclam (Just a) vs body
+                c' <- go c
+                removeFromScope [a]  -- breaks with shadowing?
+                pure $ NLet a b' c'
+
             NLet a b c -> do
                 -- Include a in the scope to allow recursion
-                addToScope [a]
+                addToScope [a] -- necessary or is the let-lam above handling everything?
                 b' <- go b
                 c' <- go c
-                removeFromScope [a]
+                removeFromScope [a]  -- breaks with shadowing?
                 pure $ NLet a b' c'
 
         where
@@ -63,17 +75,14 @@ closureConvertDefn topLevelScope (FunDefAnfT n q fun) =
 
             case aexp of
 
-                t@ATerm{} -> pure t
+                t@ATerm{} ->
+                    pure t
 
-                ALam vs body -> do
-                    body' <- go body
-                    let scope = S.fromList vs <> topLevelScope
-                    let fvs = S.toList . getFree . snd $ runState (nexpFreeVars body') (FreeVars scope mempty)
-                    pure $ if null fvs
-                            then ALam     vs body'
-                            else AClo fvs vs body'
+                ALam vs body ->
+                    cclam Nothing vs body
 
-                AClo{} -> error "Doesn't exist yet"
+                AClo{} ->
+                    error "Doesn't exist yet"
 
                 ABinPrimOp o a b ->
                     ABinPrimOp o <$> cca a
@@ -81,6 +90,14 @@ closureConvertDefn topLevelScope (FunDefAnfT n q fun) =
 
                 AUnPrimOp o a ->
                     AUnPrimOp o <$> cca a
+
+        cclam mName vs body = do
+            body' <- go body
+            let scope = maybe mempty S.singleton mName <> S.fromList vs <> topLevelScope
+            let fvs = S.toList . getFree . snd $ runState (nexpFreeVars body') (FreeVars scope mempty)
+            pure $ if null fvs
+                    then ALam     vs body'
+                    else AClo fvs vs body'
 
 addToScope :: Ord s => [s] -> State (ConvState s) ()
 addToScope vs = modify' $ \cs -> cs { getScope = getScope cs <> S.fromList vs }

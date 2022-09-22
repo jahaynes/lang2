@@ -45,7 +45,6 @@ lambdaLiftDefn nameGen fd@(FunDefAnfT t n fun) =
         _ -> pure fd
 
     where
-    --ll :: NExp s -> State (LiftState s) (NExp s)
     ll expr =
         case expr of
 
@@ -60,8 +59,10 @@ lambdaLiftDefn nameGen fd@(FunDefAnfT t n fun) =
                 c' <- ll c
                 pure $ NLet a (AExp b') c'
 
-            NLet _ (AExp AClo{}) _ ->
-                error "Lift a closure not implemented"
+            NLet a (AExp b@AClo{}) c -> do
+                b' <- liftLambdaOrClosure (Just a) b
+                c' <- ll c
+                pure $ NLet a (AExp b') c'
 
             NLet a b c ->
                 NLet a <$> ll b
@@ -125,7 +126,7 @@ lambdaLiftDefn nameGen fd@(FunDefAnfT t n fun) =
                     -- If this lambda has a name
                     -- rename (recursive) references to it during the lift
                     Just oldName ->
-                        let subst = foldr M.delete (M.singleton oldName newName) vs
+                        let subst = foldr M.delete (M.singleton oldName newName) (fvs <> vs)
                         in alphaNExp subst body
                     Nothing -> body
         lam' <- AExp . AClo fvs vs <$> ll body'

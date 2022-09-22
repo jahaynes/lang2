@@ -17,7 +17,6 @@ library
                     servant-server,
                     text,
                     text-builder,
-                    unliftio,
                     vector,
                     wai-cors,
                     warp
