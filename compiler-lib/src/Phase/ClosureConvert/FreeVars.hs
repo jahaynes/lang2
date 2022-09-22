@@ -12,13 +12,6 @@ data FreeVars s =
              , getFree  :: !(Set s)
              }
 
-getFreeVars :: Ord s => Set s -> NExp s -> [s]
-getFreeVars topLevelScope e = S.toList
-                            . getFree
-                            . execState (nexpFreeVars e)
-                            $ FreeVars { getScope = topLevelScope
-                                       , getFree  = mempty }
-
 nexpFreeVars :: Ord s => NExp s -> State (FreeVars s) ()
 nexpFreeVars (AExp aexp)  = aexpFreeVars aexp
 nexpFreeVars (CExp cexp)  = cexpFreeVars cexp
@@ -36,7 +29,7 @@ aexpFreeVars aexp =
         ALam vs b -> do
             addToScope vs
             nexpFreeVars b
-            removeFromScope vs
+            removeFromScope vs  -- Causes a shadowing issue?  pus/add/pop instead of add/remove?
         ABinPrimOp _ a b ->
             mapM_ aexpFreeVars [a, b]
 
