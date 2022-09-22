@@ -9,14 +9,11 @@ import Core.Term
 import Core.Types
 import Phase.EtaExpand.EtaSaturate
 
-import           Control.Monad         (when)
 import           Data.ByteString.Char8 (ByteString, pack)
 import           Data.Functor          ((<&>))
 import           Data.List             ((\\))
 import           Data.Map.Strict       ((!), Map)
 import qualified Data.Map.Strict as M
-import           Debug.Trace           (trace)
-import           Text.Printf (printf)
 
 data EtaState =
     EtaState { getFreshCount  :: !Int
@@ -25,14 +22,12 @@ data EtaState =
              } deriving Show
 
 etaExpand :: ModuleT ByteString -> ModuleT ByteString
-etaExpand md = do
-
-    let funDefns = getFunDefnTs md
+etaExpand md =
 
     let (funDefns', st) = runState (mapM expandDefn $ getFunDefnTs md) (EtaState 0 mempty mempty)
 
-    etaSaturate (md { getFunDefnTs = funDefns' })
-                (getExtraParams st)
+    in etaSaturate (md { getFunDefnTs = funDefns' })
+                   (getExtraParams st)
 
 expandDefn :: FunDefnT ByteString
            -> State EtaState (FunDefnT ByteString)
