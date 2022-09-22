@@ -192,9 +192,13 @@ evalAexp env aexp =
 
         ATerm t -> evalTerm env t
 
-        AUnPrimOp EShow a -> do
-            a' <- evalAexp env a
-            pure . VString $ fromString (show a')
+        AUnPrimOp Negate a ->
+            evalAexp env a <&> \case
+                VInt i -> VInt (-i)
+                _      -> error "Negate expected an Int!"
+
+        AUnPrimOp EShow a ->
+            VString . fromString . show <$> evalAexp env a
 
         ABinPrimOp op a b ->
             bothM (evalAexp env) (a, b) <&> \(a', b') ->
