@@ -50,7 +50,7 @@ termFreeVars t =
         LitInt{}    -> pure ()
         LitBool{}   -> pure ()
         LitString{} -> pure ()
-        DCons{}     -> error "TODO DCons"
+        DCons{}     -> pure ()
 
 -- TODO: Is tryInsert redundant (set operation?)
 tryInsert :: Ord s => s -> State (FreeVars s) ()
