@@ -51,5 +51,7 @@ printDataCon (DataCon s members) =
 printMember :: Member Text -> Builder
 printMember m =
     case m of
-        MemberType s -> TB.text s
-        MemberVar s  -> TB.text s
+        MemberType tc tvs ->
+            TB.intercalate " " (TB.text tc:map printMember tvs)
+        MemberVar s ->
+            TB.text s

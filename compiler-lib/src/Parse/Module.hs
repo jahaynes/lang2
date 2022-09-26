@@ -87,11 +87,18 @@ parseDataDefn = do
     pure $ DataDefn name tyVars (dc1:dcs)
     where
     parseDataConstructor :: Parser ParseState (DataCon ByteString)
-    parseDataConstructor = DataCon <$> parseUpperStart <*> notAtLineStarts parseMember
+    parseDataConstructor = DataCon <$> parseUpperStart
+                                   <*> notAtLineStarts parseMember
 
     parseMember :: Parser ParseState (Member ByteString)
-    parseMember = (MemberType <$> parseUpperStart)
-              <|> (MemberVar  <$> parseLowerStart)
+    parseMember = (token TLParen *> parseMember <* token TRParen)
+              <|> parseMemberType
+              <|> (MemberVar <$> parseLowerStart)
+
+        where
+        parseMemberType :: Parser ParseState (Member ByteString)
+        parseMemberType = MemberType <$> notAtLineStart parseUpperStart
+                                     <*> many' parseMember
 
 parseTypeSig :: Parser ParseState (TypeSig ByteString)
 parseTypeSig = do

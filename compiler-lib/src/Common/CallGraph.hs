@@ -21,6 +21,7 @@ newtype CallGraph s =
 buildGraph :: (Ord s, Show s) => Module s -> CallGraph s
 buildGraph = buildGraph' . getFunDefns
 
+-- TODO: pass in data definitions, and check for scope below in 'go'
 buildGraph' :: (Ord s, Show s) => [FunDefn s] -> CallGraph s
 buildGraph' fundefns = CallGraph . M.unions $ map go fundefns
 
@@ -29,7 +30,7 @@ buildGraph' fundefns = CallGraph . M.unions $ map go fundefns
 
         where
         fn scope (ETerm (Var v))    = S.singleton v \\ scope
-        fn     _ (ETerm DCons{})    = error "dcons"
+        fn scope (ETerm (DCons d))  = mempty -- S.singleton d \\ scope -- Guess
         fn     _ (ETerm       _)    = mempty
         fn scope (ELam vs body)     = fn (foldr S.insert scope vs) body
         fn scope (EApp f xs)        = mconcat $ map (fn scope) (f:xs)

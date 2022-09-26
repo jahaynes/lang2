@@ -21,7 +21,7 @@ data DataCon s =
     DataCon s [Member s]
         deriving (Functor, Show)
 
-data Member s = MemberType s
+data Member s = MemberType s [Member s]
               | MemberVar s
                   deriving (Functor, Show)
 

@@ -9,7 +9,7 @@ import Phase.Anf.AnfExpression
 import Phase.Anf.AnfModule (AnfModule (..), FunDefAnfT (..))
 
 import           Control.Monad         (foldM)
-import           Data.ByteString.Char8 (ByteString, pack)
+import           Data.ByteString.Char8 (ByteString, pack, unpack)
 import           Data.Functor          ((<&>))
 import           Data.Map.Strict       ((!), Map)
 import qualified Data.Map as M
@@ -48,12 +48,16 @@ data Val s = VBool !Bool
            | VInt !Integer
            | VString !s                     -- make this a ptr type
            | VClo ![s] !(NExp s) !(Env s)   -- make this a ptr type
+           | VDCons s
+           | VDConsApp s [Ptr]
 
 instance Show s => Show (Val s) where
 
     show (VBool b) = show b
     show (VInt i) = show i
     show (VString s) = show s
+    show (VDCons d) = show d
+    show (VDConsApp d ps) = printf "%s %s" (show d) (unwords $ map show ps)
     show (VClo vs body (Env cloEnv)) =
         let vs'     = unwords $ map show vs
             cloEnv' = show $ M.toList cloEnv
@@ -129,11 +133,50 @@ runMachine modu = do
     let topLevels = map (\(FunDefAnfT n _ e) -> (SByteString n, SByteString <$> e)) $ getFunDefAnfTs modu
 
     let a = evalState' machine0 $ do
-                env             <- bindTopLevels topLevels
-                VClo [] start _ <- lkup env (SByteString "main")
-                evalExpr env start
+                env     <- bindTopLevels topLevels
+                envMain <- lkup env (SByteString "main")
+                case envMain of
+                    VClo [] start _ -> do
+                        machineRender =<< evalExpr env start
+                    _ -> error $ show envMain
 
-    pack $ show a
+    pack a
+
+machineRender :: Val SByteString
+              -> State (Machine SByteString) String
+machineRender x =
+
+    case x of
+
+        VDCons (SByteString s) ->
+            pure $ unpack s
+
+        VDConsApp (SByteString s) ps -> do
+            ps' <- mapM machineRender' ps
+            pure $ printf "%s %s" (unpack s) (unwords ps')
+
+        _ -> error $ show x
+
+machineRender' :: Ptr -> State (Machine SByteString) String
+machineRender' x =
+
+    case x of
+
+        -- Probably shouldn't get stack vars here?
+        StackInt n ->
+            pure $ show n
+
+        StaticA ptr -> do
+            Static static <- getStatic <$> get
+            let staticVal = static ! ptr
+            machineRender staticVal
+
+        HeapA ptr -> do
+            Heap heap <- getHeap <$> get
+            let heapVal = heap ! ptr
+            machineRender heapVal
+
+        _ -> error $ show x
 
 lkup :: (Ord k, Show k) => Env k -> k -> State (Machine s) (Val s)
 lkup (Env e) n = do
@@ -262,7 +305,9 @@ evalTerm env term =
             lkup env v >>= \case
                 VClo [] body _ -> evalExpr env body
                 val            -> pure val
-        DCons{}     -> error "not implemented"
+
+        -- hmm, a dcons is just itself, right?
+        DCons d     -> pure $ VDCons d
 
 evalCexp :: Stringish s => Env s
                         -> CExp s
@@ -273,22 +318,31 @@ evalCexp env cexp =
 
         CApp f xs -> do
 
-            params              <- mapM (evalAexp env) xs
-            VClo vs body cloEnv <- evalAexp env f
+            params <- mapM (evalAexp env) xs
 
-            -- Preserve the current stack
-            (currentStack, currentStackAddr) <- getStackAndAddr
+            evalAexp env f >>= \case
 
-            -- Put the parameters onto the stack for the function call
-            allocatedParams <- map StackA <$> mapM allocStack params
-            let vsMap = Env . M.fromList $ zip vs allocatedParams
-            let new = vsMap <> cloEnv <> env -- earlier has precedence
-            val <- evalExpr new body
+                VClo vs body cloEnv -> do
 
-            -- Restore the current level of stack
-            putStackAndAddr currentStack currentStackAddr
+                    -- Preserve the current stack
+                    (currentStack, currentStackAddr) <- getStackAndAddr
 
-            pure val
+                    -- Put the parameters onto the stack for the function call
+                    allocatedParams <- map StackA <$> mapM allocStack params
+                    let vsMap = Env . M.fromList $ zip vs allocatedParams
+                    let new = vsMap <> cloEnv <> env -- earlier has precedence
+                    val <- evalExpr new body
+
+                    -- Restore the current level of stack
+                    putStackAndAddr currentStack currentStackAddr
+
+                    pure val
+
+                VDCons x -> do
+
+                    allocatedParams <- mapM allocChoice params
+
+                    pure $ VDConsApp x allocatedParams
 
         CIfThenElse pr tr fl ->
             evalAexp env pr >>= \case
@@ -334,11 +388,25 @@ allocChoice val = do
     where
     go val =
         case val of
-            VBool b   -> pure $ StackBool b
-            VInt i    -> pure $ StackInt i
-            VString{} -> HeapA <$> allocHeap val
-            VClo _ _ (Env env) | M.null env -> StaticA <$> allocStatic val -- TODO should have already been called at init?
-                               | otherwise  -> HeapA <$> allocHeap val
+
+            VBool b ->
+                pure $ StackBool b
+
+            VInt i ->
+                pure $ StackInt i
+
+            VString{} ->
+                HeapA <$> allocHeap val
+
+            VClo _ _ (Env env)
+                | M.null env -> StaticA <$> allocStatic val -- TODO should have already been called at init?
+                | otherwise  -> HeapA <$> allocHeap val
+
+            VDCons{} ->
+                StaticA <$> allocStatic val -- TODO check it's not already allocated?
+
+            VDConsApp{} ->
+                HeapA <$> allocHeap val
 
 allocHeap :: Show s => Val s
                     -> State (Machine s) HeapAddr

@@ -87,8 +87,8 @@ normExpr expr k =
         TermT _ (Var v) ->
             k $ AExp $ ATerm $ Var v
 
-        TermT _ DCons{} ->
-            error "Not implemented"
+        TermT _ (DCons d) ->
+            k $ AExp $ ATerm $ DCons d
 
 normAtom :: Show s => ExprT s
                    -> (AExp s -> State (AnfState s) (NExp s))
@@ -149,9 +149,8 @@ normAtom e k =
         TermT _ (Var v) ->
             k $ ATerm (Var v)
 
-        TermT _ DCons{} ->
-            error "Not implemented"
-
+        TermT _ (DCons d) ->
+            k $ ATerm (DCons d)
 
 normAtoms :: Show s => [ExprT s]
                     -> ([AExp s] -> State (AnfState s) (NExp s))

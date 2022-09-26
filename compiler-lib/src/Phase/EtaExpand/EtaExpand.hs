@@ -53,9 +53,10 @@ expandExpr :: ExprT ByteString
            -> State EtaState (ExprT ByteString)
 expandExpr e@(TermT t term) =
     case (t, term) of
-        (TyArr{}, Var f) -> functionCallToLambda f t
-        (TyArr{},     _) -> error "Unexpected type arrow for non-var term"
-        _                -> pure e
+        (TyArr{}, Var f)   -> functionCallToLambda f t
+        (TyArr{}, DCons _) -> error "Not implemented: eta expansion of data constructors"
+        (TyArr{},     _)   -> error "Unexpected type arrow for non-var term"
+        _                  -> pure e
 
 -- TODO lam?
 expandExpr (LamT t vs body) =

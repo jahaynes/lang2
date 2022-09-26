@@ -145,7 +145,7 @@ parseParen :: Parser ParseState (Expr ByteString)
 parseParen = token TLParen *> parseExpr <* token TRParen
 
 parseTerm :: Parser ParseState (Expr ByteString)
-parseTerm = parseLiteral <|> parseVariable
+parseTerm = parseDataConstructor <|> parseLiteral <|> parseVariable
 
 parseLiteral :: Parser ParseState (Expr ByteString)
 parseLiteral = ETerm <$> parseLitString
@@ -184,6 +184,9 @@ parseVariable = pos <|> neg
     where
     pos = ETerm . Var <$> parseLowerStart
     neg = EUnPrimOp Negate . ETerm . Var <$> (parseNegate *> parseLowerStart)
+
+parseDataConstructor :: Parser ParseState (Expr ByteString)
+parseDataConstructor = ETerm . DCons <$> parseUpperStart
 
 parseSatisfy :: ByteString
              -> (Token -> Maybe a)

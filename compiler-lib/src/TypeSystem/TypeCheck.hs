@@ -34,12 +34,20 @@ inferModule md = do
 
     typeCheckPlan <- planExcludingPretyped md (buildGraph md)
 
-    let untyped = S.map (\n -> FunDefn n (funDefnMap ! n)) <$> typeCheckPlan
+    let untypedFunDefs =
+            S.map (\n -> FunDefn n (funDefnMap ! n)) <$> typeCheckPlan
 
-    let typeSigs = M.fromList . map (\(TypeSig n t) -> (n, Forall [] t)) $ getTypeSigs md
+    let typeSigs =
+            M.fromList . map (\(TypeSig n t) -> (n, Forall [] t)) $ getTypeSigs md
+
+    let dataConstructors =
+            foldl' dataDefnToType mempty (getDataDefns md)
+
+    let env =
+            typeSigs <> dataConstructors
 
     -- TODO data definitions could accompany typeSigs here
-    case foldl' go (Right $ GroupInference 0 typeSigs []) untyped of
+    case foldl' go (Right $ GroupInference 0 env []) untypedFunDefs of
         Left ex -> Left ex
         Right (GroupInference _ _ defs') -> Right (ModuleT defs')
 
@@ -58,6 +66,23 @@ inferModule md = do
 
                     Right (GroupInference n' e' fds') ->
                         Right $ GroupInference n' (e <> e') (fds <> fds')
+
+-- TODO polymorph properly!
+-- untested
+dataDefnToType :: (Ord s, Show s) => Map s (Polytype s)
+                                  -> DataDefn s
+                                  -> Map s (Polytype s)
+dataDefnToType env (DataDefn tn tvs dcons) =
+
+    env <> (M.fromList $ map go dcons)
+
+    where
+    go (DataCon dc xs) = (dc, Forall tvs (foldr TyArr (TyCon tn) (map to xs)))
+        where
+        to (MemberVar v)     = TyVar v
+        to (MemberType t ts) = TyCon t
+            --let ts' = map to ts
+            --in foldr TyArr (TyCon t) ts' -- TODO is this necessary/right?
 
 data GroupInference =
     GroupInference !Int
