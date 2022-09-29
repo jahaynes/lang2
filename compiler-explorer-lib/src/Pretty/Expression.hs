@@ -44,3 +44,6 @@ printExpr (IfThenElse p t f) =
 
 printExpr (ETerm t) =
     (Atom, printTerm t)
+
+printExpr (ECase scrut ps) =
+    (Paren, "{CASE}")

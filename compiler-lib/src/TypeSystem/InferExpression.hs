@@ -76,8 +76,23 @@ inferExpr env expr =
                  , IfThenElseT (typeOf tr') p' tr' fl' )
 
         ECase scrut ps -> do
-            {-
-                TODO, the left-side of each pattern must match the scrut
-                    , the right-side of each pattern must match the whole type
-            -}
-            error $ show (scrut, ps)
+
+            tv <- freshTVar
+
+            (ss, scrut') <- inferExpr env scrut
+
+            let (ls, rs) = unzip $ map (\(Pattern a b) -> (a, b)) ps
+
+            -- the left-side of each pattern must match the scrutinee
+            (lcs, ls') <- unzip <$> mapM (inferExpr env) ls
+            let lcs' = Constraint (typeOf scrut') . typeOf <$> ls'
+
+            -- the right-side of each pattern must match the whole type
+            -- Does the lhs need a modified env given by vars in lhs?
+            (rcs, rs') <- unzip <$> mapM (inferExpr env) rs
+            let rcs' = Constraint tv . typeOf <$> rs'
+
+            let ps' = zipWith PatternT ls' rs'
+
+            pure ( concat [ss, concat lcs, lcs', concat rcs, rcs']
+                 , CaseT tv scrut' ps')

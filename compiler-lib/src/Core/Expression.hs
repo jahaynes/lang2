@@ -27,7 +27,12 @@ data ExprT s = TermT       (Type s) (Term s)
              | UnPrimOpT   (Type s) UnOp (ExprT s)
              | BinPrimOpT  (Type s) BinOp (ExprT s) (ExprT s)
              | IfThenElseT (Type s) (ExprT s) (ExprT s) (ExprT s)
+             | CaseT       (Type s) (ExprT s) [PatternT s]
                  deriving (Eq, Show)
+
+data PatternT s =
+    PatternT (ExprT s) (ExprT s)
+        deriving (Eq, Show)
 
 mapType :: (Type s -> Type s)
         -> ExprT s
@@ -41,6 +46,12 @@ mapType f expr =
         UnPrimOpT t o a        -> UnPrimOpT (f t) o (mapType f a)
         BinPrimOpT t o a b     -> BinPrimOpT (f t) o (mapType f a) (mapType f b)
         IfThenElseT t pr tr fl -> IfThenElseT (f t) (mapType f pr) (mapType f tr) (mapType f fl)
+        CaseT t scrut ps       -> CaseT (f t) (mapType f scrut) (map (mapType' f) ps)
+
+mapType' :: (Type s -> Type s)
+         -> PatternT s
+         -> PatternT s
+mapType' f (PatternT a b) = PatternT (mapType f a) (mapType f b)         
 
 typeOf :: ExprT s -> Type s
 typeOf expr =

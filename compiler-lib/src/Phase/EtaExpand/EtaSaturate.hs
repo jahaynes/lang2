@@ -66,3 +66,9 @@ saturateExpr extraParams exprT = go exprT
 
     go (IfThenElseT t pr tr fl) =
         IfThenElseT t (go pr) (go tr) (go fl)
+
+    go (CaseT t scrut ps) =
+        CaseT t (go scrut) (map goPat ps)
+
+    goPat (PatternT a b) =
+        PatternT (go a) (go b)

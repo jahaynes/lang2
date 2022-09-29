@@ -91,6 +91,16 @@ expandExpr (IfThenElseT t pr tr fl) =
                   <*> expandExpr tr
                   <*> expandExpr fl
 
+expandExpr (CaseT t scrut ps) =
+    CaseT t <$> expandExpr scrut
+            <*> mapM expandPat ps
+
+-- necessary?
+expandPat :: PatternT ByteString
+          -> State EtaState (PatternT ByteString)
+expandPat (PatternT a b) =
+    PatternT <$> expandExpr a <*> expandExpr b
+
 underAppliedToLambda :: Type ByteString
                      -> [ExprT ByteString]
                      -> State EtaState ( Type ByteString

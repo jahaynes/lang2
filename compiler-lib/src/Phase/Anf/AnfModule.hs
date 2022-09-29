@@ -90,6 +90,10 @@ normExpr expr k =
         TermT _ (DCons d) ->
             k $ AExp $ ATerm $ DCons d
 
+        -- Probably the same way as IfThenElse !
+        CaseT _ scrut ps ->
+            error "ANF"
+
 normAtom :: Show s => ExprT s
                    -> (AExp s -> State (AnfState s) (NExp s))
                    -> State (AnfState s) (NExp s)
