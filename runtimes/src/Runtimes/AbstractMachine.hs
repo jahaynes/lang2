@@ -155,7 +155,14 @@ machineRender x =
             ps' <- mapM machineRender' ps
             pure $ printf "%s %s" (unpack s) (unwords ps')
 
-        _ -> error $ show x
+        VInt i ->
+            pure $ show i
+
+        VBool b ->
+            pure $ show b
+
+        VString (SByteString s) ->
+            pure . show $ unpack s
 
 machineRender' :: Ptr -> State (Machine SByteString) String
 machineRender' x =

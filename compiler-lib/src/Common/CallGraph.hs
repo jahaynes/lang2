@@ -23,14 +23,14 @@ buildGraph = buildGraph' . getFunDefns
 
 -- TODO: pass in data definitions, and check for scope below in 'go'
 buildGraph' :: (Ord s, Show s) => [FunDefn s] -> CallGraph s
-buildGraph' fundefns = CallGraph . M.unions $ map go fundefns
+buildGraph' = CallGraph . M.unions . map go
 
     where
     go (FunDefn n e) = M.singleton n (fn (S.singleton n) e)
 
         where
         fn scope (ETerm (Var v))    = S.singleton v \\ scope
-        fn scope (ETerm (DCons d))  = mempty -- S.singleton d \\ scope -- Guess
+        fn     _ (ETerm (DCons d))  = mempty -- S.singleton d \\ scope -- Guess
         fn     _ (ETerm       _)    = mempty
         fn scope (ELam vs body)     = fn (foldr S.insert scope vs) body
         fn scope (EApp f xs)        = mconcat $ map (fn scope) (f:xs)
@@ -55,10 +55,10 @@ buildGraphAnf' fundefns = CallGraph . M.unions $ map go fundefns
 
         fna aexp scope =
             case aexp of
-                ATerm (Var v) -> S.singleton v \\ scope
-                ATerm DCons{} -> error "dcons"
-                ATerm      _  -> mempty
-                ALam vs body  -> fn body (foldr S.insert scope vs)
+                ATerm (Var v)    -> S.singleton v \\ scope
+                ATerm DCons{}    -> error "dcons"
+                ATerm      _     -> mempty
+                ALam vs body     -> fn body (foldr S.insert scope vs)
                 AClo fvs vs body -> fn body (foldr S.insert scope (fvs++vs))
                 ABinPrimOp _ a b -> fna a scope <> fna b scope
 
