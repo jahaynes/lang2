@@ -13,7 +13,12 @@ data Expr s = ETerm (Term s)
             | EUnPrimOp UnOp (Expr s)
             | EBinPrimOp BinOp (Expr s) (Expr s)
             | IfThenElse (Expr s) (Expr s) (Expr s)
+            | ECase (Expr s) [Pattern s]
                 deriving (Eq, Functor, Ord, Show)
+
+data Pattern s =
+    Pattern (Expr s) (Expr s)
+        deriving (Eq, Functor, Ord, Show)
 
 data ExprT s = TermT       (Type s) (Term s)
              | LamT        (Type s) [s] (ExprT s)

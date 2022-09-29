@@ -74,3 +74,10 @@ inferExpr env expr =
             pure ( c1 ++ c2 ++ c3 ++ [ Constraint (typeOf p') typeBool
                                      , Constraint (typeOf tr') (typeOf fl')]
                  , IfThenElseT (typeOf tr') p' tr' fl' )
+
+        ECase scrut ps -> do
+            {-
+                TODO, the left-side of each pattern must match the scrut
+                    , the right-side of each pattern must match the whole type
+            -}
+            error $ show (scrut, ps)

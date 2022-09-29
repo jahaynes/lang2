@@ -38,6 +38,9 @@ buildGraph' = CallGraph . M.unions . map go
         fn scope (EUnPrimOp _ a)    = fn scope a
         fn scope (EBinPrimOp _ a b) = fn scope a <> fn scope b
         fn scope (IfThenElse p t f) = mconcat $ map (fn scope) [p, t, f]
+        fn scope (ECase scrut ps)   = fn scope scrut <> mconcat (map (pt scope) ps)
+
+        pt scope (Pattern a b) = mempty -- TODO
 
 buildGraphAnf :: (Ord s, Show s) => AnfModule s -> CallGraph s
 buildGraphAnf = buildGraphAnf' . getFunDefAnfTs

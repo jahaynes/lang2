@@ -94,11 +94,26 @@ parseProduct = do
                 _    -> Nothing
 
 parseApply :: Parser ParseState (Expr ByteString)
-parseApply = do
-    (f, xs) <- parseWhileColumns1 MoreRight parseNonApply
-    pure $ if null xs
-               then f
-               else EApp f xs
+parseApply = parseCase <|> parseApp
+    where
+    parseCase = do
+        scrut    <- token TCase *> parseNonApply <* token TOf
+        patterns <- parseWhileColumns NotLeft parsePattern
+        pure $ ECase scrut patterns
+
+        where
+        parsePattern :: Parser ParseState (Pattern ByteString)
+        parsePattern = do
+            a <- parseNonApply
+            _ <- token TArr
+            b <- parseApp
+            pure $ Pattern a b
+
+    parseApp = do
+        (f, xs) <- parseWhileColumns1 MoreRight parseNonApply
+        pure $ if null xs
+                then f
+                else EApp f xs
 
 parseNonApply :: Parser ParseState (Expr ByteString)
 parseNonApply = parseLet

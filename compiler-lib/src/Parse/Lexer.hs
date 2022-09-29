@@ -66,6 +66,8 @@ disambiguateNegation = go [] TAmbiguous
     f TAmbiguous      = TAmbiguous
     f TPlusPlus       = TAmbiguous
     f TDollar         = TAmbiguous -- check
+    f TCase           = TAmbiguous -- check
+    f TOf             = TAmbiguous -- check
 
 lex' :: ByteString -> Parser LexState a -> Either ByteString a
 lex' s p =
@@ -114,6 +116,8 @@ parseToken = keyword
           <|> positioned TIf   (string "if"   <* notFollowedBy isAlphaNum)
           <|> positioned TThen (string "then" <* notFollowedBy isAlphaNum)
           <|> positioned TElse (string "else" <* notFollowedBy isAlphaNum)
+          <|> positioned TCase (string "case" <* notFollowedBy isAlphaNum)
+          <|> positioned TOf   (string "of"   <* notFollowedBy isAlphaNum)
 
     operator :: Parser LexState Token
     operator = positioned TEqEq     (string "==")
