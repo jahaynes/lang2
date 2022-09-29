@@ -33,7 +33,7 @@ lambdaLift' funDefs =
 lambdaLiftDefn :: (Ord s, Show s, IsString s) => (s -> State (LiftState s) s)
                                               -> FunDefAnfT s
                                               -> State (LiftState s) (FunDefAnfT s)
-lambdaLiftDefn nameGen fd@(FunDefAnfT t n fun) =
+lambdaLiftDefn nameGen (FunDefAnfT t n fun) =
 
     case fun of
 
@@ -42,7 +42,7 @@ lambdaLiftDefn nameGen fd@(FunDefAnfT t n fun) =
             FunDefAnfT t n . AExp . ALam vs <$> ll body
 
         -- Everything else gets lifted
-        _ -> pure fd
+        _ -> FunDefAnfT t n <$> ll fun
 
     where
     ll expr =
