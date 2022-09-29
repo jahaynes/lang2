@@ -164,6 +164,9 @@ machineRender x =
         VString (SByteString s) ->
             pure . show $ unpack s
 
+        VClo vs body cloEnv ->
+            pure $ show ("CLO", vs, body, cloEnv)
+
 machineRender' :: Ptr -> State (Machine SByteString) String
 machineRender' x =
 
@@ -390,7 +393,7 @@ allocChoice val = do
 
     ptr <- go val
     machine <- get
-    trace (renderHeapStack (getStack machine) (getHeap machine)) $ pure ptr
+    trace (renderHeapStack machine) $ pure ptr
 
     where
     go val =
@@ -451,10 +454,11 @@ allocStatic v = do
                   , getStaticFree = staticFree' }
     pure staticFree
 
--- TODO just pass in machine
-renderHeapStack :: Show s => Stack s -> Heap s -> String
-renderHeapStack (Stack stack) (Heap heap) =
-    ("Stack:\n" ++ renderMap stack ++ "\nHeap:\n" ++ renderMap heap ++ "\n")
+renderHeapStack :: Show s => Machine s -> String
+renderHeapStack machine =
+    let Stack stack = getStack machine
+        Heap heap   = getHeap machine
+    in unlines ["Stack:", renderMap stack, "Heap:", renderMap heap]
 
 renderMap :: (Show k, Show v) => Map k v -> String
 renderMap m = unlines
