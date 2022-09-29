@@ -109,5 +109,8 @@ printTypedExpression ind aexp =
                                 , indent (ind+2) <> "then " <> printTypedExpression (ind+2) tr
                                 , indent (ind+2) <> "else " <> printTypedExpression (ind+2) fl ]
 
+        (CaseT _ _ _) ->
+            "TYPEMODULE CASE"
+
 bytestring :: ByteString -> Builder
 bytestring = TB.text . decodeUtf8

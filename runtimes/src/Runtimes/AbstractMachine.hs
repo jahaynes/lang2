@@ -50,6 +50,7 @@ data Val s = VBool !Bool
            | VClo ![s] !(NExp s) !(Env s)   -- make this a ptr type
            | VDCons s
            | VDConsApp s [Ptr]
+               deriving Eq -- Take this out again
 
 instance Show s => Show (Val s) where
 
@@ -66,7 +67,7 @@ instance Show s => Show (Val s) where
 
 newtype Env s =
     Env (Map s Ptr)
-        deriving Show
+        deriving (Show, Eq) -- TODO eq is only for val (which shouldnt be needed)
 
 newtype Heap s =
     Heap (Map HeapAddr (Val s))
@@ -361,6 +362,22 @@ evalCexp env cexp =
                         then evalExpr env tr
                         else evalExpr env fl
                 _ -> error "Mistyped predicate"
+
+        CCase scrut ps -> do
+            scrut' <- evalAexp env scrut
+            ps'    <- mapM (evalPexp env) ps
+            case lookup scrut' ps' of
+                Nothing -> error "Failed pattern match"
+                Just rhs -> pure rhs
+
+-- TODO maybe don't do this: too much power on LHS
+evalPexp :: Stringish s => Env s
+                        -> PExp s
+                        -> State (Machine s) (Val s, Val s)
+evalPexp env (PExp a b) = do
+    a' <- evalExpr env a
+    b' <- evalExpr env b
+    pure (a', b')
 
 putStackAndAddr :: Stack s
                 -> StackAddr

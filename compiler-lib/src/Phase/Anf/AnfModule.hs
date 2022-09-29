@@ -92,7 +92,13 @@ normExpr expr k =
 
         -- Probably the same way as IfThenElse !
         CaseT _ scrut ps ->
-            error "ANF"
+            normAtom scrut $ \scrut' -> do
+                ps' <- mapM normPattern ps
+                k $ CExp $ CCase scrut' ps'
+
+-- both parts necessary?
+normPattern (PatternT a b) =
+    PExp <$> norm a <*> norm b
 
 normAtom :: Show s => ExprT s
                    -> (AExp s -> State (AnfState s) (NExp s))

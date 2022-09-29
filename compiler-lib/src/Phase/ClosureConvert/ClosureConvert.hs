@@ -64,12 +64,19 @@ closureConvertDefn topLevelScope (FunDefAnfT n q fun) =
 
                 CApp f xs ->
                     CApp <$> cca f
-                        <*> mapM cca xs
+                         <*> mapM cca xs
 
                 CIfThenElse pr tr fl ->
                     CIfThenElse <$> cca pr
                                 <*> go tr
                                 <*> go fl
+
+                CCase scrut ps ->
+                    CCase <$> cca scrut
+                          <*> mapM ccp ps
+
+        ccp (PExp a b) =
+            PExp <$> go a <*> go b
 
         cca aexp =
 

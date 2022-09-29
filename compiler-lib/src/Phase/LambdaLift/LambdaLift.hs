@@ -101,6 +101,12 @@ lambdaLiftDefn nameGen (FunDefAnfT t n fun) =
                             <*> ll tr
                             <*> ll fl
 
+            CCase scrut ps ->
+                CCase <$> lla scrut <*> mapM llp ps
+
+    llp (PExp a b) =
+        PExp <$> ll a <*> ll b
+
     -- Handles let-bound and anonymous lambdas/closures
     -- renaming recursive calls if necessary
     liftLambdaOrClosure mName (ALam vs body) = do

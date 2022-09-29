@@ -63,3 +63,4 @@ typeOf expr =
       UnPrimOpT t _ _     -> t
       BinPrimOpT t _ _ _  -> t
       IfThenElseT t _ _ _ -> t
+      CaseT t _ _         -> t

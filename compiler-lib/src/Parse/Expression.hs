@@ -104,7 +104,7 @@ parseApply = parseCase <|> parseApp
         where
         parsePattern :: Parser ParseState (Pattern ByteString)
         parsePattern = do
-            a <- parseNonApply
+            a <- parseApp
             _ <- token TArr
             b <- parseApp
             pure $ Pattern a b

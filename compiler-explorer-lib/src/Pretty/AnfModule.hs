@@ -130,6 +130,9 @@ printCExp ind cexp =
                                 , indent (ind+2) <> "then " <> printAnfExpression (ind+2) tr
                                 , indent (ind+2) <> "else " <> printAnfExpression (ind+2) fl ]
 
+        CCase scrut ps ->
+            "printCExp CCase"
+
 -- TODO dedupe
 bytestring :: ByteString -> Builder
 bytestring = TB.text . decodeUtf8
