@@ -11,7 +11,7 @@ import Phase.Anf.AnfModule (AnfModule (..), FunDefAnfT (..))
 import           Control.Monad         (foldM)
 import           Data.ByteString.Char8 (ByteString, pack, unpack)
 import           Data.Functor          ((<&>))
-import           Data.Map.Strict       ((!), Map)
+import           Data.Map.Strict       (Map) -- ((!), Map)
 import qualified Data.Map as M
 import           Debug.Trace           (trace)
 import           Text.Printf           (printf)
@@ -179,13 +179,15 @@ machineRender' x =
 
         StaticA ptr -> do
             Static static <- getStatic <$> get
-            let staticVal = static ! ptr
-            machineRender staticVal
+            case M.lookup ptr static of
+                Nothing -> error "Missing static val"
+                Just staticVal -> machineRender staticVal
 
         HeapA ptr -> do
             Heap heap <- getHeap <$> get
-            let heapVal = heap ! ptr
-            machineRender heapVal
+            case M.lookup ptr heap of
+                Nothing -> error "Missing heap val"
+                Just heapVal -> machineRender heapVal
 
         _ -> error $ show x
 
@@ -277,8 +279,13 @@ evalAexp env aexp =
 
         AClo fvs vs body ->
             let Env e = env
-                cloEnv = Env . M.fromList $ map (\fv -> (fv, e ! fv)) fvs
+                cloEnv = Env . M.fromList $ map (\fv -> (fv, e !!! fv)) fvs
             in pure $ VClo vs body cloEnv
+
+(!!!) e fv =
+    case M.lookup fv e of
+        Nothing -> error "bad"
+        Just x -> x
 
 stringy :: (s -> s -> s) -> Val s -> Val s -> Val s
 stringy f (VString a) (VString b) = VString $ f a b
@@ -368,12 +375,34 @@ evalCexp env cexp =
             tryPatterns env scrut' ps
 
 -- evaluates the first applicable
-tryPatterns env scrut (PExp a b:ps) =
-    case a of
-        CExp (CApp (ATerm (DCons dc)) args) ->
-            error . unlines $ [ show a        -- let a vars
-                              , show scrut    -- bind to scrut vals
-                              , show b ]      -- in b
+-- todo - make sure we're preventing side-effects on the LHS before finding the correct match?
+tryPatterns   _     _            [] = error "out of matches"
+tryPatterns env scrut (PExp a b:ps) = do
+
+    case (scrut, a) of
+
+        (VString s, AExp (ATerm (LitString a')))
+            | s == a' -> evalExpr env b
+
+        (VDCons s, AExp (ATerm (DCons a')))
+            | s == a' -> evalExpr env b
+
+        (VDConsApp s ss, CExp (CApp (ATerm (DCons a')) as))
+            | s == a' ->
+                case patternOrRefute env ss as of
+                    Nothing   -> tryPatterns env scrut ps -- or should straight up fail?
+                    Just env' -> evalExpr (env <> env') b -- check shadowing order of <>
+        _
+            -> tryPatterns env scrut ps
+
+-- patternOrRefute :: Ord s => [a1] -> [a2] -> Maybe (Env s)
+patternOrRefute env = go mempty
+    where
+    go acc     []                 [] = Just $ Env acc
+    go acc (x:xs) (ATerm (Var y):ys) =
+        trace (show (y, "->", x)) $
+            go (M.insert y x acc) xs ys
+    
 
 putStackAndAddr :: Stack s
                 -> StackAddr

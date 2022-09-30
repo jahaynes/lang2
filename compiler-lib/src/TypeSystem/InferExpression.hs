@@ -118,6 +118,18 @@ labelLeftFreshVars a =
             -- Guess ForAll
             M.fromList <$> mapM (\x -> freshTVar <&> \fr -> (x, Forall [] fr)) (varsFrom xs)
 
+        ETerm DCons{} ->
+            pure mempty
+
+        ETerm LitBool{} ->
+            pure mempty
+
+        ETerm LitInt{} ->
+            pure mempty
+
+        ETerm LitString{} ->
+            pure mempty
+
 -- TODO dedupe?
 varsFrom :: Show s => [Expr s] -> [s]
 varsFrom = go []
