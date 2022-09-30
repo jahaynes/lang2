@@ -97,7 +97,7 @@ parseApply :: Parser ParseState (Expr ByteString)
 parseApply = parseCase <|> parseApp
     where
     parseCase = do
-        scrut    <- token TCase *> parseNonApply <* token TOf
+        scrut    <- token TCase *> parseApply <* token TOf
         patterns <- parseWhileColumns NotLeft parsePattern
         pure $ ECase scrut patterns
 

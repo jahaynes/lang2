@@ -365,19 +365,15 @@ evalCexp env cexp =
 
         CCase scrut ps -> do
             scrut' <- evalAexp env scrut
-            ps'    <- mapM (evalPexp env) ps
-            case lookup scrut' ps' of
-                Nothing -> error "Failed pattern match"
-                Just rhs -> pure rhs
+            tryPatterns env scrut' ps
 
--- TODO maybe don't do this: too much power on LHS
-evalPexp :: Stringish s => Env s
-                        -> PExp s
-                        -> State (Machine s) (Val s, Val s)
-evalPexp env (PExp a b) = do
-    a' <- evalExpr env a
-    b' <- evalExpr env b
-    pure (a', b')
+-- evaluates the first applicable
+tryPatterns env scrut (PExp a b:ps) =
+    case a of
+        CExp (CApp (ATerm (DCons dc)) args) ->
+            error . unlines $ [ show a        -- let a vars
+                              , show scrut    -- bind to scrut vals
+                              , show b ]      -- in b
 
 putStackAndAddr :: Stack s
                 -> StackAddr

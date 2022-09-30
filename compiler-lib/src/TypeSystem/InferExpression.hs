@@ -2,6 +2,7 @@ module TypeSystem.InferExpression where
 
 import Common.State
 import Core.Expression
+import Core.Term
 import Core.Types
 import TypeSystem.Common
 import TypeSystem.InferOperator
@@ -77,22 +78,49 @@ inferExpr env expr =
 
         ECase scrut ps -> do
 
-            tv <- freshTVar
+            tv                <- freshTVar
+            (cs, scrut')      <- inferExpr env scrut
+            (clhs, crhs, ps') <- unzip3 <$> mapM (inferPattern env) ps
 
-            (ss, scrut') <- inferExpr env scrut
-
-            let (ls, rs) = unzip $ map (\(Pattern a b) -> (a, b)) ps
+            -- get left and right hand types
+            let (lts, rts) = unzip $ map (\(PatternT a b) -> (typeOf a, typeOf b)) ps'
 
             -- the left-side of each pattern must match the scrutinee
-            (lcs, ls') <- unzip <$> mapM (inferExpr env) ls
-            let lcs' = Constraint (typeOf scrut') . typeOf <$> ls'
+            let lhs = map (Constraint (typeOf scrut')) lts
 
             -- the right-side of each pattern must match the whole type
-            -- Does the lhs need a modified env given by vars in lhs?
-            (rcs, rs') <- unzip <$> mapM (inferExpr env) rs
-            let rcs' = Constraint tv . typeOf <$> rs'
+            let rhs = map (Constraint tv) rts
 
-            let ps' = zipWith PatternT ls' rs'
-
-            pure ( concat [ss, concat lcs, lcs', concat rcs, rcs']
+            pure ( cs ++ concat clhs ++ concat crhs ++ lhs ++ rhs
                  , CaseT tv scrut' ps')
+
+inferPattern :: Map ByteString (Polytype ByteString)
+             -> Pattern ByteString
+             -> State (GroupState ByteString) ( [Constraint ByteString]
+                                              , [Constraint ByteString]
+                                              , PatternT ByteString
+                                              )
+inferPattern env (Pattern a b) = do
+    env' <- labelLeftFreshVars a
+    (clhs, a') <- inferExpr (env <> env') a
+    (crhs, b') <- inferExpr (env <> env') b
+    pure ( clhs
+         , crhs
+         , PatternT a' b' )
+
+labelLeftFreshVars :: Expr ByteString
+                   -> State (GroupState ByteString) (Map ByteString (Polytype ByteString))
+labelLeftFreshVars a =
+
+    case a of
+
+        EApp (ETerm DCons{}) xs ->
+            -- Guess ForAll
+            M.fromList <$> mapM (\x -> freshTVar <&> \fr -> (x, Forall [] fr)) (varsFrom xs)
+
+-- TODO dedupe?
+varsFrom :: Show s => [Expr s] -> [s]
+varsFrom = go []
+    where
+    go acc                 [] = acc
+    go acc (ETerm (Var v):xs) = go (v:acc) xs
