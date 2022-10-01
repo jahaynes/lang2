@@ -130,8 +130,17 @@ printCExp ind cexp =
                                 , indent (ind+2) <> "then " <> printAnfExpression (ind+2) tr
                                 , indent (ind+2) <> "else " <> printAnfExpression (ind+2) fl ]
 
+        -- TODO
         CCase scrut ps ->
-            "printCExp CCase"
+            TB.intercalate "\n" ([ "case " <> printAExp 0 scrut ] ++
+                                 (map (printPExp (ind + 2)) ps))
+
+printPExp :: Int
+          -> PExp ByteString
+          -> Builder
+printPExp ind (PExp a b) = mconcat [ printAnfExpression ind a
+                                   , " -> "
+                                   , printAnfExpression ind b ]
 
 -- TODO dedupe
 bytestring :: ByteString -> Builder

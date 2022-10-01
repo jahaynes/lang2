@@ -63,3 +63,12 @@ alphaCExp subst cexp =
             CIfThenElse (alphaAExp subst pr)
                         (alphaNExp subst tr)
                         (alphaNExp subst fl)
+
+        CCase scrut ps ->
+            CCase (alphaAExp subst scrut)
+                  (map (alphaPExp subst) ps)
+
+-- subst both sides?
+alphaPExp :: Ord s => Map s s -> PExp s -> PExp s
+alphaPExp subst (PExp a b) =
+    PExp (alphaNExp subst a) (alphaNExp subst b)

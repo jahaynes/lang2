@@ -45,5 +45,6 @@ printExpr (IfThenElse p t f) =
 printExpr (ETerm t) =
     (Atom, printTerm t)
 
+-- TODO
 printExpr (ECase scrut ps) =
-    (Paren, "{CASE}")
+    (Paren, TB.string (show ("case", scrut, ps)))

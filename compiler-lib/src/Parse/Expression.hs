@@ -106,7 +106,7 @@ parseApply = parseCase <|> parseApp
         parsePattern = do
             a <- parseApp
             _ <- token TArr
-            b <- parseApp
+            b <- parseExpr
             pure $ Pattern a b
 
     parseApp = do

@@ -12,7 +12,7 @@ data FreeVars s =
              , getFree  :: !(Set s)
              }
 
-nexpFreeVars :: Ord s => NExp s -> State (FreeVars s) ()
+nexpFreeVars :: (Show s, Ord s) => NExp s -> State (FreeVars s) ()
 nexpFreeVars (AExp aexp)  = aexpFreeVars aexp
 nexpFreeVars (CExp cexp)  = cexpFreeVars cexp
 nexpFreeVars (NLet a b c) = do
@@ -21,7 +21,7 @@ nexpFreeVars (NLet a b c) = do
     nexpFreeVars c
     removeFromScope [a]
 
-aexpFreeVars :: Ord s => AExp s -> State (FreeVars s) ()
+aexpFreeVars :: (Show s, Ord s) => AExp s -> State (FreeVars s) ()
 aexpFreeVars aexp =
     case aexp of
         ATerm t ->
@@ -33,7 +33,7 @@ aexpFreeVars aexp =
         ABinPrimOp _ a b ->
             mapM_ aexpFreeVars [a, b]
 
-cexpFreeVars :: Ord s => CExp s -> State (FreeVars s) ()
+cexpFreeVars :: (Show s, Ord s) => CExp s -> State (FreeVars s) ()
 cexpFreeVars cexp =
     case cexp of
         CApp f xs ->
@@ -42,6 +42,10 @@ cexpFreeVars cexp =
             aexpFreeVars pr
             nexpFreeVars tr
             nexpFreeVars fl
+
+        CCase scrut ps -> pure mempty -- TODO!!
+
+        x -> error $ show x
 
 termFreeVars :: Ord s => Term s -> State (FreeVars s) ()
 termFreeVars t =
