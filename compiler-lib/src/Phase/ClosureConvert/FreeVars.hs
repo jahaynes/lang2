@@ -8,7 +8,6 @@ import           Data.Functor  ((<&>))
 import           Data.Set      (Set)
 import qualified Data.Set as S
 
--- todo dedupe
 newtype Scope s =
     Scope { getScope :: Set s }
 
@@ -108,7 +107,6 @@ variableIfNotScoped v =
             then mempty
             else S.singleton v
 
--- TODO dedupe
 withScope :: Ord s => [s]
                    -> State (Scope s) a
                    -> State (Scope s) a
