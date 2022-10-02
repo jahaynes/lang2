@@ -79,9 +79,18 @@ pexpFreeVars (PExp a b) =
     where
     scopeFromPattern lhs =
         case lhs of
-            AExp (ATerm (LitInt {})) -> mempty
-            AExp (ATerm (Var v))     -> [v]
-            -- Many TODOs here
+            AExp aexp -> scopeFromAexp aexp
+            CExp cexp -> scopeFromCexp cexp
+        where
+        scopeFromAexp aexp =
+            case aexp of
+                ATerm (LitInt {}) -> mempty
+                ATerm (Var v)     -> [v]
+                ATerm (DCons {})  -> mempty
+
+        scopeFromCexp cexp =
+            case cexp of
+                CApp (ATerm DCons{}) args -> concatMap scopeFromAexp args
 
 termFreeVars :: Ord s => Term s -> State (Scope s) (Set s)
 termFreeVars t =
