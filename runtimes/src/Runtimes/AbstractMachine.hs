@@ -11,9 +11,8 @@ import Phase.Anf.AnfModule (AnfModule (..), FunDefAnfT (..))
 import           Control.Monad         (foldM)
 import           Data.ByteString.Char8 (ByteString, pack, unpack)
 import           Data.Functor          ((<&>))
-import           Data.Map.Strict       (Map) -- ((!), Map)
+import           Data.Map.Strict       ((!), Map)
 import qualified Data.Map as M
-import           Debug.Trace           (trace)
 import           Text.Printf           (printf)
 
 {-
@@ -50,7 +49,6 @@ data Val s = VBool !Bool
            | VClo ![s] !(NExp s) !(Env s)   -- make this a ptr type
            | VDCons s
            | VDConsApp s [Ptr]
-               deriving Eq -- Take this out again
 
 instance Show s => Show (Val s) where
 
@@ -279,13 +277,8 @@ evalAexp env aexp =
 
         AClo fvs vs body ->
             let Env e = env
-                cloEnv = Env . M.fromList $ map (\fv -> (fv, e !!! fv)) fvs
+                cloEnv = Env . M.fromList $ map (\fv -> (fv, e ! fv)) fvs
             in pure $ VClo vs body cloEnv
-
-(!!!) e fv =
-    case M.lookup fv e of
-        Nothing -> error "bad"
-        Just x -> x
 
 stringy :: (s -> s -> s) -> Val s -> Val s -> Val s
 stringy f (VString a) (VString b) = VString $ f a b
@@ -381,29 +374,37 @@ tryPatterns env scrut (PExp a b:ps) = do
 
     case (scrut, a) of
 
+        (VInt i, AExp (ATerm (LitInt a')))
+            | i == a' -> evalExpr env b
+
         (VString s, AExp (ATerm (LitString a')))
             | s == a' -> evalExpr env b
 
         (VDCons s, AExp (ATerm (DCons a')))
             | s == a' -> evalExpr env b
 
+        (VInt i, AExp (ATerm (Var v))) -- v becomes i in ...
+            -> let Env e = env
+                   env' = Env $ M.insert v (StackInt i) e -- guess stackint
+               in evalExpr env' b
+
         (VDConsApp s ss, CExp (CApp (ATerm (DCons a')) as))
             | s == a' ->
                 case patternOrRefute env ss as of
                     Nothing   -> tryPatterns env scrut ps -- or should straight up fail?
-                    Just env' -> evalExpr (env <> env') b -- check shadowing order of <>
+                    Just env' -> evalExpr env' b -- check shadowing order of <>
         _
             -> tryPatterns env scrut ps
 
--- patternOrRefute :: Ord s => [a1] -> [a2] -> Maybe (Env s)
-patternOrRefute env = go mempty
+patternOrRefute :: Ord s => Env s
+                         -> [Ptr]
+                         -> [AExp s]
+                         -> Maybe (Env s)
+patternOrRefute (Env e) = go e
     where
-    go acc     []                 [] = Just $ Env acc
-    go acc (x:xs) (ATerm (Var y):ys) =
-        trace (show (y, "->", x)) $
-            go (M.insert y x acc) xs ys
+    go env     []                 [] = Just $ Env env
+    go env (x:xs) (ATerm (Var y):ys) = go (M.insert y x env) xs ys
     
-
 putStackAndAddr :: Stack s
                 -> StackAddr
                 -> State (Machine s) ()
@@ -431,34 +432,28 @@ bindTopLevels = foldM step (Env mempty)
 
 allocChoice :: Show s => Val s
                       -> State (Machine s) Ptr
-allocChoice val = do
+allocChoice val =
 
-    ptr <- go val
-    machine <- get
-    trace (renderHeapStack machine) $ pure ptr
+    case val of
 
-    where
-    go val =
-        case val of
+        VBool b ->
+            pure $ StackBool b
 
-            VBool b ->
-                pure $ StackBool b
+        VInt i ->
+            pure $ StackInt i
 
-            VInt i ->
-                pure $ StackInt i
+        VString{} ->
+            HeapA <$> allocHeap val
 
-            VString{} ->
-                HeapA <$> allocHeap val
+        VClo _ _ (Env env)
+            | M.null env -> StaticA <$> allocStatic val -- TODO should have already been called at init?
+            | otherwise  -> HeapA <$> allocHeap val
 
-            VClo _ _ (Env env)
-                | M.null env -> StaticA <$> allocStatic val -- TODO should have already been called at init?
-                | otherwise  -> HeapA <$> allocHeap val
+        VDCons{} ->
+            StaticA <$> allocStatic val -- TODO check it's not already allocated?
 
-            VDCons{} ->
-                StaticA <$> allocStatic val -- TODO check it's not already allocated?
-
-            VDConsApp{} ->
-                HeapA <$> allocHeap val
+        VDConsApp{} ->
+            HeapA <$> allocHeap val
 
 allocHeap :: Show s => Val s
                     -> State (Machine s) HeapAddr
@@ -496,16 +491,19 @@ allocStatic v = do
                   , getStaticFree = staticFree' }
     pure staticFree
 
-renderHeapStack :: Show s => Machine s -> String
-renderHeapStack machine =
-    let Stack stack = getStack machine
-        Heap heap   = getHeap machine
-    in unlines ["Stack:", renderMap stack, "Heap:", renderMap heap]
+renderMemory :: Show s => Machine s -> String
+renderMemory machine =
+    let Static static = getStatic machine
+        Stack stack   = getStack machine
+        Heap heap     = getHeap machine
+    in unlines [ "Static", renderMap static
+               , "Stack:", renderMap stack
+               , "Heap:",  renderMap heap ]
 
-renderMap :: (Show k, Show v) => Map k v -> String
-renderMap m = unlines
-            . map (\(k, v) -> show k ++ " -> " ++ show v)
-            $ M.toList m
+    where
+    renderMap m = unlines
+                . map (\(k, v) -> show k ++ " -> " ++ show v)
+                $ M.toList m
 
 next :: HeapAddr -> HeapAddr
 next (HeapAddr a) = HeapAddr (a+1)
@@ -518,4 +516,3 @@ next'' (StaticAddr a) = StaticAddr (a+1)
 
 bothM :: Applicative m => (a -> m b) -> (a, a) -> m (b, b)
 bothM f (x, y) = (,) <$> f x <*> f y
-

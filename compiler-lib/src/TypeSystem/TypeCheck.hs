@@ -14,7 +14,7 @@ import           Control.Monad   (forM)
 import           Data.ByteString (ByteString)
 import           Data.Functor    ((<&>))
 import           Data.List       (foldl')
-import           Data.Map        (Map) -- ((!), Map)
+import           Data.Map        ((!), Map)
 import           Data.Set        (Set)
 import qualified Data.Map as M
 import qualified Data.Set as S
@@ -35,7 +35,7 @@ inferModule md = do
     typeCheckPlan <- planExcludingPretyped md (buildGraph md)
 
     let untypedFunDefs =
-            S.map (\n -> FunDefn n (("funDefnMap", funDefnMap) !!! n)) <$> typeCheckPlan
+            S.map (\n -> FunDefn n (funDefnMap ! n)) <$> typeCheckPlan
 
     let typeSigs =
             M.fromList . map (\(TypeSig n t) -> (n, Forall [] t)) $ getTypeSigs md
@@ -144,8 +144,8 @@ cleanup subst env (name, expr) = do
 
     -- Normalise
     -- TODO
-    FunDefnT name q expr'
-    -- norm $ FunDefnT name q expr'
+    -- FunDefnT name q expr'
+    norm $ FunDefnT name q expr'
 
 norm :: FunDefnT ByteString -> FunDefnT ByteString
 norm (FunDefnT name (Quant qs) expr) =
@@ -153,12 +153,6 @@ norm (FunDefnT name (Quant qs) expr) =
         sub = M.fromList $ zip qs normed
     in FunDefnT name (Quant normed) (mapType (go sub) expr)
     where
-    go   _ t@TyCon{} = t
-    go sub (TyVar v) = TyVar (("normalising", sub) !!! v)
+    go   _ t@TyCon{}   = t
+    go sub (TyVar v)   = TyVar (sub ! v)
     go sub (TyArr a b) = TyArr (go sub a) (go sub b)
-
-
-(!!!) (msg, m) k =
-    case M.lookup k m of
-        Just x -> x
-        Nothing -> error $ show (msg, k, m)

@@ -115,7 +115,7 @@ labelLeftFreshVars a =
     case a of
 
         EApp (ETerm DCons{}) xs ->
-            -- Guess ForAll
+            -- TODO guessed ForAll
             M.fromList <$> mapM (\x -> freshTVar <&> \fr -> (x, Forall [] fr)) (varsFrom xs)
 
         ETerm DCons{} ->
@@ -129,6 +129,11 @@ labelLeftFreshVars a =
 
         ETerm LitString{} ->
             pure mempty
+
+        ETerm (Var v) -> do
+            -- TODO guessed ForAll
+            fv <- freshTVar
+            pure $ M.singleton v (Forall [] fv)
 
 -- TODO dedupe?
 varsFrom :: Show s => [Expr s] -> [s]
