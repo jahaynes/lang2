@@ -19,8 +19,6 @@ import           Data.Set        (Set)
 import qualified Data.Map as M
 import qualified Data.Set as S
 
-import Debug.Trace (trace)
-
 data ModuleState s =
     ModuleState { getEnv     :: Map s (Polytype s)
                 , getUntyped :: [Set (FunDefn s)]
@@ -70,6 +68,7 @@ inferModule md = do
                     Right (GroupInference n' e' fds') ->
                         Right $ GroupInference n' (e <!> e') (fds ++ fds')
 
+(<!>) :: (Ord k, Show v, Eq v) => Map k v -> Map k v -> Map k v
 m1 <!> m2 = M.unionWith same m1 m2
     where
     same a b | a == b    = a
@@ -120,7 +119,9 @@ inferGroup env untyped = do
     -- Infer each expression and gather the constraints
     inferences <- forM namesAndExprs (\(n, expr) -> do
         (cs, tex) <- inferExpr env' expr
-        pure (cs, (n, tex)))
+        -- Constrain the inferred type to the declared type
+        let c = Constraint (topLevelTypes ! n) (typeOf tex)
+        pure (c:cs, (n, tex)))
 
     let (inferredConstraints, inferredTypedDefs) =
             first concat $ unzip inferences
@@ -152,8 +153,8 @@ fromEnvOrFresh env names =
     where
     go n =
         case M.lookup n env of
-            Nothing -> freshTVar      <&> \f -> trace (show (n, " -> ", f)) (n, f)
-            Just pt -> instantiate pt <&> \t -> trace (show (n, " -> ", t)) (n, t)
+            Nothing -> freshTVar      <&> \f -> (n, f)
+            Just pt -> instantiate pt <&> \t -> (n, t)
 
 cleanup :: Subst ByteString
         -> Map ByteString (Polytype ByteString)
