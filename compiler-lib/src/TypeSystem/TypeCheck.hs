@@ -44,7 +44,7 @@ inferModule md = do
             foldl' dataDefnToType mempty (getDataDefns md)
 
     let env =
-            typeSigs <> dataConstructors
+            typeSigs <!> dataConstructors -- Todo assert non-overlapping
 
     -- TODO data definitions could accompany typeSigs here
     case foldl' go (Right $ GroupInference 0 env []) untypedFunDefs of
@@ -65,7 +65,12 @@ inferModule md = do
                     Left ex -> Left ex
 
                     Right (GroupInference n' e' fds') ->
-                        Right $ GroupInference n' (e <> e') (fds <> fds')
+                        Right $ GroupInference n' (e <!> e') (fds ++ fds')
+
+m1 <!> m2 = M.unionWith same m1 m2
+    where
+    same a b | a == b    = a
+             | otherwise = error $ "intersection!: " ++ show (a, b)
 
 -- TODO polymorph properly!
 -- untested
@@ -74,7 +79,7 @@ dataDefnToType :: (Ord s, Show s) => Map s (Polytype s)
                                   -> Map s (Polytype s)
 dataDefnToType env (DataDefn tn tvs dcons) =
 
-    env <> (M.fromList $ map go dcons)
+    env <!> (M.fromList $ map go dcons)
 
     where
     go (DataCon dc xs) = (dc, Forall tvs (foldr TyArr (TyCon tn) (map to xs)))
@@ -102,22 +107,26 @@ inferGroup env untyped = do
     freshlyLabelled <- freshlyLabel (fst <$> namesAndExprs)
 
     -- Make them available in the environment
-    let env' = env <> (Forall [] <$> freshlyLabelled)
+    -- (allows recursion)
+    let env' = env <!> (Forall [] <$> freshlyLabelled)
 
     -- Infer each expression and gather the constraints
     inferences <- forM namesAndExprs (\(n, expr) -> do
         (cs, tex) <- inferExpr env' expr
         pure (cs, (n, tex)))
 
+    let (inferredConstraints, inferredTypedDefs) =
+            first concat $ unzip inferences
+
     -- Deduce the types from the constraints
-    case runSolve $ concatMap fst inferences of
+    case runSolve inferredConstraints of
 
         Left e -> pure $ Left e
 
         Right sub -> do
 
             -- Define them as functions
-            let funDefnTs = cleanup sub env' . snd <$> inferences
+            let funDefnTs = map (cleanup sub env') inferredTypedDefs
 
             -- Put the newly-inferred types into the enviromment
             let env'' = M.fromList . map (\(FunDefnT n (Quant vs) expr) -> (n, Forall vs (typeOf expr))) $ funDefnTs
@@ -143,8 +152,6 @@ cleanup subst env (name, expr) = do
     let q = Quant . S.toList $ ftvType t `S.difference` ftvEnv env
 
     -- Normalise
-    -- TODO
-    -- FunDefnT name q expr'
     norm $ FunDefnT name q expr'
 
 norm :: FunDefnT ByteString -> FunDefnT ByteString
@@ -156,3 +163,6 @@ norm (FunDefnT name (Quant qs) expr) =
     go   _ t@TyCon{}   = t
     go sub (TyVar v)   = TyVar (sub ! v)
     go sub (TyArr a b) = TyArr (go sub a) (go sub b)
+
+first :: (a -> b) -> (a, c) -> (b, c)
+first f (x, y) = (f x, y)

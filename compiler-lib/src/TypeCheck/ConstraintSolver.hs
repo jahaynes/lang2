@@ -3,18 +3,15 @@
 module TypeCheck.ConstraintSolver where
 
 import Core.Types
+import TypeSystem.Common
 
 import           Data.ByteString (ByteString)
-import           Data.Map        (Map)
 import qualified Data.Map as M
 import           Data.Set        (Set)
 import qualified Data.Set as S
 
 type Unifier s = (Subst s, [Constraint s])
 
-newtype Subst s =
-    Subst (Map s (Type s))
-        deriving Show
 
 data Constraint s =
     Constraint (Type s) (Type s)
@@ -65,8 +62,3 @@ freeInType :: Ord s => Type s -> Set s
 freeInType TyCon{}         = S.empty
 freeInType (TyVar a)       = S.singleton a
 freeInType (t1 `TyArr` t2) = freeInType t1 `S.union` freeInType t2
-
-substituteType :: Ord s => Subst s -> Type s -> Type s
-substituteType         _       (TyCon a) = TyCon a
-substituteType (Subst s)     t@(TyVar a) = M.findWithDefault t a s
-substituteType         s (t1 `TyArr` t2) = substituteType s t1 `TyArr` substituteType s t2

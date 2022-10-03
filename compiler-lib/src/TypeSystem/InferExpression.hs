@@ -17,7 +17,8 @@ import qualified Data.Map as M
 
 inferExpr :: Map ByteString (Polytype ByteString)
           -> Expr ByteString
-          -> State (GroupState ByteString) ([Constraint ByteString], ExprT ByteString)
+          -> State (GroupState ByteString) ( [Constraint ByteString]
+                                           , ExprT ByteString )
 inferExpr env expr =
 
     case expr of
@@ -98,8 +99,7 @@ inferPattern :: Map ByteString (Polytype ByteString)
              -> Pattern ByteString
              -> State (GroupState ByteString) ( [Constraint ByteString]
                                               , [Constraint ByteString]
-                                              , PatternT ByteString
-                                              )
+                                              , PatternT ByteString )
 inferPattern env (Pattern a b) = do
     env' <- labelLeftFreshVars a
     (clhs, a') <- inferExpr (env <> env') a
