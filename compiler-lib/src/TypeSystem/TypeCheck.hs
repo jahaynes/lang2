@@ -19,6 +19,8 @@ import           Data.Set        (Set)
 import qualified Data.Map as M
 import qualified Data.Set as S
 
+import Debug.Trace (trace)
+
 data ModuleState s =
     ModuleState { getEnv     :: Map s (Polytype s)
                 , getUntyped :: [Set (FunDefn s)]
@@ -37,14 +39,15 @@ inferModule md = do
     let untypedFunDefs =
             S.map (\n -> FunDefn n (funDefnMap ! n)) <$> typeCheckPlan
 
-    let typeSigs =
-            M.fromList . map (\(TypeSig n t) -> (n, Forall [] t)) $ getTypeSigs md
+    let typeSigs = M.fromList
+                 . map (\(TypeSig n t) -> (n, Forall [] t))
+                 $ getTypeSigs md
 
     let dataConstructors =
             foldl' dataDefnToType mempty (getDataDefns md)
 
     let env =
-            typeSigs <!> dataConstructors -- Todo assert non-overlapping
+            typeSigs <!> dataConstructors
 
     -- TODO data definitions could accompany typeSigs here
     case foldl' go (Right $ GroupInference 0 env []) untypedFunDefs of
@@ -103,12 +106,16 @@ inferGroup env untyped = do
 
     let namesAndExprs = map (\(FunDefn n e) -> (n, e)) $ S.toList untyped
 
-    -- Generate a fresh type var for each top-level
-    freshlyLabelled <- freshlyLabel (fst <$> namesAndExprs)
+    -- TODO merge the following 2 steps (why instantiate to immediately generalise)
 
+    -- 1
+    -- Assign provided type-sig, or generate fresh one
+    topLevelTypes <- fromEnvOrFresh env (map fst namesAndExprs)
+
+    -- 2
     -- Make them available in the environment
     -- (allows recursion)
-    let env' = env <!> (Forall [] <$> freshlyLabelled)
+    let env' = env <!> (Forall [] <$> topLevelTypes)
 
     -- Infer each expression and gather the constraints
     inferences <- forM namesAndExprs (\(n, expr) -> do
@@ -129,14 +136,24 @@ inferGroup env untyped = do
             let funDefnTs = map (cleanup sub env') inferredTypedDefs
 
             -- Put the newly-inferred types into the enviromment
-            let env'' = M.fromList . map (\(FunDefnT n (Quant vs) expr) -> (n, Forall vs (typeOf expr))) $ funDefnTs
+            let env'' = M.fromList
+                      . map (\(FunDefnT n (Quant vs) expr) -> (n, Forall vs (typeOf expr)))
+                      $ funDefnTs
 
             n' <- getVarNum <$> get
 
             pure . Right $ GroupInference n' env'' funDefnTs
 
+fromEnvOrFresh :: Map ByteString (Polytype ByteString)
+               -> [ByteString]
+               -> State (GroupState s) (Map ByteString (Type ByteString))
+fromEnvOrFresh env names =
+    M.fromList <$> mapM go names
     where
-    freshlyLabel ns = M.fromList <$> mapM (\n -> freshTVar <&> \f -> (n, f)) ns
+    go n =
+        case M.lookup n env of
+            Nothing -> freshTVar      <&> \f -> trace (show (n, " -> ", f)) (n, f)
+            Just pt -> instantiate pt <&> \t -> trace (show (n, " -> ", t)) (n, t)
 
 cleanup :: Subst ByteString
         -> Map ByteString (Polytype ByteString)
