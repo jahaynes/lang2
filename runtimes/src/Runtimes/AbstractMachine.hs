@@ -135,9 +135,9 @@ runMachine modu = do
                 env     <- bindTopLevels topLevels
                 envMain <- lkup env (SByteString "main")
                 case envMain of
-                    VClo [] start _ -> do
+                    Left err -> pure err
+                    Right (VClo [] start _) ->
                         machineRender =<< evalExpr env start
-                    _ -> error $ show envMain
 
     pack a
 
@@ -189,34 +189,34 @@ machineRender' x =
 
         _ -> error $ show x
 
-lkup :: (Ord k, Show k) => Env k -> k -> State (Machine s) (Val s)
+lkup :: (Ord k, Show k) => Env k -> k -> State (Machine s) (Either String (Val s))
 lkup (Env e) n = do
     Machine (Static static) _ (Stack stack) _ (Heap heap) _ <- get
     case M.lookup n e of
 
         Nothing ->
-            error $ "Not found in env: " <> show n
+            pure . Left $ "Not found in env: " <> show n
 
         Just (StaticA addr) ->
             case M.lookup addr static of
                 Nothing -> error "Not found in static"
-                Just v  -> pure v
+                Just v  -> pure $ Right v
 
         Just (HeapA addr) ->
             case M.lookup addr heap of
                 Nothing -> error "Not found in heap"
-                Just v  -> pure v
+                Just v  -> pure $ Right v
 
         Just (StackA addr) ->
             case M.lookup addr stack of
-                Nothing -> error "Not found in stack"
-                Just v  -> pure v
+                Nothing -> pure $ Left "Not found in stack"
+                Just v  -> pure $ Right v
 
         Just (StackBool b) ->
-            pure $ VBool b
+            pure . Right $ VBool b
 
         Just (StackInt i) ->
-            pure $ VInt i
+            pure . Right $ VInt i
 
 evalExpr :: Stringish s => Env s
                         -> NExp s
@@ -314,8 +314,9 @@ evalTerm env term =
         Var v       ->
             -- This evaluates on the lookup, maybe do it on insert instead?
             lkup env v >>= \case
-                VClo [] body _ -> evalExpr env body
-                val            -> pure val
+                Left err -> error err
+                Right (VClo [] body _) -> evalExpr env body
+                Right val              -> pure val
 
         -- hmm, a dcons is just itself, right?
         DCons d     -> pure $ VDCons d
