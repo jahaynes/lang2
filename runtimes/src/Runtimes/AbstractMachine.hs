@@ -118,7 +118,6 @@ instance Stringish SByteString
         * Pre-compile / partially evaluate?
         * Ints as Addr - instead of heap?
         * Use recursion/planning to trim down env
-        * Do lambda lifting!
 -}
 
 machine0 :: Machine s
