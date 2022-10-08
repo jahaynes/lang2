@@ -65,7 +65,7 @@ instance Show s => Show (Val s) where
 
 newtype Env s =
     Env (Map s Ptr)
-        deriving (Show, Eq) -- TODO eq is only for val (which shouldnt be needed)
+        deriving Show
 
 newtype Heap s =
     Heap (Map HeapAddr (Val s))
