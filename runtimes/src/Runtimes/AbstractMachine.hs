@@ -472,7 +472,7 @@ allocStack :: Show s => Val s
 allocStack v = do
     machine <- get
     let stackFree   = getStackFree machine
-        stackFree'  = next' stackFree
+        stackFree'  = next stackFree
         Stack stack = getStack machine
         stack'      = Stack $ M.insert stackFree v stack
     put $ machine { getStack = stack'
@@ -484,7 +484,7 @@ allocStatic :: Show s => Val s
 allocStatic v = do
     machine <- get
     let staticFree    = getStaticFree machine
-        staticFree'   = next'' staticFree
+        staticFree'   = next staticFree
         Static static = getStatic machine
         static'       = Static $ M.insert staticFree v static
     put $ machine { getStatic = static'
@@ -505,14 +505,17 @@ renderMemory machine =
                 . map (\(k, v) -> show k ++ " -> " ++ show v)
                 $ M.toList m
 
-next :: HeapAddr -> HeapAddr
-next (HeapAddr a) = HeapAddr (a+1)
+class Next a where
+    next :: a -> a
 
-next' :: StackAddr -> StackAddr
-next' (StackAddr a) = StackAddr (a+1)
+instance Next HeapAddr where
+    next (HeapAddr a) = HeapAddr (a+1)
 
-next'' :: StaticAddr -> StaticAddr
-next'' (StaticAddr a) = StaticAddr (a+1)
+instance Next StackAddr where
+    next (StackAddr a) = StackAddr (a+1)
+
+instance Next StaticAddr where
+    next (StaticAddr a) = StaticAddr (a+1)
 
 bothM :: Applicative m => (a -> m b) -> (a, a) -> m (b, b)
 bothM f (x, y) = (,) <$> f x <*> f y
