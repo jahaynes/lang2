@@ -77,9 +77,9 @@ newtype Static s =
 
 data Machine s =
     Machine { getStatic     :: !(Static s)
-            , getStaticFree :: !(StaticAddr)
+            , getStaticFree :: !StaticAddr
             , getStack      :: !(Stack s)
-            , getStackFree  :: !(StackAddr)
+            , getStackFree  :: !StackAddr
             , getHeap       :: !(Heap s)
             , getFree       :: !HeapAddr
             } deriving Show
