@@ -122,6 +122,7 @@ parseNonApply = parseLet
             <|> parseTerm
             <|> parseNegated
             <|> parseShown
+            <|> parseErr
             <|> parseParen
 
 parseNegated :: Parser ParseState (Expr ByteString)
@@ -133,6 +134,11 @@ parseShown :: Parser ParseState (Expr ByteString)
 parseShown = do
     parseShow
     EUnPrimOp EShow <$> parseExpr
+
+parseErr :: Parser ParseState (Expr ByteString)
+parseErr = do
+    parseError
+    EUnPrimOp Err <$> parseExpr
 
 parseLet :: Parser ParseState (Expr ByteString)
 parseLet = do
@@ -244,6 +250,12 @@ parseShow = parseSatisfy "show" f
     where
     f TDollar = Just ()
     f       _ = Nothing
+
+parseError :: Parser ParseState ()
+parseError = parseSatisfy "error" f
+    where
+    f TErr = Just ()
+    f    _ = Nothing
 
 token :: Token -> Parser ParseState ()
 token tok =

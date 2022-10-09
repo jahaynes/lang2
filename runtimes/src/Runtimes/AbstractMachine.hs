@@ -251,6 +251,11 @@ evalAexp env aexp =
                 VInt i -> VInt (-i)
                 _      -> error "Negate expected an Int!"
 
+        AUnPrimOp Err a ->
+             evalAexp env a <&> \case
+                VString s -> error (show s)
+                _         -> error "error expected a String!"
+
         AUnPrimOp EShow a ->
             VString . fromString . show <$> evalAexp env a
 

@@ -46,6 +46,7 @@ data Token = TLet
            | TMinus
            | TNegate
            | TAmbiguous
+           | TErr
 
            | TCase
            | TOf

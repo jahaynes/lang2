@@ -68,6 +68,7 @@ disambiguateNegation = go [] TAmbiguous
     f TDollar         = TAmbiguous -- check
     f TCase           = TAmbiguous -- check
     f TOf             = TAmbiguous -- check
+    f TErr            = TAmbiguous -- check
 
 lex' :: ByteString -> Parser LexState a -> Either ByteString a
 lex' s p =
@@ -111,13 +112,14 @@ parseToken = keyword
 
     where
     keyword :: Parser LexState Token
-    keyword = positioned TLet  (string "let"  <* notFollowedBy isAlphaNum)
-          <|> positioned TIn   (string "in"   <* notFollowedBy isAlphaNum)
-          <|> positioned TIf   (string "if"   <* notFollowedBy isAlphaNum)
-          <|> positioned TThen (string "then" <* notFollowedBy isAlphaNum)
-          <|> positioned TElse (string "else" <* notFollowedBy isAlphaNum)
-          <|> positioned TCase (string "case" <* notFollowedBy isAlphaNum)
-          <|> positioned TOf   (string "of"   <* notFollowedBy isAlphaNum)
+    keyword = positioned TLet  (string "let"   <* notFollowedBy isAlphaNum)
+          <|> positioned TIn   (string "in"    <* notFollowedBy isAlphaNum)
+          <|> positioned TIf   (string "if"    <* notFollowedBy isAlphaNum)
+          <|> positioned TThen (string "then"  <* notFollowedBy isAlphaNum)
+          <|> positioned TElse (string "else"  <* notFollowedBy isAlphaNum)
+          <|> positioned TErr  (string "error" <* notFollowedBy isAlphaNum)
+          <|> positioned TCase (string "case"  <* notFollowedBy isAlphaNum)
+          <|> positioned TOf   (string "of"    <* notFollowedBy isAlphaNum)
 
     operator :: Parser LexState Token
     operator = positioned TEqEq     (string "==")

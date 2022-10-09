@@ -12,7 +12,7 @@ unOp :: UnOp
      -> State (GroupState s) (Type ByteString)
 unOp Negate = pure $ typeInt `TyArr` typeInt
 unOp EShow  = freshTVar <&> \fr -> fr `TyArr` typeString
-unOp Err    = error "Err not implemented"
+unOp Err    = freshTVar <&> \fr -> typeString `TyArr` fr
 
 binOp :: BinOp
       -> State (GroupState s) (Type ByteString)
