@@ -29,7 +29,7 @@ inferExpr env expr =
         ELam vs e -> do
             tvs <- replicateM (length vs) freshTVar
             let env' = M.fromList $ zip vs (Forall [] <$> tvs)
-            (cs, e') <- inferExpr (env <> env') e
+            (cs, e') <- inferExpr (env <!> env') e
             let ty = foldr TyArr (typeOf e') tvs
             pure ( cs
                  , LamT ty vs e' )
@@ -102,11 +102,18 @@ inferPattern :: Map ByteString (Polytype ByteString)
                                               , PatternT ByteString )
 inferPattern env (Pattern a b) = do
     env' <- labelLeftFreshVars a
-    (clhs, a') <- inferExpr (env <> env') a
-    (crhs, b') <- inferExpr (env <> env') b
+    (clhs, a') <- inferExpr (env <!> env') a
+    (crhs, b') <- inferExpr (env <!> env') b
     pure ( clhs
          , crhs
          , PatternT a' b' )
+
+(<!>) :: (Ord k, Show v, Eq v) => Map k v -> Map k v -> Map k v
+m1 <!> m2 = M.unionWith same m1 m2
+    where
+    same a b | a == b    = a
+             | otherwise = error $ "intersection!: " ++ show (a, b)
+
 
 labelLeftFreshVars :: Expr ByteString
                    -> State (GroupState ByteString) (Map ByteString (Polytype ByteString))

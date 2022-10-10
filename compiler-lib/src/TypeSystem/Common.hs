@@ -1,12 +1,16 @@
 module TypeSystem.Common where
 
 import Common.State
+import Core.Expression
+import Core.Module
 import Core.Types
+import TypeSystem.Ftv
 
 import           Data.ByteString.Char8 (ByteString, pack)
 import           Data.Char             (chr)
 import           Data.Map              (Map)
 import qualified Data.Map as M
+import qualified Data.Set as S
 
 data GroupState s =
     GroupState { getVarNum      :: Int
@@ -40,3 +44,12 @@ instantiate (Forall as t) = do
     as' <- mapM (const freshTVar) as
     let s = Subst $ M.fromList $ zip as as'
     pure $ substituteType s t
+
+-- is this the wrong way to find all the free type vars?
+-- (only inspects the top-level type)
+generaliseTopLevel :: (Ord s, Show s) => s
+                                      -> ExprT s
+                                      -> FunDefnT s
+generaliseTopLevel name exprT =
+    let fv = S.toList . ftvType $ typeOf exprT
+    in FunDefnT name (Quant fv) exprT

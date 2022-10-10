@@ -14,10 +14,11 @@ import           Control.Monad   (forM)
 import           Data.ByteString (ByteString)
 import           Data.Functor    ((<&>))
 import           Data.List       (foldl')
-import           Data.Map        ((!), Map)
+import           Data.Map        (Map) -- ((!), Map)
 import           Data.Set        (Set)
 import qualified Data.Map as M
 import qualified Data.Set as S
+import           Debug.Trace     (trace)
 
 data ModuleState s =
     ModuleState { getEnv     :: Map s (Polytype s)
@@ -35,7 +36,7 @@ inferModule md = do
     typeCheckPlan <- planExcludingPretyped md (buildGraph md)
 
     let untypedFunDefs =
-            S.map (\n -> FunDefn n (funDefnMap ! n)) <$> typeCheckPlan
+            S.map (\n -> FunDefn n (funDefnMap !!! n)) <$> typeCheckPlan
 
     let typeSigs = M.fromList
                  . map (\(TypeSig n t) -> (n, Forall [] t))
@@ -68,12 +69,6 @@ inferModule md = do
                     Right (GroupInference n' e' fds') ->
                         Right $ GroupInference n' (e <!> e') (fds ++ fds')
 
-(<!>) :: (Ord k, Show v, Eq v) => Map k v -> Map k v -> Map k v
-m1 <!> m2 = M.unionWith same m1 m2
-    where
-    same a b | a == b    = a
-             | otherwise = error $ "intersection!: " ++ show (a, b)
-
 -- TODO polymorph properly!
 -- untested
 dataDefnToType :: (Ord s, Show s) => Map s (Polytype s)
@@ -96,6 +91,12 @@ data GroupInference =
                    !(Map ByteString (Polytype ByteString))
                    ![FunDefnT ByteString]
 
+
+(!!!) m k =
+    case M.lookup k m of
+        Nothing -> error $ "Couldn't find " ++ show k ++ " in " ++ show m
+        Just x  -> x
+
 inferGroup :: Map ByteString (Polytype ByteString)
            -> Set (FunDefn ByteString)
            -> State (GroupState ByteString)
@@ -114,13 +115,13 @@ inferGroup env untyped = do
     -- 2
     -- Make them available in the environment
     -- (allows recursion)
-    let env' = env <!> (Forall [] <$> topLevelTypes)
+    let env' = env <!> (Forall [] <$> topLevelTypes) -- bad Forall?
 
     -- Infer each expression and gather the constraints
     inferences <- forM namesAndExprs (\(n, expr) -> do
         (cs, tex) <- inferExpr env' expr
         -- Constrain the inferred type to the declared type
-        let c = Constraint (topLevelTypes ! n) (typeOf tex)
+        let c = Constraint (topLevelTypes !!! n) (typeOf tex)
         pure (c:cs, (n, tex)))
 
     let (inferredConstraints, inferredTypedDefs) =
@@ -131,10 +132,10 @@ inferGroup env untyped = do
 
         Left e -> pure $ Left e
 
-        Right sub -> do
+        Right sub -> trace (show sub) $ do
 
             -- Define them as functions
-            let funDefnTs = map (cleanup sub env') inferredTypedDefs
+            let funDefnTs = map (cleanup sub) inferredTypedDefs
 
             -- Put the newly-inferred types into the enviromment
             let env'' = M.fromList
@@ -157,20 +158,18 @@ fromEnvOrFresh env names =
             Just pt -> instantiate pt <&> \t -> (n, t)
 
 cleanup :: Subst ByteString
-        -> Map ByteString (Polytype ByteString)
         -> (ByteString, ExprT ByteString)
         -> FunDefnT ByteString
-cleanup subst env (name, expr) = do
+cleanup subst (name, expr) = do
 
     -- Substitute type metavariables for types
     let expr' = mapType (substituteType subst) expr
 
-    -- Polymorphise
-    let t = typeOf expr'
-    let q = Quant . S.toList $ ftvType t `S.difference` ftvEnv env
+    let toNorm = generaliseTopLevel name expr'
 
-    -- Normalise
-    norm $ FunDefnT name q expr'
+    trace ("about to norm: " ++ show toNorm) $
+
+        norm toNorm
 
 norm :: FunDefnT ByteString -> FunDefnT ByteString
 norm (FunDefnT name (Quant qs) expr) =
@@ -179,7 +178,7 @@ norm (FunDefnT name (Quant qs) expr) =
     in FunDefnT name (Quant normed) (mapType (go sub) expr)
     where
     go   _ t@TyCon{}   = t
-    go sub (TyVar v)   = TyVar (sub ! v)
+    go sub (TyVar v)   = TyVar (sub !!! v)
     go sub (TyArr a b) = TyArr (go sub a) (go sub b)
 
 first :: (a -> b) -> (a, c) -> (b, c)
