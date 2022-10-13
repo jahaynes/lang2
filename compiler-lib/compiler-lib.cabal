@@ -37,7 +37,7 @@ library
                     Phase.LambdaLift.LambdaLift
                     TypeCheck.ConstraintSolver
                     TypeSystem.Common
-                    TypeSystem.Ftv
+                    -- TypeSystem.Ftv
                     TypeSystem.InferExpression
                     TypeSystem.InferOperator
                     TypeSystem.InferTerm

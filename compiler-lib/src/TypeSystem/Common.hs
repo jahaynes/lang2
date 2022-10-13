@@ -4,13 +4,14 @@ import Common.State
 import Core.Expression
 import Core.Module
 import Core.Types
-import TypeSystem.Ftv
 
 import           Data.ByteString.Char8 (ByteString, pack)
 import           Data.Char             (chr)
 import           Data.Map              (Map)
 import qualified Data.Map as M
+import           Data.Set              (Set)
 import qualified Data.Set as S
+
 
 data GroupState s =
     GroupState { getVarNum      :: Int
@@ -51,5 +52,43 @@ generaliseTopLevel :: (Ord s, Show s) => s
                                       -> ExprT s
                                       -> FunDefnT s
 generaliseTopLevel name exprT =
-    let fv = S.toList . ftvType $ typeOf exprT
+    let fv = S.toList $ typeVars exprT
     in FunDefnT name (Quant fv) exprT
+
+-- stick elsewhere?
+typeVars :: Ord s => ExprT s -> Set s
+typeVars e =
+
+    case e of
+
+        TermT t _ ->
+            typeVars' t
+
+        LamT t _ b ->
+            typeVars' t <> typeVars b
+
+        AppT t f xs ->
+            typeVars' t <> typeVars f <> mconcat (map typeVars xs)
+
+        LetT t _ b c ->
+            typeVars' t <> typeVars b <> typeVars c
+
+        UnPrimOpT t _ a ->
+            typeVars' t <> typeVars a
+
+        BinPrimOpT t _ a b  ->
+            typeVars' t <> typeVars a <> typeVars b
+
+        IfThenElseT t pr tr fl ->
+            typeVars' t <> mconcat (map typeVars [pr, tr, fl])
+
+        CaseT t scrut ps ->
+            typeVars' t <> typeVars scrut <> mconcat (map typeVars'' ps)
+
+typeVars'' :: Ord s => PatternT s -> Set s
+typeVars'' (PatternT a b) = typeVars a <> typeVars b
+
+typeVars' :: Ord s => Type s -> Set s
+typeVars'   TyCon{}   = mempty
+typeVars' (TyVar v)   = S.singleton v
+typeVars' (TyArr a b) = typeVars' a <> typeVars' b

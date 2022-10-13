@@ -7,7 +7,6 @@ import Core.Module
 import Core.Types
 import TypeCheck.ConstraintSolver
 import TypeSystem.Common
-import TypeSystem.Ftv
 import TypeSystem.InferExpression
 
 import           Control.Monad   (forM)
@@ -18,7 +17,6 @@ import           Data.Map        (Map) -- ((!), Map)
 import           Data.Set        (Set)
 import qualified Data.Map as M
 import qualified Data.Set as S
-import           Debug.Trace     (trace)
 
 data ModuleState s =
     ModuleState { getEnv     :: Map s (Polytype s)
@@ -132,7 +130,7 @@ inferGroup env untyped = do
 
         Left e -> pure $ Left e
 
-        Right sub -> trace (show sub) $ do
+        Right sub -> do
 
             -- Define them as functions
             let funDefnTs = map (cleanup sub) inferredTypedDefs
@@ -160,16 +158,12 @@ fromEnvOrFresh env names =
 cleanup :: Subst ByteString
         -> (ByteString, ExprT ByteString)
         -> FunDefnT ByteString
-cleanup subst (name, expr) = do
+cleanup subst (name, expr) =
 
     -- Substitute type metavariables for types
     let expr' = mapType (substituteType subst) expr
 
-    let toNorm = generaliseTopLevel name expr'
-
-    trace ("about to norm: " ++ show toNorm) $
-
-        norm toNorm
+    in norm $ generaliseTopLevel name expr'
 
 norm :: FunDefnT ByteString -> FunDefnT ByteString
 norm (FunDefnT name (Quant qs) expr) =
