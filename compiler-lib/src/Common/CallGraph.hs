@@ -58,12 +58,12 @@ buildGraphAnf' fundefns = CallGraph . M.unions $ map go fundefns
 
         fna aexp scope =
             case aexp of
-                ATerm (Var v)    -> S.singleton v \\ scope
-                ATerm DCons{}    -> error "dcons"
-                ATerm      _     -> mempty
-                ALam vs body     -> fn body (foldr S.insert scope vs)
-                AClo fvs vs body -> fn body (foldr S.insert scope (fvs++vs))
-                ABinPrimOp _ a b -> fna a scope <> fna b scope
+                ATerm _ (Var v)    -> S.singleton v \\ scope
+                ATerm _ DCons{}    -> error "dcons"
+                ATerm _       _    -> mempty
+                ALam _ vs body     -> fn body (foldr S.insert scope vs)
+                AClo _ fvs vs body -> fn body (foldr S.insert scope (fvs++vs))
+                ABinPrimOp _ a b   -> fna a scope <> fna b scope
 
         fnc cexp scope =
             case cexp of

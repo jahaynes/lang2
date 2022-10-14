@@ -38,8 +38,8 @@ lambdaLiftDefn nameGen (FunDefAnfT t n fun) =
     case fun of
 
         -- Top-level lambdas do not need to be lifted!
-        AExp (ALam vs body) ->
-            FunDefAnfT t n . AExp . ALam vs <$> ll body
+        AExp (ALam t' vs body) ->
+            FunDefAnfT t n . AExp . ALam t' vs <$> ll body
 
         -- Everything else gets lifted
         _ -> FunDefAnfT t n <$> ll fun
@@ -109,7 +109,8 @@ lambdaLiftDefn nameGen (FunDefAnfT t n fun) =
 
     -- Handles let-bound and anonymous lambdas/closures
     -- renaming recursive calls if necessary
-    liftLambdaOrClosure mName (ALam vs body) = do
+    -- assumes llam has type t
+    liftLambdaOrClosure mName (ALam t vs body) = do
         newName <- nameGen "llam"
         let body' =
                 case mName of
@@ -119,10 +120,10 @@ lambdaLiftDefn nameGen (FunDefAnfT t n fun) =
                         let subst = foldr M.delete (M.singleton oldName newName) vs
                         in alphaNExp subst body
                     Nothing -> body
-        lam' <- AExp . ALam vs <$> ll body'
+        lam' <- AExp . ALam t vs <$> ll body'
         let q = generalise lam'
         liftLambda $ FunDefAnfT newName q lam'
-        pure . ATerm $ Var newName
+        pure $ ATerm t (Var newName)
 
     -- TODO dedupe with above
     liftLambdaOrClosure mName (AClo fvs vs body) = do
@@ -138,7 +139,7 @@ lambdaLiftDefn nameGen (FunDefAnfT t n fun) =
         lam' <- AExp . AClo fvs vs <$> ll body'
         let q = generalise lam'
         liftLambda $ FunDefAnfT newName q lam'
-        pure . ATerm $ Var newName
+        pure $ ATerm undefined (Var newName)
 
 -- TODO: Actually calculate the free type variables
 generalise :: NExp s -> Quant s

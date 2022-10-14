@@ -36,10 +36,10 @@ aexpFreeVars aexp =
 
     case aexp of
 
-        ATerm t ->
+        ATerm _ t ->
             termFreeVars t
 
-        ALam vs b ->
+        ALam _ vs b ->
             withScope vs $
                 nexpFreeVars b
 
@@ -83,13 +83,13 @@ pexpFreeVars (PExp a b) =
         where
         scopeFromAexp aexp =
             case aexp of
-                ATerm (LitInt {}) -> mempty
-                ATerm (Var v)     -> [v]
-                ATerm (DCons {})  -> mempty
+                ATerm _ (LitInt {}) -> mempty
+                ATerm _ (Var v)     -> [v]
+                ATerm _ (DCons {})  -> mempty
 
         scopeFromCexp cexp =
             case cexp of
-                CApp (ATerm DCons{}) args -> concatMap scopeFromAexp args
+                CApp (ATerm _ DCons{}) args -> concatMap scopeFromAexp args
 
 termFreeVars :: Ord s => Term s -> State (Scope s) (Set s)
 termFreeVars t =

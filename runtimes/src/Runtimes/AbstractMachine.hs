@@ -244,7 +244,7 @@ evalAexp env aexp =
 
     case aexp of
 
-        ATerm t -> evalTerm env t
+        ATerm _ te -> evalTerm env te
 
         AUnPrimOp Negate a ->
             evalAexp env a <&> \case
@@ -276,7 +276,7 @@ evalAexp env aexp =
                 OrB     -> logical (||) a' b'
                 ConcatS -> stringy (<>) a' b'
 
-        ALam vs body ->
+        ALam t vs body ->
             pure $ VClo vs body env
 
         AClo fvs vs body ->
@@ -379,21 +379,21 @@ tryPatterns env scrut (PExp a b:ps) = do
 
     case (scrut, a) of
 
-        (VInt i, AExp (ATerm (LitInt a')))
+        (VInt i, AExp (ATerm _ (LitInt a')))
             | i == a' -> evalExpr env b
 
-        (VString s, AExp (ATerm (LitString a')))
+        (VString s, AExp (ATerm _ (LitString a')))
             | s == a' -> evalExpr env b
 
-        (VDCons s, AExp (ATerm (DCons a')))
+        (VDCons s, AExp (ATerm _ (DCons a')))
             | s == a' -> evalExpr env b
 
-        (VInt i, AExp (ATerm (Var v))) -- v becomes i in ...
+        (VInt i, AExp (ATerm _ (Var v))) -- v becomes i in ...
             -> let Env e = env
                    env' = Env $ M.insert v (StackInt i) e -- guess stackint
                in evalExpr env' b
 
-        (VDConsApp s ss, CExp (CApp (ATerm (DCons a')) as))
+        (VDConsApp s ss, CExp (CApp (ATerm _ (DCons a')) as))
             | s == a' ->
                 case patternOrRefute env ss as of
                     Nothing   -> tryPatterns env scrut ps -- or should straight up fail?
@@ -407,8 +407,8 @@ patternOrRefute :: Ord s => Env s
                          -> Maybe (Env s)
 patternOrRefute (Env e) = go e
     where
-    go env     []                 [] = Just $ Env env
-    go env (x:xs) (ATerm (Var y):ys) = go (M.insert y x env) xs ys
+    go env     []                   [] = Just $ Env env
+    go env (x:xs) (ATerm _ (Var y):ys) = go (M.insert y x env) xs ys
     
 putStackAndAddr :: Stack s
                 -> StackAddr
@@ -432,7 +432,7 @@ bindTopLevels = foldM step (Env mempty)
     topLevelToVal :: Ord s => NExp s -> Val s
     topLevelToVal expr =
         case expr of
-            AExp (ALam vs body) -> VClo vs body (Env mempty)
+            AExp (ALam _ vs body) -> VClo vs body (Env mempty)
             _ -> VClo [] expr (Env mempty)
 
 allocChoice :: Show s => Val s

@@ -23,8 +23,8 @@ closureConvertDefn :: (Ord s, Show s) => Set s
 closureConvertDefn topLevelScope (FunDefAnfT n q fun) = do
 
     fun' <- case fun of
-                AExp (ALam vs body) -> AExp . ALam vs <$> go body
-                _                   -> go fun
+                AExp (ALam t vs body) -> AExp . ALam t vs <$> go body
+                _                     -> go fun
 
     pure $ FunDefAnfT n q fun'
 
@@ -40,9 +40,9 @@ closureConvertDefn topLevelScope (FunDefAnfT n q fun) = do
                 AExp <$> cca aexp
 
             -- Includes a in the scope to allow recursion
-            NLet a (AExp (ALam vs body)) c ->
+            NLet a (AExp (ALam t vs body)) c ->
                 withScope [a] $
-                    NLet a <$> (AExp <$> cclam (Just a) vs body)
+                    NLet a <$> (AExp <$> cclam (Just a) t vs body)
                            <*> go c
 
             -- Includes a in the scope to allow recursion
@@ -79,8 +79,8 @@ closureConvertDefn topLevelScope (FunDefAnfT n q fun) = do
                 t@ATerm{} ->
                     pure t
 
-                ALam vs body ->
-                    cclam Nothing vs body
+                ALam t vs body ->
+                    cclam Nothing t vs body
 
                 AClo{} ->
                     error "Doesn't exist yet"
@@ -92,10 +92,11 @@ closureConvertDefn topLevelScope (FunDefAnfT n q fun) = do
                 AUnPrimOp o a ->
                     AUnPrimOp o <$> cca a
 
-        cclam mName vs body = do
+        -- assumes type stays same
+        cclam mName t vs body = do
             body' <- go body
             let scope = maybe mempty S.singleton mName <> S.fromList vs <> topLevelScope
                 fvs = S.toList $ getFreeVars scope body'
             pure $ if null fvs
-                    then ALam     vs body'
-                    else AClo fvs vs body'
+                    then ALam t     vs body'
+                    else AClo   fvs vs body'

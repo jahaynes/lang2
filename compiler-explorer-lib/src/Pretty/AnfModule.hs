@@ -28,7 +28,7 @@ printAnfFunDefn (FunDefAnfT n (Quant qs) expr) =
 
     case expr of
 
-        AExp (ALam vs body) ->
+        AExp (ALam _ vs body) ->
             let impl = TB.intercalate " " [ bytestring n
                                           , printVars vs
                                           , "=\n" ]
@@ -89,10 +89,10 @@ printAExp ind aexp =
 
     case aexp of
 
-        ATerm term ->
+        ATerm _ term ->
             printTerm (decodeUtf8 <$> term)
 
-        ALam vs body ->
+        ALam _ vs body ->
             let body' = printAnfExpression ind body
             in
             mconcat ["(\\", printVars vs, ". ", body', ")"]

@@ -4,7 +4,7 @@ module Phase.Anf.AnfExpression where
 
 import Core.Operator
 import Core.Term
---import Core.Types
+import Core.Types
 
 -- TODO type this again!
 
@@ -13,9 +13,9 @@ data NExp s = AExp (AExp s)
             | NLet s (NExp s) (NExp s)
                 deriving (Functor, Show)
 
-data AExp s = ATerm (Term s)
-            | ALam [s] (NExp s)
-            | AClo [s] [s] (NExp s)
+data AExp s = ATerm (Type s) (Term s)
+            | ALam  (Type s) [s] (NExp s)
+            | AClo  (Type s) [s] [s] (NExp s)
             | AUnPrimOp UnOp (AExp s)
             | ABinPrimOp BinOp (AExp s) (AExp s)
                 deriving (Functor, Show)

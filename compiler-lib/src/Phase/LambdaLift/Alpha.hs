@@ -22,7 +22,7 @@ alphaNExp subst expr =
 
         CExp cexp -> CExp $ alphaCExp subst cexp
 
-        NLet a (AExp (ATerm (Var b))) c ->
+        NLet a (AExp (ATerm _ (Var b))) c ->
             alphaNExp (M.insert a b subst) c
 
         NLet a b c ->
@@ -33,16 +33,16 @@ alphaAExp subst aexp =
 
     case aexp of
 
-        t@(ATerm (Var v)) ->
+        te@(ATerm t (Var v)) ->
             case M.lookup v subst of
-                Just x  -> ATerm (Var x)
-                Nothing -> t
+                Just x  -> ATerm t (Var x)
+                Nothing -> te
 
-        t@ATerm{} ->
-            t
+        te@ATerm{} ->
+            te
 
-        ALam vs ex ->
-            ALam vs (alphaNExp subst ex)
+        ALam t vs ex ->
+            ALam t vs (alphaNExp subst ex)
 
         AUnPrimOp op ex ->
             AUnPrimOp op (alphaAExp subst ex)

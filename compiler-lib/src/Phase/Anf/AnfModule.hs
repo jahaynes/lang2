@@ -52,9 +52,9 @@ normExpr expr k =
                 normAtoms xs $ \xs' ->
                     k $ CExp $ CApp f' xs'
 
-        LamT _ vs body -> do
+        LamT t vs body -> do
             body' <- norm body
-            k $ AExp (ALam vs body')
+            k $ AExp (ALam t vs body')
 
         LetT _ a b c ->
             normExpr b $ \b' ->
@@ -75,20 +75,20 @@ normExpr expr k =
                 normAtom b $ \b' ->
                     k $ AExp $ ABinPrimOp op a' b'
 
-        TermT _ (LitBool i) ->
-            k $ AExp $ ATerm $ LitBool i
+        TermT t (LitBool i) ->
+            k $ AExp $ ATerm t $ LitBool i
 
-        TermT _ (LitInt i) ->
-            k $ AExp $ ATerm $ LitInt i
+        TermT t (LitInt i) ->
+            k $ AExp $ ATerm t $ LitInt i
 
-        TermT _ (LitString s) ->
-            k $ AExp $ ATerm (LitString s)
+        TermT t (LitString s) ->
+            k $ AExp $ ATerm t (LitString s)
 
-        TermT _ (Var v) ->
-            k $ AExp $ ATerm $ Var v
+        TermT t (Var v) ->
+            k $ AExp $ ATerm t $ Var v
 
-        TermT _ (DCons d) ->
-            k $ AExp $ ATerm $ DCons d
+        TermT t (DCons d) ->
+            k $ AExp $ ATerm t $ DCons d
 
         -- Probably the same way as IfThenElse !
         CaseT _ scrut ps ->
@@ -107,19 +107,21 @@ normAtom e k =
 
     case e of
 
-        LamT _ vs body ->
+        -- Assumes v == lam == lam'
+        LamT t vs body ->
             normExpr body $ \body' -> do
                 v    <- symGen =<< get
-                rest <- k $ ATerm $ Var v
+                rest <- k $ ATerm t $ Var v
                 pure $ NLet v
-                            (AExp $ ALam vs body')
+                            (AExp $ ALam t vs body')
                             rest
 
-        AppT _ f xs ->
+        -- assumes v == app == app'
+        AppT t f xs ->
             normAtom f $ \f' ->
                 normAtoms xs $ \xs' -> do
                     v    <- symGen =<< get
-                    rest <- k $ ATerm $ Var v
+                    rest <- k $ ATerm t $ Var v
                     pure $ NLet v
                                 (CExp $ CApp f' xs')
                                 rest
@@ -128,12 +130,13 @@ normAtom e k =
             normExpr b $ \b' ->
                 NLet a b' <$> normAtom c k
 
-        IfThenElseT _ pr tr fl ->
+        -- assumes v == ite == ite'
+        IfThenElseT t pr tr fl ->
             normAtom pr $ \pr' -> do
                 v    <- symGen =<< get
                 tr'  <- norm tr
                 fl'  <- norm fl
-                rest <- k $ ATerm $ Var v
+                rest <- k $ ATerm t $ Var v
                 pure $ NLet v
                             (CExp $ CIfThenElse pr' tr' fl')
                             rest
@@ -147,20 +150,20 @@ normAtom e k =
                 normAtom b $ \b' ->
                     k $ ABinPrimOp op a' b'
 
-        TermT _ (LitBool i) ->
-            k $ ATerm (LitBool i)
+        TermT t (LitBool i) ->
+            k $ ATerm t (LitBool i)
 
-        TermT _ (LitInt i) ->
-            k $ ATerm (LitInt i)
+        TermT t (LitInt i) ->
+            k $ ATerm t (LitInt i)
 
-        TermT _ (LitString s) ->
-            k $ ATerm (LitString s)
+        TermT t (LitString s) ->
+            k $ ATerm t (LitString s)
 
-        TermT _ (Var v) ->
-            k $ ATerm (Var v)
+        TermT t (Var v) ->
+            k $ ATerm t (Var v)
 
-        TermT _ (DCons d) ->
-            k $ ATerm (DCons d)
+        TermT t (DCons d) ->
+            k $ ATerm t (DCons d)
 
 normAtoms :: Show s => [ExprT s]
                     -> ([AExp s] -> State (AnfState s) (NExp s))
