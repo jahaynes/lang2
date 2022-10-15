@@ -6,8 +6,6 @@ import Core.Operator
 import Core.Term
 import Core.Types
 
--- TODO type this again!
-
 data NExp s = AExp (AExp s)
             | CExp (CExp s)
             | NLet s (NExp s) (NExp s)
@@ -28,3 +26,20 @@ data CExp s = CIfThenElse (Type s) (AExp s) (NExp s) (NExp s)
 data PExp s =
     PExp (NExp s) (NExp s) -- Maybe these can be less general?
         deriving (Functor, Show)
+
+typeOf :: NExp s -> Type s
+typeOf (AExp aexp)  = typeOfAExp aexp
+typeOf (CExp cexp)  = typeOfCExp cexp
+typeOf (NLet _ _ c) = typeOf c
+
+typeOfAExp :: AExp s -> Type s
+typeOfAExp (ATerm t _)          = t
+typeOfAExp (ALam t _ _)         = t
+typeOfAExp (AClo t _ _ _)       = t
+typeOfAExp (AUnPrimOp t _ _)    = t
+typeOfAExp (ABinPrimOp t _ _ _) = t
+
+typeOfCExp :: CExp s -> Type s
+typeOfCExp (CIfThenElse t _ _ _) = t
+typeOfCExp (CApp t _ _)          = t
+typeOfCExp (CCase t _ _)         = t
