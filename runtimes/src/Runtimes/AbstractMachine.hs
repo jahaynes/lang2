@@ -276,10 +276,10 @@ evalAexp env aexp =
                 OrB     -> logical (||) a' b'
                 ConcatS -> stringy (<>) a' b'
 
-        ALam t vs body ->
+        ALam _ vs body ->
             pure $ VClo vs body env
 
-        AClo fvs vs body ->
+        AClo _ fvs vs body ->
             let Env e = env
                 cloEnv = Env . M.fromList $ map (\fv -> (fv, e ! fv)) fvs
             in pure $ VClo vs body cloEnv

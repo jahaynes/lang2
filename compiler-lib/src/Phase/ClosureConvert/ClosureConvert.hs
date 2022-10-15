@@ -99,4 +99,4 @@ closureConvertDefn topLevelScope (FunDefAnfT n q fun) = do
                 fvs = S.toList $ getFreeVars scope body'
             pure $ if null fvs
                     then ALam t     vs body'
-                    else AClo   fvs vs body'
+                    else AClo t  fvs vs body'

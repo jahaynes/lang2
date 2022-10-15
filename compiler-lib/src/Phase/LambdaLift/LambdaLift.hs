@@ -126,7 +126,8 @@ lambdaLiftDefn nameGen (FunDefAnfT t n fun) =
         pure $ ATerm t (Var newName)
 
     -- TODO dedupe with above
-    liftLambdaOrClosure mName (AClo fvs vs body) = do
+    -- assumes lco has type t
+    liftLambdaOrClosure mName (AClo t fvs vs body) = do
         newName <- nameGen "lclo"
         let body' =
                 case mName of
@@ -136,10 +137,10 @@ lambdaLiftDefn nameGen (FunDefAnfT t n fun) =
                         let subst = foldr M.delete (M.singleton oldName newName) (fvs <> vs)
                         in alphaNExp subst body
                     Nothing -> body
-        lam' <- AExp . AClo fvs vs <$> ll body'
+        lam' <- AExp . AClo t fvs vs <$> ll body'
         let q = generalise lam'
         liftLambda $ FunDefAnfT newName q lam'
-        pure $ ATerm undefined (Var newName)
+        pure $ ATerm t (Var newName)
 
 -- TODO: Actually calculate the free type variables
 generalise :: NExp s -> Quant s

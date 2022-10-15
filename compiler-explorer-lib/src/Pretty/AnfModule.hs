@@ -97,7 +97,7 @@ printAExp ind aexp =
             in
             mconcat ["(\\", printVars vs, ". ", body', ")"]
 
-        AClo fvs vs body ->
+        AClo _ fvs vs body ->
             let fvs'  = mconcat ["{", printVars fvs, "}"]
                 vs'   = printVars vs
                 body' = printAnfExpression ind body
