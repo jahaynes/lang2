@@ -23,24 +23,29 @@ printAnfModule :: AnfModule ByteString -> Builder
 printAnfModule (AnfModule funDefnTs) = TB.intercalate "\n\n" (map printAnfFunDefn funDefnTs)
 
 printAnfFunDefn :: FunDefAnfT ByteString -> Builder
-printAnfFunDefn (FunDefAnfT n (Quant _) expr) =
+printAnfFunDefn (FunDefAnfT n (Quant qs) expr) =
 
-    let t = printType $ typeOf expr in
+    let quant = case qs of
+                    [] -> ""
+                    _  -> "forall " <> TB.intercalate " " (map bytestring qs) <> ". "
+
+        sig = bytestring n <> " : " <> quant <> (printType $ typeOf expr) in
 
     case expr of
 
         AExp (ALam _ vs body) ->
+
             let impl = TB.intercalate " " [ bytestring n
                                           , printVars vs
                                           , "=\n" ]
-            in TB.intercalate "\n" [t, impl <> printAnfExpression 1 body]
+            in TB.intercalate "\n" [sig, impl <> printAnfExpression 1 body]
 
         _ ->
             let impl = TB.intercalate " " [ bytestring n
                                           , "=\n"
                                           , printAnfExpression 1 expr ]
-            in TB.intercalate "\n" [t, bytestring n, impl]
-   
+            in TB.intercalate "\n" [sig, impl]
+
 -- TODO dedupe?
 printPolyType :: Polytype ByteString -> Builder
 printPolyType (Forall [] t) = printType t
