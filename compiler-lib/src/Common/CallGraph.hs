@@ -67,8 +67,8 @@ buildGraphAnf' fundefns = CallGraph . M.unions $ map go fundefns
 
         fnc cexp scope =
             case cexp of
-                CApp f xs            -> mconcat $ map (`fna` scope) (f:xs)
-                CIfThenElse pr tr fl -> mconcat [ fna pr scope, fn tr scope, fn fl scope]
+                CApp _ f xs            -> mconcat $ map (`fna` scope) (f:xs)
+                CIfThenElse _ pr tr fl -> mconcat [ fna pr scope, fn tr scope, fn fl scope]
 
         fnl a b c scope =
             let scope' = S.insert a scope

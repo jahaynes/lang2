@@ -120,18 +120,18 @@ printCExp ind cexp =
 
     case cexp of
 
-        CApp f xs ->
+        CApp _ f xs ->
             let f'  = printAExp ind f
                 xs' = map (printAExp ind) xs
             in TB.intercalate " " (f':xs')
 
-        CIfThenElse pr tr fl ->
+        CIfThenElse _ pr tr fl ->
             TB.intercalate "\n" [ indent  ind    <> "if "   <> printAExp ind pr
                                 , indent (ind+2) <> "then " <> printAnfExpression (ind+2) tr
                                 , indent (ind+2) <> "else " <> printAnfExpression (ind+2) fl ]
 
         -- TODO
-        CCase scrut ps ->
+        CCase _ scrut ps ->
             TB.intercalate "\n" ([ "case " <> printAExp 0 scrut ] ++
                                  (map (printPExp (ind + 2)) ps))
 

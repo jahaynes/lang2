@@ -20,9 +20,9 @@ data AExp s = ATerm      (Type s) (Term s)
             | ABinPrimOp (Type s) BinOp (AExp s) (AExp s)
                 deriving (Functor, Show)
 
-data CExp s = CIfThenElse (AExp s) (NExp s) (NExp s)
-            | CApp (AExp s) [AExp s]
-            | CCase (AExp s) [PExp s]
+data CExp s = CIfThenElse (Type s) (AExp s) (NExp s) (NExp s)
+            | CApp        (Type s) (AExp s) [AExp s]
+            | CCase       (Type s) (AExp s) [PExp s]
                 deriving (Functor, Show)
 
 data PExp s =

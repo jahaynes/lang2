@@ -47,10 +47,10 @@ normExpr expr k =
 
     case expr of
 
-        AppT _ f xs ->
+        AppT t f xs ->
             normAtom f $ \f' ->
                 normAtoms xs $ \xs' ->
-                    k $ CExp $ CApp f' xs'
+                    k $ CExp $ CApp t f' xs'
 
         LamT t vs body -> do
             body' <- norm body
@@ -60,11 +60,11 @@ normExpr expr k =
             normExpr b $ \b' ->
                 NLet a b' <$> normExpr c k
 
-        IfThenElseT _ pr tr fl ->
+        IfThenElseT t pr tr fl ->
             normAtom pr $ \pr' -> do
                 tr' <- norm tr
                 fl' <- norm fl
-                k $ CExp $ CIfThenElse pr' tr' fl'
+                k $ CExp $ CIfThenElse t pr' tr' fl'
 
         UnPrimOpT t op a ->
             normAtom a $ \a' ->
@@ -91,10 +91,10 @@ normExpr expr k =
             k $ AExp $ ATerm t $ DCons d
 
         -- Probably the same way as IfThenElse !
-        CaseT _ scrut ps ->
+        CaseT t scrut ps ->
             normAtom scrut $ \scrut' -> do
                 ps' <- mapM normPattern ps
-                k $ CExp $ CCase scrut' ps'
+                k $ CExp $ CCase t scrut' ps'
 
 -- both parts necessary?
 normPattern (PatternT a b) =
@@ -123,7 +123,7 @@ normAtom e k =
                     v    <- symGen =<< get
                     rest <- k $ ATerm t $ Var v
                     pure $ NLet v
-                                (CExp $ CApp f' xs')
+                                (CExp $ CApp t f' xs')
                                 rest
 
         LetT _ a b c ->
@@ -138,7 +138,7 @@ normAtom e k =
                 fl'  <- norm fl
                 rest <- k $ ATerm t $ Var v
                 pure $ NLet v
-                            (CExp $ CIfThenElse pr' tr' fl')
+                            (CExp $ CIfThenElse t pr' tr' fl')
                             rest
 
         UnPrimOpT t op a ->

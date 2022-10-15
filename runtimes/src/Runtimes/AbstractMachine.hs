@@ -332,7 +332,7 @@ evalCexp env cexp =
 
     case cexp of
 
-        CApp f xs -> do
+        CApp _ f xs -> do
 
             params <- mapM (evalAexp env) xs
 
@@ -360,7 +360,7 @@ evalCexp env cexp =
 
                     pure $ VDConsApp x allocatedParams
 
-        CIfThenElse pr tr fl ->
+        CIfThenElse _ pr tr fl ->
             evalAexp env pr >>= \case
                 VBool b ->
                     if b
@@ -368,7 +368,7 @@ evalCexp env cexp =
                         else evalExpr env fl
                 _ -> error "Mistyped predicate"
 
-        CCase scrut ps -> do
+        CCase _ scrut ps -> do
             scrut' <- evalAexp env scrut
             tryPatterns env scrut' ps
 
@@ -393,7 +393,7 @@ tryPatterns env scrut (PExp a b:ps) = do
                    env' = Env $ M.insert v (StackInt i) e -- guess stackint
                in evalExpr env' b
 
-        (VDConsApp s ss, CExp (CApp (ATerm _ (DCons a')) as))
+        (VDConsApp s ss, CExp (CApp _ (ATerm _ (DCons a')) as))
             | s == a' ->
                 case patternOrRefute env ss as of
                     Nothing   -> tryPatterns env scrut ps -- or should straight up fail?

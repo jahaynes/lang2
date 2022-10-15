@@ -92,17 +92,17 @@ lambdaLiftDefn nameGen (FunDefAnfT t n fun) =
 
         case cexp of
 
-            CApp f xs ->
-                CApp <$> lla f
-                     <*> mapM lla xs
+            CApp t f xs ->
+                CApp t <$> lla f
+                       <*> mapM lla xs
 
-            CIfThenElse pr tr fl ->
-                CIfThenElse <$> lla pr
-                            <*> ll tr
-                            <*> ll fl
+            CIfThenElse t pr tr fl ->
+                CIfThenElse t <$> lla pr
+                              <*> ll tr
+                              <*> ll fl
 
-            CCase scrut ps ->
-                CCase <$> lla scrut <*> mapM llp ps
+            CCase t scrut ps ->
+                CCase t <$> lla scrut <*> mapM llp ps
 
     llp (PExp a b) =
         PExp <$> ll a <*> ll b

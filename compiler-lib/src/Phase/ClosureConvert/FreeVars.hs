@@ -57,16 +57,16 @@ cexpFreeVars cexp =
 
     case cexp of
 
-        CApp f xs ->
+        CApp _ f xs ->
             mconcat <$> mapM aexpFreeVars (f:xs)
 
-        CIfThenElse pr tr fl -> do
+        CIfThenElse _ pr tr fl -> do
             a <- aexpFreeVars pr
             b <- nexpFreeVars tr
             c <- nexpFreeVars fl
             pure $ mconcat [a, b, c]
 
-        CCase scrut ps -> do
+        CCase _ scrut ps -> do
             a  <- aexpFreeVars scrut
             bs <- mapM pexpFreeVars ps
             pure $ mconcat (a:bs)
@@ -89,7 +89,7 @@ pexpFreeVars (PExp a b) =
 
         scopeFromCexp cexp =
             case cexp of
-                CApp (ATerm _ DCons{}) args -> concatMap scopeFromAexp args
+                CApp _ (ATerm _ DCons{}) args -> concatMap scopeFromAexp args
 
 termFreeVars :: Ord s => Term s -> State (Scope s) (Set s)
 termFreeVars t =

@@ -56,17 +56,17 @@ alphaCExp subst cexp =
     case cexp of
 
         -- Simple App-Lam beta reduction possible here?
-        CApp f xs ->
-            CApp (alphaAExp subst f) (map (alphaAExp subst) xs)
+        CApp t f xs ->
+            CApp t (alphaAExp subst f) (map (alphaAExp subst) xs)
 
-        CIfThenElse pr tr fl ->
-            CIfThenElse (alphaAExp subst pr)
-                        (alphaNExp subst tr)
-                        (alphaNExp subst fl)
+        CIfThenElse t pr tr fl ->
+            CIfThenElse t (alphaAExp subst pr)
+                          (alphaNExp subst tr)
+                          (alphaNExp subst fl)
 
-        CCase scrut ps ->
-            CCase (alphaAExp subst scrut)
-                  (map (alphaPExp subst) ps)
+        CCase t scrut ps ->
+            CCase t (alphaAExp subst scrut)
+                    (map (alphaPExp subst) ps)
 
 -- subst both sides?
 alphaPExp :: Ord s => Map s s -> PExp s -> PExp s
