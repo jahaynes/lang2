@@ -29,7 +29,7 @@ printAnfFunDefn (FunDefAnfT n (Quant qs) expr) =
                     [] -> ""
                     _  -> "forall " <> TB.intercalate " " (map bytestring qs) <> ". "
 
-        sig = bytestring n <> " : " <> quant <> (printType $ typeOf expr) in
+        sig = mconcat [bytestring n, " : ", quant, printType $ typeOf expr] in
 
     case expr of
 
@@ -45,11 +45,6 @@ printAnfFunDefn (FunDefAnfT n (Quant qs) expr) =
                                           , "=\n"
                                           , printAnfExpression 1 expr ]
             in TB.intercalate "\n" [sig, impl]
-
--- TODO dedupe?
-printPolyType :: Polytype ByteString -> Builder
-printPolyType (Forall [] t) = printType t
-printPolyType (Forall q  t) = mconcat ["forall ", printVars q, ". ", printType t]
 
 -- TODO dedupe?
 printVars :: [ByteString] -> Builder
