@@ -63,7 +63,7 @@ buildGraphAnf' fundefns = CallGraph . M.unions $ map go fundefns
                 ATerm _       _    -> mempty
                 ALam _ vs body     -> fn body (foldr S.insert scope vs)
                 AClo _ fvs vs body -> fn body (foldr S.insert scope (fvs++vs))
-                ABinPrimOp _ a b   -> fna a scope <> fna b scope
+                ABinPrimOp _ _ a b -> fna a scope <> fna b scope
 
         fnc cexp scope =
             case cexp of

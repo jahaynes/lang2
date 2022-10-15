@@ -81,12 +81,12 @@ lambdaLiftDefn nameGen (FunDefAnfT t n fun) =
             AClo{} ->
                 liftLambdaOrClosure Nothing aexp
 
-            AUnPrimOp o a ->
-                AUnPrimOp o <$> lla a
+            AUnPrimOp t o a ->
+                AUnPrimOp t o <$> lla a
 
-            ABinPrimOp o a b ->
-                ABinPrimOp o <$> lla a
-                             <*> lla b
+            ABinPrimOp t o a b ->
+                ABinPrimOp t o <$> lla a
+                               <*> lla b
 
     llc cexp =
 

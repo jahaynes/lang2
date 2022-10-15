@@ -246,20 +246,20 @@ evalAexp env aexp =
 
         ATerm _ te -> evalTerm env te
 
-        AUnPrimOp Negate a ->
+        AUnPrimOp _ Negate a ->
             evalAexp env a <&> \case
                 VInt i -> VInt (-i)
                 _      -> error "Negate expected an Int!"
 
-        AUnPrimOp Err a ->
+        AUnPrimOp _ Err a ->
              evalAexp env a <&> \case
                 VString s -> error (show s)
                 _         -> error "error expected a String!"
 
-        AUnPrimOp EShow a ->
+        AUnPrimOp _ EShow a ->
             VString . fromString . show <$> evalAexp env a
 
-        ABinPrimOp op a b ->
+        ABinPrimOp _ op a b ->
             bothM (evalAexp env) (a, b) <&> \(a', b') ->
             case op of
                 AddI    -> arith (+) a' b'

@@ -20,17 +20,18 @@ test_no_free_vars :: Property
 test_no_free_vars = unitTest $ do
 
     let inp = NLet "a"
-                   (AExp (ATerm (LitInt 1)))
-                   (AExp (ATerm (Var "a")))
+                   (AExp (ATerm undefined (LitInt 1)))
+                   (AExp (ATerm undefined (Var "a")))
 
     getFreeVars mempty inp === mempty
 
 test_lambda_free_vars :: Property
 test_lambda_free_vars = unitTest $ do
 
-    let inp = AExp $ ALam ["a"] $ AExp $ ABinPrimOp AddI
-                                                    (ATerm $ Var "a")
-                                                    (ATerm $ Var "b")
+    let inp = AExp $ ALam undefined ["a"] $ AExp $ ABinPrimOp undefined
+                                                              AddI
+                                                              (ATerm undefined $ Var "a")
+                                                              (ATerm undefined $ Var "b")
 
     getFreeVars mempty inp === S.singleton "b"
 

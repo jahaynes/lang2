@@ -103,11 +103,11 @@ printAExp ind aexp =
                 body' = printAnfExpression ind body
             in mconcat ["(\\", fvs', " ", vs', ". ", body', ")"]
 
-        AUnPrimOp op a ->
+        AUnPrimOp _ op a ->
             TB.intercalate " " [ printUnOp op
                                , printAExp ind a ]
 
-        ABinPrimOp op a b ->
+        ABinPrimOp _ op a b ->
             let x = TB.intercalate " " [ printAExp ind a
                                        , printBinOp op
                                        , printAExp ind b ]

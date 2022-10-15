@@ -66,14 +66,14 @@ normExpr expr k =
                 fl' <- norm fl
                 k $ CExp $ CIfThenElse pr' tr' fl'
 
-        UnPrimOpT _ op a ->
+        UnPrimOpT t op a ->
             normAtom a $ \a' ->
-                k $ AExp $ AUnPrimOp op a'
+                k $ AExp $ AUnPrimOp t op a'
 
-        BinPrimOpT _ op a b ->
+        BinPrimOpT t op a b ->
             normAtom a $ \a' ->
                 normAtom b $ \b' ->
-                    k $ AExp $ ABinPrimOp op a' b'
+                    k $ AExp $ ABinPrimOp t op a' b'
 
         TermT t (LitBool i) ->
             k $ AExp $ ATerm t $ LitBool i
@@ -141,14 +141,14 @@ normAtom e k =
                             (CExp $ CIfThenElse pr' tr' fl')
                             rest
 
-        UnPrimOpT _ op a ->
+        UnPrimOpT t op a ->
             normAtom a $ \a' ->
-                k $ AUnPrimOp op a'
+                k $ AUnPrimOp t op a'
 
-        BinPrimOpT _ op a b ->
+        BinPrimOpT t op a b ->
             normAtom a $ \a' ->
                 normAtom b $ \b' ->
-                    k $ ABinPrimOp op a' b'
+                    k $ ABinPrimOp t op a' b'
 
         TermT t (LitBool i) ->
             k $ ATerm t (LitBool i)

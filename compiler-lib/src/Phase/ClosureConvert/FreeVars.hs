@@ -36,17 +36,17 @@ aexpFreeVars aexp =
 
     case aexp of
 
-        ATerm _ t ->
-            termFreeVars t
+        ATerm _ term ->
+            termFreeVars term
 
         ALam _ vs b ->
             withScope vs $
                 nexpFreeVars b
 
-        AUnPrimOp _ a ->
+        AUnPrimOp _ _ a ->
             aexpFreeVars a
 
-        ABinPrimOp _ a b ->
+        ABinPrimOp _ _ a b ->
             mconcat <$> mapM aexpFreeVars [a, b]
 
         AClo{} ->

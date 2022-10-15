@@ -85,12 +85,12 @@ closureConvertDefn topLevelScope (FunDefAnfT n q fun) = do
                 AClo{} ->
                     error "Doesn't exist yet"
 
-                ABinPrimOp o a b ->
-                    ABinPrimOp o <$> cca a
-                                 <*> cca b
+                AUnPrimOp t o a ->
+                    AUnPrimOp t o <$> cca a
 
-                AUnPrimOp o a ->
-                    AUnPrimOp o <$> cca a
+                ABinPrimOp t o a b ->
+                    ABinPrimOp t o <$> cca a
+                                   <*> cca b
 
         -- assumes type stays same
         cclam mName t vs body = do

@@ -44,11 +44,11 @@ alphaAExp subst aexp =
         ALam t vs ex ->
             ALam t vs (alphaNExp subst ex)
 
-        AUnPrimOp op ex ->
-            AUnPrimOp op (alphaAExp subst ex)
+        AUnPrimOp t op ex ->
+            AUnPrimOp t op (alphaAExp subst ex)
 
-        ABinPrimOp op a b ->
-            ABinPrimOp op (alphaAExp subst a) (alphaAExp subst b)
+        ABinPrimOp t op a b ->
+            ABinPrimOp t op (alphaAExp subst a) (alphaAExp subst b)
 
 alphaCExp :: Ord s => Map s s -> CExp s -> CExp s
 alphaCExp subst cexp =
