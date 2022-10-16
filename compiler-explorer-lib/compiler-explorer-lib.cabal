@@ -21,6 +21,7 @@ library
                     wai-cors,
                     warp
   exposed-modules:  Pretty.AnfModule
+                    Pretty.Anf2
                     Pretty.Common
                     Pretty.Expression
                     Pretty.Module

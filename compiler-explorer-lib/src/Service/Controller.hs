@@ -13,7 +13,7 @@ import Phase.Anf.AnfModule
 import Phase.ClosureConvert.ClosureConvert
 import Phase.EtaExpand.EtaExpand
 import Phase.LambdaLift.LambdaLift
-import Pretty.AnfModule
+import Pretty.Anf2
 import Pretty.Module
 import Pretty.TypedModule
 import Runtimes.AbstractMachine
