@@ -112,8 +112,15 @@ printCExp cexp =
             xs' <- mapM (noIndent . printAExp) xs
             pure $ TB.intercalate " " (f':xs')
 
-        CIfThenElse _ pr tr fl ->
-            pure "TODO IFTHENELSE"
+        -- TODO improve
+        CIfThenElse _ pr tr fl -> do
+            pr'  <- noIndent $ printAExp pr
+            pr'' <- indent ("if " <> pr')
+            tr'  <- noIndent $ printNexp tr
+            tr'' <- withIndent $ indent ("then " <> tr')
+            fl'  <- noIndent $ printNexp fl
+            fl'' <- withIndent $ indent ("else " <> fl')
+            pure $ TB.intercalate "\n" [pr'', tr'', fl'']
 
 printTerm :: Term ByteString -> State Int Builder
 printTerm term =
