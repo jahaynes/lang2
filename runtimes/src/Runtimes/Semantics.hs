@@ -44,6 +44,8 @@ data Val = VClo
          | VHeapValAt Int
          | VUnknown
          | VApp Val [Val]
+         | VIf Val Val Val
+         | VBool Bool
          | VInt Integer
              deriving Show
 
@@ -100,11 +102,14 @@ lkupStackOrHeap a (Env env) stackAddrs =
             case M.lookup a env of
                 Just (HeapAddr i)  -> pure $ VHeapValAt i
                 Nothing -> error $ "Not in stack or heap: " ++ show a
-        
 
 asVal :: Env -> Map ByteString Int -> NExp ByteString -> IO Val
-asVal env stackAddrs (AExp aexp) = asValA env stackAddrs aexp
-asVal env stackAddrs (CExp cexp) = asValC env stackAddrs cexp
+asVal env stackAddrs (AExp aexp)  = asValA env stackAddrs aexp
+asVal env stackAddrs (CExp cexp)  = asValC env stackAddrs cexp
+asVal env stackAddrs nl@(NLet a b c) = do
+    -- register a as a mem address
+    -- does this make 'env' stateful?
+    error $ show nl
 
 asValA :: Env -> Map ByteString Int -> AExp ByteString -> IO Val
 asValA env stackAddrs aexp =
@@ -114,9 +119,11 @@ asValA env stackAddrs aexp =
         ATerm _ (Var v) ->
             lkupStackOrHeap v env stackAddrs
 
+        ATerm _ (LitBool b) ->
+            pure $ VBool b
+
         ATerm _ (LitInt i) ->
             pure $ VInt i
-
 
         ALam _ vs body ->
             -- Convert vs to stack addrs
@@ -133,7 +140,14 @@ asValA env stackAddrs aexp =
 asValC :: Env -> Map ByteString Int -> CExp ByteString -> IO Val
 asValC env stackAddrs cexp =
     case cexp of
-        CIfThenElse _ _pr _tr _fl -> error "if cexp"
+
+        CIfThenElse _ pr tr fl -> do
+            pr' <- asValA env stackAddrs pr
+            tr' <- asVal  env stackAddrs tr
+            fl' <- asVal  env stackAddrs fl
+            pure $ VIf pr' tr' fl'
+
+
         CApp        _ f xs        -> do
             f'  <-       asValA env stackAddrs f
             xs' <- mapM (asValA env stackAddrs) xs
