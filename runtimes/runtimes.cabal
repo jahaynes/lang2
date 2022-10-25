@@ -13,6 +13,7 @@ library
                     containers,
                     compiler-lib
   exposed-modules:  Runtimes.AbstractMachine
+                    Runtimes.Semantics
   ghc-options:      -Wall -O2
   hs-source-dirs:   src
   default-language: Haskell2010

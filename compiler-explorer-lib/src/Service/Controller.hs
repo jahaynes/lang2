@@ -16,9 +16,10 @@ import Phase.LambdaLift.LambdaLift
 import Pretty.Anf2
 import Pretty.Module
 import Pretty.TypedModule
-import Runtimes.AbstractMachine
+import Runtimes.Semantics
 import TypeSystem.TypeCheck
 
+import           Control.Monad.IO.Class      (liftIO)
 import           Data.Aeson
 import           Data.ByteString             (ByteString)
 import           Data.Text                   (Text, pack)
@@ -87,7 +88,7 @@ server src = do
     case getLambdaLifted ps of
         Left e -> pure ps { getOutput = e }
         Right machine -> do
-            let output = runMachine machine
+            output <- liftIO $ runMachine machine
             pure ps { getOutput = output }
 
 pipe :: State ProgramState ()
