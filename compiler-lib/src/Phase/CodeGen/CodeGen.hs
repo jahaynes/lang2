@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Runtimes.Semantics (runMachine) where
+module Phase.CodeGen.CodeGen (Val, codeGenModule, renderCodeGen) where
 
 import Common.State
 import Core.Operator
@@ -13,6 +13,9 @@ import           Data.Map.Strict       (Map)
 import qualified Data.Map as M
 import           Data.Set              (Set)
 import qualified Data.Set as S
+import           Data.Text             (Text)
+import qualified Data.Text as T
+import           Data.Text.Encoding
 
 newtype StackAddr =
     StackAddr Int
@@ -43,24 +46,22 @@ data FunState =
     FunState { getStackAddrs :: !(Map ByteString StackAddr)
              , getStackNum   :: !StackAddr }
 
-runMachine :: AnfModule ByteString -> IO (ByteString)
-runMachine modu = do
+renderCodeGen :: [(ByteString, Val)] -> Text
+renderCodeGen = T.unlines . map render
+    where
+    render (name, VFun stackInfo body) = mconcat [ decodeUtf8 name
+                                                 , " ("
+                                                 , T.pack $ show stackInfo
+                                                 , "):\n"
+                                                 , T.pack $ show body
+                                                 , "\n"
+                                                 ]
 
-    -- Preflight
-    loadedModu <- loadModule modu
-
-    -- must not use anything prefligh onwards from here....
-
-    pure "TODO"
-
-{- START Preflight -}
-
-loadModule :: AnfModule ByteString -> IO ()
-loadModule modu = do
+codeGenModule :: AnfModule ByteString -> [(ByteString, Val)]
+codeGenModule modu =
     let funDefs   = getFunDefAnfTs modu
         topLevels = TopLevels . S.fromList $ map (\(FunDefAnfT name _ _) -> name) funDefs
-        fundefs'  = map (process topLevels) funDefs
-    mapM_ print fundefs'
+    in map (process topLevels) funDefs
 
 process :: TopLevels -> FunDefAnfT ByteString -> (ByteString, Val)
 process tl (FunDefAnfT name q defn) =

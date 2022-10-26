@@ -11,6 +11,8 @@ library
   build-depends:    base,
                     bytestring,
                     containers,
+                    text,
+                    -- TODO remove text
                     vector,
                     vector-builder
   exposed-modules:  Common.CallGraph
@@ -29,6 +31,7 @@ library
                     Parse.Token
                     Phase.Anf.AnfExpression
                     Phase.Anf.AnfModule
+                    Phase.CodeGen.CodeGen
                     Phase.ClosureConvert.ClosureConvert
                     Phase.ClosureConvert.FreeVars
                     Phase.EtaExpand.EtaExpand
@@ -37,7 +40,6 @@ library
                     Phase.LambdaLift.LambdaLift
                     TypeCheck.ConstraintSolver
                     TypeSystem.Common
-                    -- TypeSystem.Ftv
                     TypeSystem.InferExpression
                     TypeSystem.InferOperator
                     TypeSystem.InferTerm
