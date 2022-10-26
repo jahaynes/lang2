@@ -10,7 +10,8 @@ import Core.Module
 import Parse.LexAndParse
 import Parse.Token
 import Phase.Anf.AnfModule
-import Phase.CodeGen.CodeGen
+import Phase.CodeGen.CodeGen1
+import Phase.CodeGen.CodeGen2
 import Phase.ClosureConvert.ClosureConvert
 import Phase.EtaExpand.EtaExpand
 import Phase.LambdaLift.LambdaLift
@@ -19,6 +20,7 @@ import Pretty.Module
 import Pretty.TypedModule
 import TypeSystem.TypeCheck
 
+import           Control.Monad.IO.Class      (liftIO)
 import           Data.Aeson
 import           Data.ByteString             (ByteString)
 import           Data.Text                   (Text, pack)
@@ -61,7 +63,7 @@ instance ToJSON ProgramState where
             txtClosureConvertedPretty = either decodeUtf8 renderAnfModule (getClosureConverted ps)
             txtLambdaLifted           = either decodeUtf8 (\(AnfModule anfdefs) -> pack . unlines . map show $ anfdefs) (getLambdaLifted ps)
             txtLambdaLiftedPretty     = either decodeUtf8 renderAnfModule (getLambdaLifted ps)
-            txtCodeGen                = either decodeUtf8 renderCodeGen (getCodeGen ps)
+            txtCodeGen                = either decodeUtf8 renderCodeGen1 (getCodeGen ps)
 
         object [ "output"                 .= String txtOutput
                , "tokens"                 .= String txtTokens
@@ -87,9 +89,13 @@ fromSource txt = ProgramState txt "" na na na na na na na na
 server :: Server Api
 server src = do
     let ps = execState pipe $ fromSource src
-    case getLambdaLifted ps of
+    case getCodeGen ps of
         Left e  -> pure ps { getOutput = e }
-        Right _ -> pure ps { getOutput = "TODO" }
+        Right cg -> do
+            
+            liftIO $ codeGenModule2 cg
+            
+            pure ps { getOutput = "TODO" }
 
 pipe :: State ProgramState ()
 pipe = do
@@ -131,7 +137,7 @@ pipe = do
 
     phaseCodeGen :: State ProgramState ()
     phaseCodeGen = modify' $ \ps ->
-        ps { getCodeGen = codeGenModule <$> getLambdaLifted ps }
+        ps { getCodeGen = codeGenModule1 <$> getLambdaLifted ps }
 
 runController :: Int -> IO ()
 runController port = run port . simpleCors $ serve (Proxy :: Proxy Api) server 

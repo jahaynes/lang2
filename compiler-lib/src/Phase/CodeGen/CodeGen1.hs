@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Phase.CodeGen.CodeGen (Val, codeGenModule, renderCodeGen) where
+module Phase.CodeGen.CodeGen1 (Val (..), codeGenModule1, renderCodeGen1) where
 
 import Common.State
 import Core.Operator
@@ -28,9 +28,7 @@ newtype StackInfo =
     StackInfo Int
         deriving (Eq, Ord, Show)
 
--- This isn't really a val anymore.
-data Val = VClo
-         | VFun StackInfo Val
+data Val = VFun StackInfo Val
          | VUnOp UnOp Val
          | VBinOp BinOp Val Val
          | VStackValAt ByteString StackAddr
@@ -46,8 +44,8 @@ data FunState =
     FunState { getStackAddrs :: !(Map ByteString StackAddr)
              , getStackNum   :: !StackAddr }
 
-renderCodeGen :: [(ByteString, Val)] -> Text
-renderCodeGen = T.unlines . map render
+renderCodeGen1 :: [(ByteString, Val)] -> Text
+renderCodeGen1 = T.unlines . map render
     where
     render (name, VFun stackInfo body) = mconcat [ decodeUtf8 name
                                                  , " ("
@@ -57,8 +55,8 @@ renderCodeGen = T.unlines . map render
                                                  , "\n"
                                                  ]
 
-codeGenModule :: AnfModule ByteString -> [(ByteString, Val)]
-codeGenModule modu =
+codeGenModule1 :: AnfModule ByteString -> [(ByteString, Val)]
+codeGenModule1 modu =
     let funDefs   = getFunDefAnfTs modu
         topLevels = TopLevels . S.fromList $ map (\(FunDefAnfT name _ _) -> name) funDefs
     in map (process topLevels) funDefs
@@ -93,8 +91,8 @@ asVal tl (NLet a b c) = VLet <$> letAsStackVar
 
 asValLam :: TopLevels -> [ByteString] -> NExp ByteString -> Val
 asValLam tl vs body =
-    let stackAddrs      = M.fromList $ zip vs (map StackAddr [0..])
-        state0          = FunState stackAddrs (StackAddr $ length vs)
+    let stackAddrs      = M.fromList $ zip vs (map StackAddr [1..])
+        state0          = FunState stackAddrs (StackAddr $ 1 + length vs)
         (body', state1) = runState' state0 (asVal tl body)
         StackAddr sz    = getStackNum state1
         stackInfo       = StackInfo sz
