@@ -8,151 +8,149 @@ import Core.Term
 import Phase.Anf.AnfExpression
 import Phase.Anf.AnfModule (AnfModule (..), FunDefAnfT (..))
 
-import           Control.Monad         (foldM)
-import           Data.ByteString.Char8 (ByteString, pack, unpack)
---import           Data.Functor          ((<&>))
-import           Data.Map.Strict       ((!), Map)
+import           Data.ByteString.Char8 (ByteString)
+import           Data.Map.Strict       (Map)
 import qualified Data.Map as M
--- import           Data.Sequence         (Seq (..), (|>), empty)
---import           Text.Printf           (printf)
-
+import           Data.Set              (Set)
+import qualified Data.Set as S
 
 newtype StackAddr =
     StackAddr Int
         deriving (Eq, Ord, Show)
 
-newtype HeapAddr =
-    HeapAddr Int
+newtype TopLevels =
+    TopLevels (Set ByteString)
+
+newtype StackInfo =
+    StackInfo Int
         deriving (Eq, Ord, Show)
 
-newtype Stack a =
-    Stack [a]
-        deriving Show
-
-newtype Env =
-    Env (Map ByteString HeapAddr)
-        deriving Show
-
-newtype Heap =
-    Heap (Map HeapAddr Val)
-        deriving Show
-
+-- This isn't really a val anymore.
 data Val = VClo
-         | VLam Val
+         | VFun StackInfo Val
+         | VUnOp UnOp Val
          | VBinOp BinOp Val Val
-         | VStackValAt Int
-         | VHeapValAt Int
-         | VUnknown
+         | VStackValAt ByteString StackAddr
          | VApp Val [Val]
          | VIf Val Val Val
          | VBool Bool
          | VInt Integer
+         | VLabel ByteString
+         | VLet Val Val Val
              deriving Show
 
+data FunState = 
+    FunState { getStackAddrs :: !(Map ByteString StackAddr)
+             , getStackNum   :: !StackAddr }
 
 runMachine :: AnfModule ByteString -> IO (ByteString)
 runMachine modu = do
 
-    let env0  = Env mempty
-    let heap0 = Heap mempty
-
     -- Preflight
-    loadedModu <- loadModule (env0, HeapAddr 0, heap0, modu)
+    loadedModu <- loadModule modu
 
-    -- must not use Env (or anything else preflight) onwards from here....
+    -- must not use anything prefligh onwards from here....
 
-    error "TODO"
+    pure "TODO"
 
 {- START Preflight -}
 
-loadModule :: (Env, HeapAddr, Heap, AnfModule ByteString) -> IO ()
-loadModule (env, freeHeap, heap, modu) = do
+loadModule :: AnfModule ByteString -> IO ()
+loadModule modu = do
+    let funDefs   = getFunDefAnfTs modu
+        topLevels = TopLevels . S.fromList $ map (\(FunDefAnfT name _ _) -> name) funDefs
+        fundefs'  = map (process topLevels) funDefs
+    mapM_ print fundefs'
 
-    let funDefs = getFunDefAnfTs modu
+process :: TopLevels -> FunDefAnfT ByteString -> (ByteString, Val)
+process tl (FunDefAnfT name q defn) =
 
-    (env',  _        ) <- foldM loadFunctionName        (env,  freeHeap) funDefs
-    (heap', freeHeap') <- foldM (loadFunctionBody env') (heap, freeHeap) funDefs
+    case defn of
 
-    print env'
-    print heap'
+        AExp (ALam _ vs body) ->
+            (name, asValLam tl vs body)
 
-loadFunctionName :: (Env, HeapAddr) -> FunDefAnfT ByteString -> IO (Env, HeapAddr)
-loadFunctionName (Env env, heapAddr) (FunDefAnfT name _ _) = do
-    print name
-    let env' = Env $ M.insert name heapAddr env
-    pure (env', next heapAddr)
-    
-loadFunctionBody :: Env -> (Heap, HeapAddr) -> FunDefAnfT ByteString -> IO (Heap, HeapAddr)
-loadFunctionBody env (Heap heap, heapAddr) (FunDefAnfT _ _ body) = do
-    body' <- asVal env mempty body
-    let heap' = Heap $ M.insert heapAddr body' heap
-    pure (heap', next heapAddr)
+        -- force everything into lambda?
+        expr ->
+            process tl (FunDefAnfT name q (AExp (ALam (typeOf expr) [] expr)))
 
-lkupStackAddr :: ByteString -> Map ByteString Int -> IO Val
-lkupStackAddr a stackAddrs =
-    case M.lookup a stackAddrs of
-        Nothing  -> error $ "missing from stack: " ++ show a
-        Just i   -> pure $ VStackValAt i
+asVal :: TopLevels -> NExp ByteString -> State FunState Val
+asVal tl (AExp aexp) = asValA tl aexp
+asVal tl (CExp cexp) = asValC tl cexp
+asVal tl (NLet a b c) = VLet <$> letAsStackVar
+                             <*> asVal tl b
+                             <*> asVal tl c
 
-lkupStackOrHeap :: ByteString -> Env -> Map ByteString Int -> IO Val
-lkupStackOrHeap a (Env env) stackAddrs =
-    case M.lookup a stackAddrs of
-        Just i  -> pure $ VStackValAt i
-        Nothing ->
-            case M.lookup a env of
-                Just (HeapAddr i)  -> pure $ VHeapValAt i
-                Nothing -> error $ "Not in stack or heap: " ++ show a
+    where
+    letAsStackVar :: State FunState Val
+    letAsStackVar = do
+        st <- get
+        let stackAddr = getStackNum st
+        put st { getStackAddrs = M.insert a stackAddr (getStackAddrs st)
+               , getStackNum   = next stackAddr }
+        pure $ VStackValAt a stackAddr
 
-asVal :: Env -> Map ByteString Int -> NExp ByteString -> IO Val
-asVal env stackAddrs (AExp aexp)  = asValA env stackAddrs aexp
-asVal env stackAddrs (CExp cexp)  = asValC env stackAddrs cexp
-asVal env stackAddrs nl@(NLet a b c) = do
-    -- register a as a mem address
-    -- does this make 'env' stateful?
-    error $ show nl
+asValLam :: TopLevels -> [ByteString] -> NExp ByteString -> Val
+asValLam tl vs body =
+    let stackAddrs      = M.fromList $ zip vs (map StackAddr [0..])
+        state0          = FunState stackAddrs (StackAddr $ length vs)
+        (body', state1) = runState' state0 (asVal tl body)
+        StackAddr sz    = getStackNum state1
+        stackInfo       = StackInfo sz
+    in VFun stackInfo body' 
 
-asValA :: Env -> Map ByteString Int -> AExp ByteString -> IO Val
-asValA env stackAddrs aexp =
+asValA :: TopLevels -> AExp ByteString -> State FunState Val
+asValA tl aexp =
 
     case aexp of
 
-        ATerm _ (Var v) ->
-            lkupStackOrHeap v env stackAddrs
+        ATerm _ term ->
+            asValT tl term
 
-        ATerm _ (LitBool b) ->
-            pure $ VBool b
+        ALam{} ->
+            error "Nested lambdas disallowed"
 
-        ATerm _ (LitInt i) ->
-            pure $ VInt i
+        AClo{} ->
+            error "Allowed here?"
 
-        ALam _ vs body ->
-            -- Convert vs to stack addrs
-            let stackAddrs' = M.fromList $ zip vs [0..]
-            in VLam <$> asVal env stackAddrs' body
+        AUnPrimOp _ op a ->
+            VUnOp op <$> asValA tl a
 
-        ABinPrimOp _ op a b -> do
-            a' <- asValA env stackAddrs a
-            b' <- asValA env stackAddrs b
-            pure $ VBinOp op a' b'
+        ABinPrimOp _ op a b ->
+            VBinOp op <$> asValA tl a
+                      <*> asValA tl b
 
-        _ -> error $ show aexp
+asValT :: TopLevels -> Term ByteString -> State FunState Val
+asValT (TopLevels t) term = do
+    stackAddrs <- getStackAddrs <$> get
+    pure $ case term of
+             LitBool b -> VBool b
+             LitInt i -> VInt i
+             Var v ->
+                case M.lookup v stackAddrs of
+                    Just sa -> VStackValAt v sa
+                    Nothing ->
+                      if S.member v t
+                        then VLabel v
+                        else error $ "Not in stack or top-level: " ++ show v
+             _ -> error $ "unknown term"
 
-asValC :: Env -> Map ByteString Int -> CExp ByteString -> IO Val
-asValC env stackAddrs cexp =
+asValC :: TopLevels -> CExp ByteString -> State FunState Val
+asValC tl cexp =
+
     case cexp of
 
-        CIfThenElse _ pr tr fl -> do
-            pr' <- asValA env stackAddrs pr
-            tr' <- asVal  env stackAddrs tr
-            fl' <- asVal  env stackAddrs fl
-            pure $ VIf pr' tr' fl'
+        CIfThenElse _ pr tr fl ->
+            VIf <$> asValA tl pr
+                <*> asVal  tl tr
+                <*> asVal  tl fl
 
+        CApp _ f xs ->
+            VApp <$>       asValA tl  f
+                 <*> mapM (asValA tl) xs
 
-        CApp        _ f xs        -> do
-            f'  <-       asValA env stackAddrs f
-            xs' <- mapM (asValA env stackAddrs) xs
-            pure $ VApp f' xs'
-        CCase       _ _scrut ps   -> error "caseof cexp"
+        CCase _ _scrut _ps ->
+            error "caseof cexp"
 
 {- END Preflight -}
 
@@ -185,15 +183,8 @@ lookupFun y = y
 -}
 
 
-
-
-
-
 class Next a where
     next :: a -> a
 
 instance Next StackAddr where
     next (StackAddr i) = StackAddr $ i + 1
-
-instance Next HeapAddr where
-    next (HeapAddr i) = HeapAddr $ i + 1
