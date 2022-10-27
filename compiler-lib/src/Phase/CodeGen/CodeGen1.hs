@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Phase.CodeGen.CodeGen1 (Val (..), codeGenModule1, renderCodeGen1) where
+module Phase.CodeGen.CodeGen1 (StackAddr (..), Val (..), codeGenModule1, renderCodeGen1) where
 
 import Common.State
 import Core.Operator
@@ -25,7 +25,7 @@ newtype TopLevels =
     TopLevels (Set ByteString)
 
 newtype StackInfo =
-    StackInfo Int
+    StackInfo (Map ByteString StackAddr)
         deriving (Eq, Ord, Show)
 
 data Val = VFun StackInfo Val
@@ -94,8 +94,7 @@ asValLam tl vs body =
     let stackAddrs      = M.fromList $ zip vs (map StackAddr [1..])
         state0          = FunState stackAddrs (StackAddr $ 1 + length vs)
         (body', state1) = runState' state0 (asVal tl body)
-        StackAddr sz    = getStackNum state1
-        stackInfo       = StackInfo sz
+        stackInfo       = StackInfo $ getStackAddrs state1
     in VFun stackInfo body' 
 
 asValA :: TopLevels -> AExp ByteString -> State FunState Val
@@ -150,37 +149,6 @@ asValC tl cexp =
 
         CCase _ _scrut _ps ->
             error "caseof cexp"
-
-{- END Preflight -}
-
-
-
-
-
-
-{-
-    prepareFunction (modu, "main", empty, empty)
-
-
-
-
-prepareFunction (modu, funName, evaldArgs, unevaldArgs) =
-    case unevaldArgs of
-        Empty ->
-            let funAddr = lookupFun funName
-            in callFunction (modu, funAddr, evaldArgs)
-        ua :<| uas ->
-            let a = force ua
-            in prepareFunction (modu, funName, evaldArgs |> a, uas)
-
-callFunction (modu, funAddr, evaldArgs) =
-    pure "foo"
-
-force x = x
-
-lookupFun y = y
--}
-
 
 class Next a where
     next :: a -> a

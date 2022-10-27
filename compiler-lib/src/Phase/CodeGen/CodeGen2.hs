@@ -9,7 +9,7 @@ import Phase.Anf.AnfExpression
 import Phase.Anf.AnfModule (AnfModule (..), FunDefAnfT (..))
 import Phase.CodeGen.CodeGen1
 
-import           Data.ByteString.Char8 (ByteString)
+import           Data.ByteString.Char8 (ByteString, pack)
 import           Data.Map.Strict       (Map)
 import qualified Data.Map as M
 import           Data.Set              (Set)
@@ -33,7 +33,7 @@ data Val = VFun StackInfo Val
 -}
 
 newtype GenState =
-    GenState { regNum :: Int }
+    GenState { getRegNum :: Int }
 
 newtype Reg =
     Reg ByteString
@@ -42,26 +42,84 @@ newtype Reg =
 data Stmt = Pop ByteString -- reg?
           | Push ByteString -- reg?
           | Jmp ByteString
-          | Cmp Reg Reg
+          | Cmp Param Param
           | JmpEq ByteString
+          | Ret Val
+          | Label ByteString
+          | LoadFromStack Reg StackAddr
               deriving Show
 
-codeGenModule2 :: [(ByteString, Val)] -> IO ()
-codeGenModule2 = mapM_ codeGen
+renderCodeGen2 :: [Stmt] -> Text
+renderCodeGen2 = T.unlines . map (T.pack . show)
+
+codeGenModule2 :: [(ByteString, Val)] -> [Stmt]
+codeGenModule2 = concatMap codeGen
 
     where
-    codeGen (name, val) = do
-        --print name
-        --print val
-        print $ emit val
+    codeGen (name, val) =
+        Label name : evalState' (GenState 0) (emit val)
 
-emit :: Val -> [Stmt]
+emit :: Val -> State GenState [Stmt]
 emit val =
     
     case val of
 
-        VFun _si body ->
+        VFun si body ->
             -- Todo set up stack frame?
             emit body
 
-        _ -> error $ "unknown val: " ++ show val
+        VIf pr tr fl -> do
+            pr' <- emit pr
+            tr' <- emit tr
+            fl' <- emit fl
+            -- TODO jumps etc?
+            pure $ concat [pr', tr', fl']
+
+        VBinOp EqA v1 v2 -> do
+            (is1, v1') <- asParam v1
+            (is2, v2') <- asParam v2
+            pure $ concat [is1, is2, [Cmp v1' v2']]
+
+        VBool{} ->
+            pure [Ret val]
+
+        VApp (VLabel addr) args -> do
+            -- do something with args
+            pure [Jmp addr]
+
+        VLet a b c -> do
+            -- TODO
+            pure []
+
+        _ ->
+            error $ "unknown val: " ++ show val
+
+data Param = PReg Reg
+           | PImm Integer
+               deriving Show
+
+asParam :: Val -> State GenState ([Stmt], Param)
+asParam x =
+
+    case x of
+
+        VStackValAt v sa -> do
+            reg <- freshReg
+            pure ([LoadFromStack reg sa], PReg reg)
+
+        VInt i -> do
+            pure ([], PImm i)
+
+        VBool b -> do
+            let i = if b then 1 else 0 --- bool to num
+            pure ([], PImm i)
+
+        _ -> error $ show x
+
+
+freshReg :: State GenState Reg
+freshReg = do
+    st <- get
+    let num = getRegNum st
+    put st { getRegNum = num + 1 }
+    pure . Reg . pack $ "r" ++ show num

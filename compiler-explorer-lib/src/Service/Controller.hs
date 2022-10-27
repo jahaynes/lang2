@@ -43,7 +43,8 @@ data ProgramState =
                  , getAnfConverted     :: Either ByteString (AnfModule ByteString)
                  , getClosureConverted :: Either ByteString (AnfModule ByteString)
                  , getLambdaLifted     :: Either ByteString (AnfModule ByteString)
-                 , getCodeGen          :: Either ByteString [(ByteString, Val)]
+                 , getCodeGen1         :: Either ByteString [(ByteString, Val)]
+                 , getCodeGen2         :: Either ByteString [Stmt]
                  }
 
 instance ToJSON ProgramState where
@@ -63,7 +64,8 @@ instance ToJSON ProgramState where
             txtClosureConvertedPretty = either decodeUtf8 renderAnfModule (getClosureConverted ps)
             txtLambdaLifted           = either decodeUtf8 (\(AnfModule anfdefs) -> pack . unlines . map show $ anfdefs) (getLambdaLifted ps)
             txtLambdaLiftedPretty     = either decodeUtf8 renderAnfModule (getLambdaLifted ps)
-            txtCodeGen                = either decodeUtf8 renderCodeGen1 (getCodeGen ps)
+            txtCodeGen1               = either decodeUtf8 renderCodeGen1 (getCodeGen1 ps)
+            txtCodeGen2               = either decodeUtf8 renderCodeGen2 (getCodeGen2 ps)
 
         object [ "output"                 .= String txtOutput
                , "tokens"                 .= String txtTokens
@@ -78,24 +80,22 @@ instance ToJSON ProgramState where
                , "closureConvertedPretty" .= String txtClosureConvertedPretty
                , "lambdaLifted"           .= String txtLambdaLifted
                , "lambdaLiftedPretty"     .= String txtLambdaLiftedPretty
-               , "codeGen"                .= String txtCodeGen
+               , "codeGen1"                .= String txtCodeGen1
+               , "codeGen2"                .= String txtCodeGen2
                ]
 
 fromSource :: Text -> ProgramState
-fromSource txt = ProgramState txt "" na na na na na na na na
+fromSource txt = ProgramState txt "" na na na na na na na na na
     where
     na = Left "Not Available"
 
 server :: Server Api
 server src = do
     let ps = execState pipe $ fromSource src
-    case getCodeGen ps of
-        Left e  -> pure ps { getOutput = e }
-        Right cg -> do
-            
-            liftIO $ codeGenModule2 cg
-            
-            pure ps { getOutput = "TODO" }
+    pure ps
+    --case getCodeGen ps of
+    --    Left e   -> pure ps { getOutput = e }
+    --    Right cg -> pure ps { getOutput = "TODO" }
 
 pipe :: State ProgramState ()
 pipe = do
@@ -105,7 +105,8 @@ pipe = do
     phaseAnfConvert
     phaseClosureConvert
     phaseLambdaLift
-    phaseCodeGen
+    phaseCodeGen1
+    phaseCodeGen2
 
     where
     phaseLexAndParse :: State ProgramState ()
@@ -135,9 +136,13 @@ pipe = do
     phaseLambdaLift = modify' $ \ps ->
         ps { getLambdaLifted = lambdaLift <$> getClosureConverted ps }
 
-    phaseCodeGen :: State ProgramState ()
-    phaseCodeGen = modify' $ \ps ->
-        ps { getCodeGen = codeGenModule1 <$> getLambdaLifted ps }
+    phaseCodeGen1 :: State ProgramState ()
+    phaseCodeGen1 = modify' $ \ps ->
+        ps { getCodeGen1 = codeGenModule1 <$> getLambdaLifted ps }
+
+    phaseCodeGen2 :: State ProgramState ()
+    phaseCodeGen2 = modify' $ \ps ->
+        ps { getCodeGen2 = codeGenModule2 <$> getCodeGen1 ps }
 
 runController :: Int -> IO ()
 runController port = run port . simpleCors $ serve (Proxy :: Proxy Api) server 
