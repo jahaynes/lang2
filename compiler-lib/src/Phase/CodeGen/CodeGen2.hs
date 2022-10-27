@@ -18,33 +18,23 @@ import           Data.Text             (Text)
 import qualified Data.Text as T
 import           Data.Text.Encoding
 
-{-
-data Val = VFun StackInfo Val
-         | VUnOp UnOp Val
-         | VBinOp BinOp Val Val
-         | VStackValAt ByteString StackAddr
-         | VApp Val [Val]
-         | VIf Val Val Val
-         | VBool Bool
-         | VInt Integer
-         | VLabel ByteString
-         | VLet Val Val Val
-             deriving Show
--}
-
-newtype GenState =
-    GenState { getRegNum :: Int }
+data GenState =
+    GenState { getRegNum    :: !Int
+             , getBranchNum :: !Int }
 
 newtype Reg =
     Reg ByteString
         deriving Show
 
-data Stmt = Pop ByteString -- reg?
-          | Push ByteString -- reg?
-          | Jmp ByteString
+data Stmt = Pop Reg
+          | Push Param
+          | Jmp Param
           | Cmp Param Param
-          | JmpEq ByteString
+          | Add Param Param
+          | Sub Param Param
+          | JmpNEq ByteString
           | Ret Val
+          | Mov Param Param
           | Label ByteString
           | LoadFromStack Reg StackAddr
               deriving Show
@@ -57,7 +47,7 @@ codeGenModule2 = concatMap codeGen
 
     where
     codeGen (name, val) =
-        Label name : evalState' (GenState 0) (emit val)
+        Label name : evalState' (GenState 0 0) (emit val)
 
 emit :: Val -> State GenState [Stmt]
 emit val =
@@ -69,33 +59,50 @@ emit val =
             emit body
 
         VIf pr tr fl -> do
+            (then', else') <- freshThenElsePair
             pr' <- emit pr
             tr' <- emit tr
             fl' <- emit fl
             -- TODO jumps etc?
-            pure $ concat [pr', tr', fl']
+            pure $ concat [ pr'
+                          , [JmpNEq else']
+                          , [Label then']
+                          -- done needed here?
+                          , tr'
+                          , [Label else']
+                          , fl']
 
-        VBinOp EqA v1 v2 -> do
+        VBinOp op v1 v2 -> do
             (is1, v1') <- asParam v1
             (is2, v2') <- asParam v2
-            pure $ concat [is1, is2, [Cmp v1' v2']]
+
+            pure $ case op of
+                       EqA  -> concat [is1, is2, [Cmp v1' v2']]
+                       AddI -> concat [is1, is2, [Add v1' v2']]
 
         VBool{} ->
             pure [Ret val]
 
-        VApp (VLabel addr) args -> do
-            -- do something with args
-            pure [Jmp addr]
+        VApp addr args -> do
+            (s1, dest)  <- asParam addr
+            (s2, args') <- unzip <$> mapM asParam args
+            let pushes = map Push args'
+            pure $ concat [s1, concat s2, pushes, [Jmp dest]]
 
         VLet a b c -> do
-            -- TODO
-            pure []
+            -- interleaving ok?
+            (is1, a') <- asParam a
+            (is2, b') <- asParam b
+            c' <- emit c
+            pure $ concat [is1, is2, [Mov a' b'], c']
 
         _ ->
             error $ "unknown val: " ++ show val
 
 data Param = PReg Reg
            | PImm Integer
+           | PLabel ByteString
+           | PResultReg
                deriving Show
 
 asParam :: Val -> State GenState ([Stmt], Param)
@@ -114,8 +121,21 @@ asParam x =
             let i = if b then 1 else 0 --- bool to num
             pure ([], PImm i)
 
+        VBinOp op a b -> do
+            (is1, a') <- asParam a
+            (is2, b') <- asParam b
+            pure $ case op of
+                       AddI -> (concat [is1, is2, [Add a' b']], resultRegOf AddI)
+                       SubI -> (concat [is1, is2, [Sub a' b']], resultRegOf SubI)
+
+        VLabel lbl ->
+            pure ([], PLabel lbl)
+
         _ -> error $ show x
 
+resultRegOf :: BinOp -> Param
+resultRegOf AddI = PResultReg
+resultRegOf SubI = PResultReg
 
 freshReg :: State GenState Reg
 freshReg = do
@@ -123,3 +143,10 @@ freshReg = do
     let num = getRegNum st
     put st { getRegNum = num + 1 }
     pure . Reg . pack $ "r" ++ show num
+
+freshThenElsePair :: State GenState (ByteString, ByteString)
+freshThenElsePair = do
+    st <- get
+    let num = getBranchNum st
+    put st { getBranchNum = num + 1 }
+    pure (pack $ "then_" ++ show num, pack $ "else_" ++ show num)
