@@ -83,6 +83,12 @@ emit val =
         VBool{} ->
             pure [Ret val]
 
+        VInt{} ->
+            pure [Ret val]
+
+        VStackValAt{} ->
+            pure [Ret val]
+
         VApp addr args -> do
             (s1, dest)  <- asParam addr
             (s2, args') <- unzip <$> mapM asParam args
@@ -91,7 +97,7 @@ emit val =
 
         VLet a b c -> do
             -- interleaving ok?
-            (is1, a') <- asParam a
+            (is1, a') <- asParam a -- isn't right.  is1 producing extra LoadFromStack with main()
             (is2, b') <- asParam b
             c' <- emit c
             pure $ concat [is1, is2, [Mov a' b'], c']
