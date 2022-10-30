@@ -10,8 +10,7 @@ import Core.Module
 import Parse.LexAndParse
 import Parse.Token
 import Phase.Anf.AnfModule
-import Phase.CodeGen.CodeGen1
-import Phase.CodeGen.CodeGen2
+import Phase.CodeGen.CodeGen0
 import Phase.ClosureConvert.ClosureConvert
 import Phase.EtaExpand.EtaExpand
 import Phase.LambdaLift.LambdaLift
@@ -43,9 +42,8 @@ data ProgramState =
                  , getAnfConverted     :: Either ByteString (AnfModule ByteString)
                  , getClosureConverted :: Either ByteString (AnfModule ByteString)
                  , getLambdaLifted     :: Either ByteString (AnfModule ByteString)
-                 , getCodeGen1         :: Either ByteString [(ByteString, Val)]
-                 , getCodeGen2         :: Either ByteString [Stmt]
-                 }
+                 , getCodeGen0         :: Either ByteString [SubRoutine ByteString]
+  }
 
 instance ToJSON ProgramState where
 
@@ -64,8 +62,7 @@ instance ToJSON ProgramState where
             txtClosureConvertedPretty = either decodeUtf8 renderAnfModule (getClosureConverted ps)
             txtLambdaLifted           = either decodeUtf8 (\(AnfModule anfdefs) -> pack . unlines . map show $ anfdefs) (getLambdaLifted ps)
             txtLambdaLiftedPretty     = either decodeUtf8 renderAnfModule (getLambdaLifted ps)
-            txtCodeGen1               = either decodeUtf8 renderCodeGen1 (getCodeGen1 ps)
-            txtCodeGen2               = either decodeUtf8 renderCodeGen2 (getCodeGen2 ps)
+            txtCodeGen0               = either decodeUtf8 renderCodeGen0 (getCodeGen0 ps)
 
         object [ "output"                 .= String txtOutput
                , "tokens"                 .= String txtTokens
@@ -80,12 +77,11 @@ instance ToJSON ProgramState where
                , "closureConvertedPretty" .= String txtClosureConvertedPretty
                , "lambdaLifted"           .= String txtLambdaLifted
                , "lambdaLiftedPretty"     .= String txtLambdaLiftedPretty
-               , "codeGen1"                .= String txtCodeGen1
-               , "codeGen2"                .= String txtCodeGen2
+               , "codeGen0"               .= String txtCodeGen0
                ]
 
 fromSource :: Text -> ProgramState
-fromSource txt = ProgramState txt "" na na na na na na na na na
+fromSource txt = ProgramState txt "" na na na na na na na na na na
     where
     na = Left "Not Available"
 
@@ -105,8 +101,7 @@ pipe = do
     phaseAnfConvert
     phaseClosureConvert
     phaseLambdaLift
-    phaseCodeGen1
-    phaseCodeGen2
+    phaseCodeGen0
 
     where
     phaseLexAndParse :: State ProgramState ()
@@ -136,13 +131,9 @@ pipe = do
     phaseLambdaLift = modify' $ \ps ->
         ps { getLambdaLifted = lambdaLift <$> getClosureConverted ps }
 
-    phaseCodeGen1 :: State ProgramState ()
-    phaseCodeGen1 = modify' $ \ps ->
-        ps { getCodeGen1 = codeGenModule1 <$> getLambdaLifted ps }
-
-    phaseCodeGen2 :: State ProgramState ()
-    phaseCodeGen2 = modify' $ \ps ->
-        ps { getCodeGen2 = codeGenModule2 <$> getCodeGen1 ps }
+    phaseCodeGen0 :: State ProgramState ()
+    phaseCodeGen0 = modify' $ \ps ->
+        ps { getCodeGen0 = codeGenModule0 <$> getLambdaLifted ps }
 
 runController :: Int -> IO ()
 runController port = run port . simpleCors $ serve (Proxy :: Proxy Api) server 

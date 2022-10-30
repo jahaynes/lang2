@@ -25,9 +25,7 @@ class App extends React.Component {
     const closureConvertedPretty = this.getAndClearElement("closureConvertedPretty")
     const lambdaLifted           = this.getAndClearElement("lambdaLifted")
     const lambdaLiftedPretty     = this.getAndClearElement("lambdaLiftedPretty")
-    const codeGen1               = this.getAndClearElement("codeGen1")
-    const codeGen2               = this.getAndClearElement("codeGen2")
-
+    const codeGen0               = this.getAndClearElement("codeGen0")
     fetch("http://127.0.0.1:8080/lexAndParse", { method: 'POST', body: source.value })
       .then(resp => resp.json())
       .then((ts) => {
@@ -43,8 +41,7 @@ class App extends React.Component {
         closureConvertedPretty.value = ts.closureConvertedPretty;
         lambdaLifted.value           = ts.lambdaLifted;
         lambdaLiftedPretty.value     = ts.lambdaLiftedPretty;
-        codeGen1.value               = ts.codeGen1;
-        codeGen2.value               = ts.codeGen2;
+        codeGen0.value               = ts.codeGen0;
       })
   }
 
@@ -55,8 +52,7 @@ class App extends React.Component {
         <label>Source / CodeGen</label>
         <div>
           <textarea id='text' className='editor' spellCheck='false' rows='14' onChange={e => this.lexAndParse()}></textarea>
-          <textarea id='codeGen1' className='editor' spellCheck='false' rows='14'></textarea>
-          <textarea id='codeGen2' className='editor' spellCheck='false' rows='14'></textarea>
+          <textarea id='codeGen0' className='editor' spellCheck='false' rows='14'></textarea>
         </div>
 
         <label>Tokens / Definitions</label>

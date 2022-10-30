@@ -31,8 +31,7 @@ library
                     Parse.Token
                     Phase.Anf.AnfExpression
                     Phase.Anf.AnfModule
-                    Phase.CodeGen.CodeGen1
-                    Phase.CodeGen.CodeGen2
+                    Phase.CodeGen.CodeGen0
                     Phase.ClosureConvert.ClosureConvert
                     Phase.ClosureConvert.FreeVars
                     Phase.EtaExpand.EtaExpand
