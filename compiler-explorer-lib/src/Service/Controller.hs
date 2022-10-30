@@ -81,7 +81,7 @@ instance ToJSON ProgramState where
                ]
 
 fromSource :: Text -> ProgramState
-fromSource txt = ProgramState txt "" na na na na na na na na na na
+fromSource txt = ProgramState txt "" na na na na na na na na
     where
     na = Left "Not Available"
 
