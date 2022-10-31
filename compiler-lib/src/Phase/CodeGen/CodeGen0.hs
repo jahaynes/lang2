@@ -1,4 +1,4 @@
-{-# LANGUAGE LambdaCase, OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Phase.CodeGen.CodeGen0 (SubRoutine, codeGenModule0, renderCodeGen0) where
 
@@ -10,7 +10,6 @@ import Phase.Anf.AnfModule     (AnfModule (..), FunDefAnfT (..))
 
 import           Control.Monad         (replicateM)
 import           Data.ByteString.Char8 (ByteString, pack)
-import           Data.Functor          ((<&>))
 import           Data.Map.Strict       (Map, (!))
 import qualified Data.Map as M
 import           Data.Text             (Text)
@@ -26,9 +25,9 @@ data SubRoutine s =
                , getInstrs :: ![Instr s]
                } deriving Show
 
-data Instr s = CallFun s s
+data Instr s = CallFun (Val s)
              | PushArg (Val s)
-             | PopArg s
+             | Pop s
              | Ret (Val s)
              | BinOpInstr BinOp s (Val s) (Val s)
              | Assign s (Val s)
@@ -46,15 +45,14 @@ data Val s = Reg s
 
 renderCodeGen0 :: [SubRoutine ByteString] -> Text
 renderCodeGen0 = T.unlines . map render
-
     where
-    render (SubRoutine n is) = do
+    render (SubRoutine n is) =
         T.unlines ( decodeUtf8 n <> ":"
                   : (map (\i -> "  " <> i) $ map (T.pack . show) is)
                   )
 
 codeGenModule0 :: AnfModule ByteString -> [SubRoutine ByteString]
-codeGenModule0 = map (process genFresh) . getFunDefAnfTs
+codeGenModule0 = map (process genFresh assignReg) . getFunDefAnfTs
 
     where
     genFresh :: FreshType -> State (GenState ByteString) ByteString
@@ -74,14 +72,20 @@ data FreshType = FrReg
                | FrTrueBranch
                | FrFalseBranch
 
-getRegFor :: Ord s => s -> State (GenState s) (Maybe s)
-getRegFor v =
-    M.lookup v . regMap <$> get
+assignReg :: ByteString -> State (GenState ByteString) ByteString
+assignReg v = do
+    st <- get
+    let num = freshNum st
+        reg = "%" <> pack (show num)
+    put st { regMap   = M.insert v reg $ regMap st 
+           , freshNum = num + 1 }
+    pure reg
 
 process :: (Ord s, Show s) => (FreshType -> State (GenState s) s)
+                           -> (s -> State (GenState s) s)
                            -> FunDefAnfT s
                            -> SubRoutine s
-process genFresh (FunDefAnfT name q expr) =
+process genFresh assignReg (FunDefAnfT name q expr) =
 
     case expr of
 
@@ -92,8 +96,8 @@ process genFresh (FunDefAnfT name q expr) =
                         regs <- replicateM (length vs) (genFresh FrReg)
                         let rm = M.fromList $ zip vs regs
                         modify' $ \st -> st { regMap = rm }
-                        let pops = map (\v -> PopArg $ rm ! v) vs
-                        (is, x) <- goNexp genFresh body
+                        let pops = map (\v -> Pop $ rm ! v) vs
+                        (is, x) <- go genFresh assignReg body
                         pure (pops ++ is, x)
 
             in SubRoutine { getName   = name
@@ -101,72 +105,73 @@ process genFresh (FunDefAnfT name q expr) =
 
         _ ->
             let asLambda = AExp (ALam (typeOf expr) [] expr)
-            in process genFresh (FunDefAnfT name q asLambda)
+            in process genFresh assignReg (FunDefAnfT name q asLambda)
 
+go :: (Ord s, Show s) => (FreshType -> State (GenState s) s)
+                      -> (s -> State (GenState s) s)
+                      -> NExp s
+                      -> State (GenState s) ([Instr s], Val s)
+go genFresh assignReg = goNexp
 
-goNexp :: (Ord s, Show s) => (FreshType -> State (GenState s) s)
-                          -> NExp s
-                          -> State (GenState s) ([Instr s], Val s)
-goNexp genFresh (AExp aexp) = goAexp genFresh aexp
-goNexp genFresh (CExp cexp) = goCexp genFresh cexp
-goNexp _ (NLet _a _b _c) = error "let"
+    where
+    goNexp (AExp aexp)  = goAexp aexp
+    goNexp (CExp cexp)  = goCexp cexp
+    goNexp (NLet a b c) = do
+        a'        <- assignReg a
+        (is1, b') <- goNexp b
+        (is2, c') <- goNexp c
+        pure (is1 ++ [Assign a' b'] ++ is2, c')
 
-goAexp :: (Ord s, Show s) => (FreshType -> State (GenState s) s)
-                          -> AExp s
-                          -> State (GenState s) ([Instr s], Val s)
-goAexp genFresh aexp =
+    goAexp aexp =
 
-    case aexp of
+        case aexp of
 
-        ABinPrimOp _ op a b -> do
+            ABinPrimOp _ op a b -> do
+                (is1, a') <- goAexp a
+                (is2, b') <- goAexp b
+                fr        <- genFresh FrReg
+                pure (is1 ++ is2 ++ [BinOpInstr op fr a' b'], Reg fr)
 
-            (is1, a') <- goAexp genFresh a
-            (is2, b') <- goAexp genFresh b
-            fr        <- genFresh FrReg
-            pure (is1 ++ is2 ++ [BinOpInstr op fr a' b'], Reg fr)
+            ATerm _ term -> do
+                val <- goTerm term
+                pure ([], val)
 
-        ATerm _ term -> do
-            val <- goTerm term
-            pure ([], val)
+    goCexp cexp =
 
-        _ -> error $ show aexp
+        case cexp of
 
-goCexp :: (Ord s, Show s) => (FreshType -> State (GenState s) s)
-                          -> CExp s
-                          -> State (GenState s) ([Instr s], Val s)
-goCexp genFresh cexp =
+            CApp _ f xs -> do
 
-    case cexp of
+                (is1,  f') <- goAexp f
+                (is2, xs') <- unzip <$> mapM goAexp xs
+                let pushes = map PushArg $ reverse xs'
+                fr <- genFresh FrReg
+                pure ( concat [ is1
+                              , concat is2
+                              , pushes
+                              , [CallFun f', Pop fr]]
+                     , Reg fr)
 
-        CApp _ f xs -> do
-            (is1, Label f') <- goAexp genFresh f
-            (is2,      xs') <- unzip <$> mapM (goAexp genFresh) xs
-            let pushes = map PushArg $ reverse xs'
-            fr <- genFresh FrReg
-            pure (is1 ++ concat is2 ++ pushes ++ [CallFun fr f'], Reg fr)
+            CIfThenElse _ pr tr fl -> do
 
-        CIfThenElse _ pr tr fl -> do
+                (is1, v) <- goAexp pr
 
-            (is1, v) <- goAexp genFresh pr
+                trLabel <- genFresh FrTrueBranch
+                flLabel <- genFresh FrFalseBranch
 
-            trLabel <- genFresh FrTrueBranch
-            flLabel <- genFresh FrFalseBranch
+                let prs = is1 ++ [ Cmp v
+                                , JmpNeq flLabel
+                                , Jmp trLabel ]
 
-            let prs = is1 ++ [ Cmp v
-                             , JmpNeq flLabel
-                             , Jmp trLabel ]
+                fr <- genFresh FrReg
 
-            fr <- genFresh FrReg
+                (is2, tr') <- goNexp tr
+                let trs = ILabel trLabel : is2 ++ [Assign fr tr']
 
-            (is2, tr') <- goNexp genFresh tr
-            let trs = ILabel trLabel : is2 ++ [Assign fr tr']
+                (is3, fl') <- goNexp fl           
+                let fls = ILabel flLabel : is3 ++ [Assign fr fl']
 
-            (is3, fl') <- goNexp genFresh fl           
-            let fls = ILabel flLabel : is3 ++ [Assign fr fl']
-
-            pure (prs ++ trs ++ fls, Reg fr)
-
-        _ -> error $ show cexp
+                pure (prs ++ trs ++ fls, Reg fr)
 
 goTerm :: (Ord s, Show s) => Term s
                           -> State (GenState s) (Val s)
@@ -174,10 +179,11 @@ goTerm term =
 
     case term of
 
-        Var v ->
-            getRegFor v <&> \case
-                Just r  -> Reg r
-                Nothing -> Label v
+        Var v -> do
+            mr <- M.lookup v . regMap <$> get
+            pure $ case mr of
+                       Just r  -> Reg r
+                       Nothing -> Label v
 
         LitInt i ->
             pure $ VInt i
