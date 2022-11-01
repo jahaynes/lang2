@@ -97,6 +97,9 @@ printAExp aexp =
         ALam _ vs body ->
             pure "lam"
 
+        AClo _ _ vs body ->
+            pure "clo"
+
         ABinPrimOp _ op a b -> do
             a' <- printAExp a
             b' <- noIndent $ printAExp b
@@ -128,3 +131,4 @@ printTerm term =
                  LitBool b -> if b then "True" else "False"
                  LitInt i  -> TB.decimal i
                  Var v     -> byteString v
+                 DCons dc  -> byteString dc

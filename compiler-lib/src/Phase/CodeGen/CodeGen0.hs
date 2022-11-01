@@ -41,6 +41,9 @@ data Val s = Reg s
            | VInt Integer
            | VBool Bool
            | Label s
+           | VDConsName s
+           | VDCons s [Val s] -- TODO include tag?
+           | VUnkn
                deriving Show
 
 renderCodeGen0 :: [SubRoutine ByteString] -> Text
@@ -136,21 +139,43 @@ go genFresh assignReg = goNexp
                 val <- goTerm term
                 pure ([], val)
 
+            AClo _ _ _ _ -> do
+                error "clo"
+
     goCexp cexp =
 
         case cexp of
 
+            -- An application can be a function call or a data construction
             CApp _ f xs -> do
 
                 (is1,  f') <- goAexp f
-                (is2, xs') <- unzip <$> mapM goAexp xs
-                let pushes = map PushArg $ reverse xs'
-                fr <- genFresh FrReg
-                pure ( concat [ is1
-                              , concat is2
-                              , pushes
-                              , [CallFun f', Pop fr]]
-                     , Reg fr)
+
+                case f' of
+
+                    -- TODO a nullary DC like Nothing doesn't pass through here
+
+                    -- Data construction (todo - ensure saturation?)
+                    VDConsName vcn -> do
+                        (is2, xs') <- unzip <$> mapM goAexp xs
+                        fr <- genFresh FrReg --reg?
+
+                        pure ( concat [ is1
+                                      , concat is2
+                                      , [Assign fr (VDCons vcn xs')]
+                                      ]
+                             , Reg fr )
+
+                    -- Function call
+                    Label{} -> do
+                        (is2, xs') <- unzip <$> mapM goAexp xs
+                        let pushes = map PushArg $ reverse xs'
+                        fr <- genFresh FrReg
+                        pure ( concat [ is1
+                                      , concat is2
+                                      , pushes
+                                      , [CallFun f', Pop fr]]
+                             , Reg fr)
 
             CIfThenElse _ pr tr fl -> do
 
@@ -160,8 +185,8 @@ go genFresh assignReg = goNexp
                 flLabel <- genFresh FrFalseBranch
 
                 let prs = is1 ++ [ Cmp v
-                                , JmpNeq flLabel
-                                , Jmp trLabel ]
+                                 , JmpNeq flLabel
+                                 , Jmp trLabel ]
 
                 fr <- genFresh FrReg
 
@@ -191,3 +216,5 @@ goTerm term =
         LitBool b ->
             pure $ VBool b
 
+        DCons dc ->
+            pure $ VDConsName dc
