@@ -26,9 +26,9 @@ data SubRoutine s =
                } deriving Show
 
 data Instr s = CallFun (Val s)
-             | PushArg (Val s)
+             | Push (Val s)
              | Pop s
-             | Ret (Val s)
+             | Ret
              | BinOpInstr BinOp s (Val s) (Val s)
              | Assign s (Val s)
              | Cmp (Val s)
@@ -105,7 +105,7 @@ process genFresh assignReg (FunDefAnfT name q expr) =
                         pure (pops ++ is, x)
 
             in SubRoutine { getName   = name
-                          , getInstrs = instrs ++ [Ret rval] }
+                          , getInstrs = instrs ++ [Push rval, Ret] }
 
         _ ->
             let asLambda = AExp (ALam (typeOf expr) [] expr)
@@ -154,7 +154,8 @@ go genFresh assignReg = goNexp
 
                 case f' of
 
-                    -- TODO a nullary DC like Nothing doesn't pass through here
+                    -- a nullary DC like Nothing doesn't pass through here
+                    -- probably OK - a nullary DC can just be a tag on stack?
 
                     -- Data construction (todo - ensure saturation?)
                     VDConsName vcn -> do
@@ -167,10 +168,10 @@ go genFresh assignReg = goNexp
                                       ]
                              , Reg fr )
 
-                    -- Function call
+                    -- Function call to label -- TODO dedupe
                     Label{} -> do
                         (is2, xs') <- unzip <$> mapM goAexp xs
-                        let pushes = map PushArg $ reverse xs'
+                        let pushes = map Push $ reverse xs'
                         fr <- genFresh FrReg
                         pure ( concat [ is1
                                       , concat is2
@@ -178,9 +179,10 @@ go genFresh assignReg = goNexp
                                       , [CallFun f', Pop fr]]
                              , Reg fr)
 
+                    -- Function call to reg -- TODO dedupe
                     Reg{} -> do
                         (is2, xs') <- unzip <$> mapM goAexp xs
-                        let pushes = map PushArg $ reverse xs'
+                        let pushes = map Push $ reverse xs'
                         fr <- genFresh FrReg
                         pure ( concat [ is1
                                       , concat is2
@@ -209,6 +211,7 @@ go genFresh assignReg = goNexp
                 let fls = ILabel flLabel : is3 ++ [Assign fr fl', Jmp dnLabel]
 
                 pure (prs ++ trs ++ fls ++ [ILabel dnLabel], Reg fr)
+
 
 goTerm :: (Ord s, Show s) => Term s
                           -> State (GenState s) (Val s)
