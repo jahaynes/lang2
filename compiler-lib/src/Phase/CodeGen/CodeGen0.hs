@@ -5,6 +5,7 @@ module Phase.CodeGen.CodeGen0 (SubRoutine, codeGenModule0, renderCodeGen0) where
 import Common.State
 import Core.Operator
 import Core.Term
+import Core.Types
 import Phase.Anf.AnfExpression
 import Phase.Anf.AnfModule     (AnfModule (..), FunDefAnfT (..))
 
@@ -35,6 +36,8 @@ data Instr s = CallFun (Val s)
              | Jmp s
              | JmpNeq s
              | ILabel s
+             | Malloc s Int -- resulting register and size of allocation
+             | Cpy (Val s) (Val s)
                deriving Show
 
 data Val s = Reg s
@@ -43,6 +46,7 @@ data Val s = Reg s
            | Label s
            | VDConsName s
            | VDCons s [Val s] -- TODO include tag?
+           | VPtr Int
                deriving Show
 
 renderCodeGen0 :: [SubRoutine ByteString] -> Text
@@ -56,20 +60,19 @@ renderCodeGen0 = T.unlines . map render
 codeGenModule0 :: AnfModule ByteString -> [SubRoutine ByteString]
 codeGenModule0 = map (process genFresh assignReg) . getFunDefAnfTs
 
-    where
-    genFresh :: FreshType -> State (GenState ByteString) ByteString
-    genFresh ft = do
-        st <- get
-        let num = freshNum st
-        put st { freshNum = num + 1 }
+genFresh :: FreshType -> State (GenState ByteString) ByteString
+genFresh ft = do
+    st <- get
+    let num = freshNum st
+    put st { freshNum = num + 1 }
 
-        let pr = case ft of
-                     FrReg         -> "%"
-                     FrTrueBranch  -> "tr_"
-                     FrFalseBranch -> "fl_"
-                     FrJoin        -> "dn_"
+    let pr = case ft of
+                    FrReg         -> "%"
+                    FrTrueBranch  -> "tr_"
+                    FrFalseBranch -> "fl_"
+                    FrJoin        -> "dn_"
 
-        pure $ pr <> pack (show num)
+    pure $ pr <> pack (show num)
 
 data FreshType = FrReg
                | FrTrueBranch
@@ -85,10 +88,10 @@ assignReg v = do
            , freshNum = num + 1 }
     pure reg
 
-process :: (Ord s, Show s) => (FreshType -> State (GenState s) s)
-                           -> (s -> State (GenState s) s)
-                           -> FunDefAnfT s
-                           -> SubRoutine s
+--process :: (Ord s, Show s) => (FreshType -> State (GenState s) s)
+--                           -> (s -> State (GenState s) s)
+--                           -> FunDefAnfT s
+--                           -> SubRoutine s
 process genFresh assignReg (FunDefAnfT name q expr) =
 
     case expr of
@@ -111,10 +114,10 @@ process genFresh assignReg (FunDefAnfT name q expr) =
             let asLambda = AExp (ALam (typeOf expr) [] expr)
             in process genFresh assignReg (FunDefAnfT name q asLambda)
 
-go :: (Ord s, Show s) => (FreshType -> State (GenState s) s)
-                      -> (s -> State (GenState s) s)
-                      -> NExp s
-                      -> State (GenState s) ([Instr s], Val s)
+--go :: (Ord s, Show s) => (FreshType -> State (GenState s) s)
+--                      -> (s -> State (GenState s) s)
+--                      -> NExp s
+--                      -> State (GenState s) ([Instr s], Val s)
 go genFresh assignReg = goNexp
 
     where
@@ -159,12 +162,17 @@ go genFresh assignReg = goNexp
 
                     -- Data construction (todo - ensure saturation?)
                     VDConsName vcn -> do
-                        (is2, xs') <- unzip <$> mapM goAexp xs
+
+                        (is2, xs')  <- unzip <$> mapM goAexp xs
+
+                        (is3, xs'') <- unzip <$> mapM allocate (zip xs xs')
+
                         fr <- genFresh FrReg --reg?
 
                         pure ( concat [ is1
                                       , concat is2
-                                      , [Assign fr (VDCons vcn xs')]
+                                      , concat is3 
+                                      , [Assign fr (VDCons vcn xs'')]
                                       ]
                              , Reg fr )
 
@@ -212,6 +220,23 @@ go genFresh assignReg = goNexp
 
                 pure (prs ++ trs ++ fls ++ [ILabel dnLabel], Reg fr)
 
+
+-- the val is what's being allocated, but the AExp still has the type
+allocate :: (AExp ByteString, Val ByteString)
+         -> State (GenState ByteString) ([Instr ByteString], Val ByteString)
+allocate (aexp, v) = do
+
+    fr <- genFresh FrReg
+
+    case typeOfAExp aexp of
+
+        TyCon "Int" ->
+            pure ([Malloc fr 8], Reg fr)
+
+        TyCon _ -> -- assume its a pointer size?
+            pure ([Malloc fr 8], Reg fr)
+
+    -- TODO copy after allocating
 
 goTerm :: (Ord s, Show s) => Term s
                           -> State (GenState s) (Val s)
