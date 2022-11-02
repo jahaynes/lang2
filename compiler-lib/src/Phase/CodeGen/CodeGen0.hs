@@ -43,7 +43,6 @@ data Val s = Reg s
            | Label s
            | VDConsName s
            | VDCons s [Val s] -- TODO include tag?
-           | VUnkn
                deriving Show
 
 renderCodeGen0 :: [SubRoutine ByteString] -> Text
@@ -68,12 +67,14 @@ codeGenModule0 = map (process genFresh assignReg) . getFunDefAnfTs
                      FrReg         -> "%"
                      FrTrueBranch  -> "tr_"
                      FrFalseBranch -> "fl_"
+                     FrJoin        -> "dn_"
 
         pure $ pr <> pack (show num)
 
 data FreshType = FrReg
                | FrTrueBranch
                | FrFalseBranch
+               | FrJoin
 
 assignReg :: ByteString -> State (GenState ByteString) ByteString
 assignReg v = do
@@ -177,12 +178,23 @@ go genFresh assignReg = goNexp
                                       , [CallFun f', Pop fr]]
                              , Reg fr)
 
+                    Reg{} -> do
+                        (is2, xs') <- unzip <$> mapM goAexp xs
+                        let pushes = map PushArg $ reverse xs'
+                        fr <- genFresh FrReg
+                        pure ( concat [ is1
+                                      , concat is2
+                                      , pushes
+                                      , [CallFun f', Pop fr]]
+                             , Reg fr)
+
             CIfThenElse _ pr tr fl -> do
 
                 (is1, v) <- goAexp pr
 
                 trLabel <- genFresh FrTrueBranch
                 flLabel <- genFresh FrFalseBranch
+                dnLabel <- genFresh FrJoin
 
                 let prs = is1 ++ [ Cmp v
                                  , JmpNeq flLabel
@@ -191,12 +203,12 @@ go genFresh assignReg = goNexp
                 fr <- genFresh FrReg
 
                 (is2, tr') <- goNexp tr
-                let trs = ILabel trLabel : is2 ++ [Assign fr tr']
+                let trs = ILabel trLabel : is2 ++ [Assign fr tr', Jmp dnLabel]
 
                 (is3, fl') <- goNexp fl           
-                let fls = ILabel flLabel : is3 ++ [Assign fr fl']
+                let fls = ILabel flLabel : is3 ++ [Assign fr fl', Jmp dnLabel]
 
-                pure (prs ++ trs ++ fls, Reg fr)
+                pure (prs ++ trs ++ fls ++ [ILabel dnLabel], Reg fr)
 
 goTerm :: (Ord s, Show s) => Term s
                           -> State (GenState s) (Val s)
