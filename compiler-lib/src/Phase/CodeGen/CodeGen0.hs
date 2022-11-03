@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Phase.CodeGen.CodeGen0 (SubRoutine, codeGenModule0, renderCodeGen0) where
+module Phase.CodeGen.CodeGen0 where
 
 import Common.State
 import Core.Operator
@@ -39,6 +39,7 @@ data Instr s = CallFun (Val s)
              | ILabel s
              | Malloc s Int -- resulting register and size of allocation
              | Cpy (Val s) (Val s)
+             | Loc Int -- used downstream
                deriving Show
 
 data Val s = Reg s

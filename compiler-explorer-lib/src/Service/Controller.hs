@@ -17,6 +17,7 @@ import Phase.LambdaLift.LambdaLift
 import Pretty.Anf2
 import Pretty.Module
 import Pretty.TypedModule
+import Runtimes.Machine0 (runMachine0)
 import TypeSystem.TypeCheck
 
 import           Control.Monad.IO.Class      (liftIO)
@@ -88,10 +89,9 @@ fromSource txt = ProgramState txt "" na na na na na na na na
 server :: Server Api
 server src = do
     let ps = execState pipe $ fromSource src
-    pure ps
-    --case getCodeGen ps of
-    --    Left e   -> pure ps { getOutput = e }
-    --    Right cg -> pure ps { getOutput = "TODO" }
+    case getCodeGen0 ps of
+        Left e    -> pure ps { getOutput = e }
+        Right cg0 -> pure ps { getOutput = runMachine0 cg0 }
 
 pipe :: State ProgramState ()
 pipe = do
