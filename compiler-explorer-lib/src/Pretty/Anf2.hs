@@ -100,6 +100,10 @@ printAExp aexp =
         AClo _ _ vs body ->
             pure "clo"
 
+        AUnPrimOp _ op a -> do
+            a' <- printAExp a
+            pure $ TB.intercalate " " [printUnOp op, a']
+
         ABinPrimOp _ op a b -> do
             a' <- printAExp a
             b' <- noIndent $ printAExp b
