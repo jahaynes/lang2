@@ -11,13 +11,13 @@ import Parse.LexAndParse
 import Parse.Token
 import Phase.Anf.AnfModule
 import Phase.CodeGen.CodeGen0
+import Phase.CodeGen.CodeGen1
 import Phase.ClosureConvert.ClosureConvert
 import Phase.EtaExpand.EtaExpand
 import Phase.LambdaLift.LambdaLift
 import Pretty.Anf2
 import Pretty.Module
 import Pretty.TypedModule
-import Runtimes.Machine0 (codeGen1)
 import TypeSystem.TypeCheck
 
 import           Control.Monad.IO.Class      (liftIO)

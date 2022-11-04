@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Runtimes.Machine0 (codeGen1) where
+module Phase.CodeGen.CodeGen1 (codeGen1) where
 
 import Common.State
 import Phase.CodeGen.CodeGen0
@@ -11,28 +11,6 @@ import           Data.Map.Strict      ((!), Map)
 import qualified Data.Map.Strict as M
 import           Data.Set      (Set)
 import qualified Data.Set as S
-import           Debug.Trace          (trace)
-
-newtype Ptr =
-    Ptr Int
-
-data Machine =
-    Machine { allocate :: !(Int -> Ptr) }
-
-newtype Program s =
-    Program (Map s [Instr s])
-
-data MachineState s =
-    MachineState { getStack      :: ![Val s]
-                 , getStackFrame :: !(Map s (Val s))
-                 } deriving Show
-
-codeGen1 :: [SubRoutine ByteString] -> ByteString
-codeGen1 = C8.unlines
-         . map (\(ln, instr) -> C8.pack $ show ln ++ ":\t" ++ show instr)
-         . zip [0..]
-         . bakePos
-         . analyze
 
 data DSubRoutine s =
     DSubRoutine { dName           :: !s
@@ -40,6 +18,13 @@ data DSubRoutine s =
                 , dInstructions   :: ![Instr s]
                 , dStackPositions :: !(Map s Int)
                 } deriving Show
+
+codeGen1 :: [SubRoutine ByteString] -> ByteString
+codeGen1 = C8.unlines
+         . map (\(ln, instr) -> C8.pack $ show ln ++ ":\t" ++ show instr)
+         . zip [0..]
+         . bakePos
+         . analyze
 
 bakePos :: (Ord s, Show s) => [DSubRoutine s] -> [Instr s]
 bakePos dsubs =
@@ -72,7 +57,6 @@ bakePos dsubs =
 -- TODO - go all the way to general purpose registers now?
 -- popping from the stack into the stack doesn't really make sense
 -- maybe just ignore pops for now?  Need to unwind tho.  use sp, bp?
-
 analyze :: (Ord s, Show s) => [SubRoutine s] -> [DSubRoutine s]
 analyze = reverse . snd3 . foldr go (0, [], mempty)
     where
@@ -105,58 +89,3 @@ getRegistersV v =
         Label{} -> mempty
         Reg r   -> S.singleton r
         _       -> error $ show v
-
-{-
-
-runProgram :: (Ord s, Show s) => Program s -> s -> State (MachineState s) ()
-runProgram (Program p) entry = goLbl entry
-
-    where
-    goLbl lbl = 
-        let is = p ! lbl in trace (show is) (goIs is)
-
-    goIs     [] = error "No more instructions"
-    goIs (i:is) =
-
-        case i of
-        
-            Push val -> do
-                push val
-                goIs is
-            
-            CallFun (Label lbl) ->
-                goLbl lbl
-                -- 
-
-            Pop reg -> do
-                pop reg
-                goIs is
-
-            BinOpInstr op dst (Reg a) (Reg b) -> do
-                a' <- getReg a
-                b' <- getReg b
-                undefined
-
-
-
-            _ -> error $ show i
-
-getReg reg = do
-    sf <- getStackFrame <$> get
-    pure $ sf ! reg
-
-push :: Val s -> State (MachineState s) ()
-push val =
-    modify' $ \ms ->
-        ms { getStack = val : getStack ms }
-
-pop :: Ord s => s -> State (MachineState s) ()
-pop reg =
-    modify' $ \ms ->
-        let s:tack      = getStack ms
-            stackFrame' = M.insert reg s (getStackFrame ms)
-        in ms { getStack      = tack 
-              , getStackFrame = stackFrame'
-              }
-
--}
