@@ -1,16 +1,16 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Phase.CodeGen.CodeGen1 (codeGen1) where
+module Phase.CodeGen.CodeGen1 (codeGenModule1, renderCodeGen1) where
 
-import Common.State
 import Phase.CodeGen.CodeGen0
 
 import           Data.ByteString      (ByteString)
-import qualified Data.ByteString.Char8 as C8
 import           Data.Map.Strict      ((!), Map)
 import qualified Data.Map.Strict as M
 import           Data.Set      (Set)
 import qualified Data.Set as S
+import           Data.Text (Text)
+import qualified Data.Text as T
 
 data DSubRoutine s =
     DSubRoutine { dName           :: !s
@@ -19,12 +19,14 @@ data DSubRoutine s =
                 , dStackPositions :: !(Map s Int)
                 } deriving Show
 
-codeGen1 :: [SubRoutine ByteString] -> ByteString
-codeGen1 = C8.unlines
-         . map (\(ln, instr) -> C8.pack $ show ln ++ ":\t" ++ show instr)
-         . zip [0..]
-         . bakePos
-         . analyze
+renderCodeGen1 :: [Instr ByteString] -> Text
+renderCodeGen1 = T.unlines
+               . map (\(ln, instr) -> T.pack $ show ln ++ ":\t" ++ show instr)
+               . zip [0..]
+
+codeGenModule1 :: (Ord s, Show s) => [SubRoutine s] -> [Instr s]
+codeGenModule1 = bakePos
+               . analyze
 
 bakePos :: (Ord s, Show s) => [DSubRoutine s] -> [Instr s]
 bakePos dsubs =
@@ -40,12 +42,13 @@ bakePos dsubs =
         where
         goI i =
             case i of
-                Push v       -> Push (goV v)
-                CallFun l    -> CallFun (goV l)
-                Pop r        -> i -- ...
-                Ret          -> i
-                BinOpInstr{} -> i -- ...
-                _            -> error $ show i
+                Push v         -> Push (goV v)
+                CallFun l      -> CallFun (goV l)
+                Pop r          -> i -- ...
+                Ret            -> i
+                BinOpInstr{}   -> i -- ...
+                Assign dst val -> i -- ?
+                _              -> error $ show i
 
         goV v =
             case v of
@@ -80,6 +83,7 @@ getRegistersI i =
         Pop v              -> S.singleton v
         Ret{}              -> mempty
         BinOpInstr _ c a b -> S.insert c $ mconcat $ map getRegistersV [a, b]
+        Assign c a         -> S.insert c $ getRegistersV a
         _                  -> error $ show i
 
 getRegistersV :: (Ord s, Show s) => Val s -> Set s

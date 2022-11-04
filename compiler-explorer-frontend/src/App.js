@@ -13,7 +13,6 @@ class App extends React.Component {
   lexAndParse() {
     const source = document.getElementById("text")
 
-    //const output                 = this.getAndClearElement("output")
     const tokens                 = this.getAndClearElement("tokens")
     const prettyDefns            = this.getAndClearElement("prettyDefns")
     const inferred               = this.getAndClearElement("inferred")
@@ -27,10 +26,11 @@ class App extends React.Component {
     const lambdaLiftedPretty     = this.getAndClearElement("lambdaLiftedPretty")
     const codeGen0               = this.getAndClearElement("codeGen0")
     const codeGen1               = this.getAndClearElement("codeGen1")
+    const output                 = this.getAndClearElement("output")
+
     fetch("http://127.0.0.1:8080/lexAndParse", { method: 'POST', body: source.value })
       .then(resp => resp.json())
       .then((ts) => {
-        //output.value                 = ts.output;
         tokens.value                 = ts.tokens;
         prettyDefns.value            = ts.prettyDefns;
         inferred.value               = ts.inferred;
@@ -44,6 +44,7 @@ class App extends React.Component {
         lambdaLiftedPretty.value     = ts.lambdaLiftedPretty;
         codeGen0.value               = ts.codeGen0;
         codeGen1.value               = ts.codeGen1;
+        output.value                 = ts.output;
       })
   }
 
@@ -51,17 +52,18 @@ class App extends React.Component {
     return (
       <div className="App">
 
-        <label>Source / CodeGen</label>
+        <label>Source / CodeGens</label>
         <div>
           <textarea id='text' className='editor' spellCheck='false' rows='14' onChange={e => this.lexAndParse()}></textarea>
           <textarea id='codeGen0' className='editor' spellCheck='false' rows='14'></textarea>
           <textarea id='codeGen1' className='editor' spellCheck='false' rows='14'></textarea>
         </div>
 
-        <label>Tokens / Definitions</label>
+        <label>Tokens / Definitions / Output</label>
         <div>
           <textarea id='tokens' className='editor' spellCheck='false' rows='14'></textarea>
           <textarea id='prettyDefns' className='editor' spellCheck='false' rows='14'></textarea>
+          <textarea id='output' className='editor' spellCheck='false' rows='14'></textarea>
         </div>
 
         <label>Type Inference / Pretty</label>
