@@ -51,16 +51,16 @@ runMachine1 is = do
                 setIp (ip + 1)
                 go
 
-            CallFun (VLoc v) -> do
+            CallFun v -> do
+                VLoc v' <- eval v
                 pushIp (ip + 1)
-                setIp v
+                setIp v'
                 go
 
             Ret -> do
                 ip' <- popIp
-                if ip' == -1
+                if ip' == -1 -- Done signal
                     then pop >>= eval
-
                     else do
                         setIp ip'
                         go
@@ -86,8 +86,6 @@ runMachine1 is = do
                 setIp (ip + 1)
                 go
 
-            _ -> error . show $ code ! ip
-
 eval :: (Ord s, Show s) => Val s -> State (Machine1 s) (Val s)
 eval v =
 
@@ -100,6 +98,12 @@ eval v =
                 Nothing -> error "missing register"
 
         VInt{} ->
+            pure v
+
+        Label{} ->
+            pure v
+
+        VLoc{} ->
             pure v
 
 push :: (Ord s, Show s) => Val s -> State (Machine1 s) ()

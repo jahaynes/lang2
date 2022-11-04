@@ -42,13 +42,13 @@ bakePos dsubs =
         where
         goI i =
             case i of
-                Push v         -> Push (goV v)
-                CallFun l      -> CallFun (goV l)
-                Pop r          -> i -- ...
-                Ret            -> i
-                BinOpInstr{}   -> i -- ...
-                Assign dst val -> i -- ?
-                _              -> error $ show i
+                Push v       -> Push (goV v)
+                CallFun l    -> CallFun (goV l)
+                Pop r        -> i -- ...
+                Ret          -> i
+                BinOpInstr{} -> i -- ...
+                Assign dst v -> Assign dst (goV v)
+                _            -> error $ show i
 
         goV v =
             case v of
