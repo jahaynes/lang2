@@ -17,7 +17,7 @@ import Phase.LambdaLift.LambdaLift
 import Pretty.Anf2
 import Pretty.Module
 import Pretty.TypedModule
-import Runtimes.Machine0 (runMachine0)
+import Runtimes.Machine0 (codeGen1)
 import TypeSystem.TypeCheck
 
 import           Control.Monad.IO.Class      (liftIO)
@@ -44,7 +44,8 @@ data ProgramState =
                  , getClosureConverted :: Either ByteString (AnfModule ByteString)
                  , getLambdaLifted     :: Either ByteString (AnfModule ByteString)
                  , getCodeGen0         :: Either ByteString [SubRoutine ByteString]
-  }
+                 , getCodeGen1         :: Either ByteString ByteString
+                 }
 
 instance ToJSON ProgramState where
 
@@ -64,6 +65,7 @@ instance ToJSON ProgramState where
             txtLambdaLifted           = either decodeUtf8 (\(AnfModule anfdefs) -> pack . unlines . map show $ anfdefs) (getLambdaLifted ps)
             txtLambdaLiftedPretty     = either decodeUtf8 renderAnfModule (getLambdaLifted ps)
             txtCodeGen0               = either decodeUtf8 renderCodeGen0 (getCodeGen0 ps)
+            txtCodeGen1               = either decodeUtf8 decodeUtf8 (getCodeGen1 ps)
 
         object [ "output"                 .= String txtOutput
                , "tokens"                 .= String txtTokens
@@ -79,19 +81,22 @@ instance ToJSON ProgramState where
                , "lambdaLifted"           .= String txtLambdaLifted
                , "lambdaLiftedPretty"     .= String txtLambdaLiftedPretty
                , "codeGen0"               .= String txtCodeGen0
+               , "codeGen1"               .= String txtCodeGen1
                ]
 
 fromSource :: Text -> ProgramState
-fromSource txt = ProgramState txt "" na na na na na na na na
+fromSource txt = ProgramState txt "" na na na na na na na na na
     where
     na = Left "Not Available"
 
 server :: Server Api
 server src = do
     let ps = execState pipe $ fromSource src
+    pure ps {-
     case getCodeGen0 ps of
         Left e    -> pure ps { getOutput = e }
         Right cg0 -> pure ps { getOutput = runMachine0 cg0 }
+-}
 
 pipe :: State ProgramState ()
 pipe = do
@@ -102,6 +107,7 @@ pipe = do
     phaseClosureConvert
     phaseLambdaLift
     phaseCodeGen0
+    phaseCodeGen1
 
     where
     phaseLexAndParse :: State ProgramState ()
@@ -134,6 +140,10 @@ pipe = do
     phaseCodeGen0 :: State ProgramState ()
     phaseCodeGen0 = modify' $ \ps ->
         ps { getCodeGen0 = codeGenModule0 <$> getLambdaLifted ps }
+
+    phaseCodeGen1 :: State ProgramState ()
+    phaseCodeGen1 = modify' $ \ps ->
+        ps { getCodeGen1 = codeGen1 <$> getCodeGen0 ps }
 
 runController :: Int -> IO ()
 runController port = run port . simpleCors $ serve (Proxy :: Proxy Api) server 

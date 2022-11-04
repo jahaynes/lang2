@@ -39,7 +39,7 @@ data Instr s = CallFun (Val s)
              | ILabel s
              | Malloc s Int -- resulting register and size of allocation
              | Cpy (Val s) (Val s)
-             | Loc Int -- used downstream
+             | ILoc Int -- used downstream
                deriving Show
 
 data Val s = Reg s
@@ -49,6 +49,8 @@ data Val s = Reg s
            | VDConsName s
            | VDCons s [Val s] -- TODO include tag?
            | VAddressAt s
+           | VLoc Int -- used downstream
+           | RelReg Int -- used downstream
                deriving Show
 
 data Deps s =
