@@ -27,23 +27,12 @@ data MachineState s =
                  , getStackFrame :: !(Map s (Val s))
                  } deriving Show
 
--- TODO line numbers
-
 codeGen1 :: [SubRoutine ByteString] -> ByteString
 codeGen1 = C8.unlines
-         . map (C8.pack . show)
+         . map (\(ln, instr) -> C8.pack $ show ln ++ ":\t" ++ show instr)
+         . zip [0..]
          . bakePos
          . analyze
-{-
-    let program = Program
-                . M.fromList
-                . map (\(SubRoutine n is) -> (n, is))
-                $ srs
-
-    let d = runState (runProgram program "main") (MachineState [] mempty)
-
-    error $ show d
--}
 
 data DSubRoutine s =
     DSubRoutine { dName           :: !s
