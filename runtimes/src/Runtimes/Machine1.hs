@@ -16,21 +16,23 @@ import qualified Data.Vector as V
 import           Debug.Trace                 (trace)
 
 data Machine1 s =
-    Machine1 { getCode      :: !(Vector (Instr s))
-             , getStack     :: ![Val s]
-             , getCallStack :: ![Int]
-             , getIp        :: !Int
-             , getRegisters :: !(Map s (Val s))
+    Machine1 { getCode       :: !(Vector (Instr s))
+             , getStack      :: ![Val s]
+             , getCallStack  :: ![Int]
+             , getIp         :: !Int
+             , getRegisters  :: !(Map s (Val s))
+             , getComparison :: !Bool
              } deriving Show
 
 runMachine1 :: [Instr ByteString] -> ByteString
 runMachine1 is = do
 
-    let machine = Machine1 { getCode      = V.fromList is
-                           , getStack     = []
-                           , getCallStack = [-1]
-                           , getIp        = 0
-                           , getRegisters = mempty
+    let machine = Machine1 { getCode       = V.fromList is
+                           , getStack      = []
+                           , getCallStack  = [-1]
+                           , getIp         = 0
+                           , getRegisters  = mempty
+                           , getComparison = False
                            }
 
     C8.pack . show $ evalState go machine
@@ -75,8 +77,10 @@ runMachine1 is = do
                 a' <- eval a
                 b' <- eval b
                 case (op, a', b') of
-                    (AddI, VInt a'', VInt b'') -> setReg dst (VInt $! a'' + b'')
-                    (MulI, VInt a'', VInt b'') -> setReg dst (VInt $! a'' * b'')
+                    (AddI, VInt a'', VInt b'') -> setReg dst (VInt  $! a''  + b'')
+                    (MulI, VInt a'', VInt b'') -> setReg dst (VInt  $! a''  * b'')
+                    (EqA,  VInt a'', VInt b'') -> setReg dst (VBool $! a'' == b'')
+                    _ -> error $ show op
                 setIp (ip + 1)
                 go
 
@@ -85,6 +89,28 @@ runMachine1 is = do
                 setReg dst a'
                 setIp (ip + 1)
                 go
+
+            Cmp r -> do
+                VBool r' <- eval r
+                modify' $ \m -> m { getComparison = r' }
+                setIp (ip + 1)
+                go
+
+{-
+            JmpNeq r -> do -- r should have already been replaced?
+                cmp <- getComparison <$> get
+                if cmp
+                    then do
+                        setIp (ip + 1)
+                        go
+                    else do
+                        VLoc r' <- eval $ Reg r
+                        setIp r'
+                        go
+-}
+
+            _ -> error $ show (code ! ip)
+
 
 eval :: (Ord s, Show s) => Val s -> State (Machine1 s) (Val s)
 eval v =
@@ -95,7 +121,7 @@ eval v =
             registers <- getRegisters <$> get
             case M.lookup r registers of
                 Just v  -> pure v
-                Nothing -> error "missing register"
+                Nothing -> error $ "missing register: " ++ show r
 
         VInt{} ->
             pure v

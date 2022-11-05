@@ -48,6 +48,8 @@ bakePos dsubs =
                 Ret          -> i
                 BinOpInstr{} -> i -- ...
                 Assign dst v -> Assign dst (goV v)
+                Cmp v        -> Cmp (goV v)
+                JmpNeq{}     -> i -- ...
                 _            -> error $ show i
 
         goV v =
@@ -84,6 +86,10 @@ getRegistersI i =
         Ret{}              -> mempty
         BinOpInstr _ c a b -> S.insert c $ mconcat $ map getRegistersV [a, b]
         Assign c a         -> S.insert c $ getRegistersV a
+        Cmp v              -> getRegistersV v
+        Jmp r              -> mempty -- ?
+        JmpNeq r           -> mempty -- ?
+        ILabel{}           -> mempty
         _                  -> error $ show i
 
 getRegistersV :: (Ord s, Show s) => Val s -> Set s
