@@ -28,6 +28,11 @@ codeGenModule1 :: (Ord s, Show s) => [SubRoutine s] -> [Instr s]
 codeGenModule1 = bakePos
                . analyze
 
+{- TODO:
+    Either bake in the tr_ and fl_ branches as part of this
+    or take out baking completely and refer to it as 'linkerInfo' downstream
+-}
+
 bakePos :: (Ord s, Show s) => [DSubRoutine s] -> [Instr s]
 bakePos dsubs =
     let subPos = M.fromList $ map (\ds -> (dName ds, dLocation ds)) dsubs
@@ -49,7 +54,7 @@ bakePos dsubs =
                 BinOpInstr{} -> i -- ...
                 Assign dst v -> Assign dst (goV v)
                 Cmp v        -> Cmp (goV v)
-                JmpNeq{}     -> i -- ...
+                JmpNeq lbl   -> JmpNeqLoc (subPos ! lbl)
                 _            -> error $ show i
 
         goV v =

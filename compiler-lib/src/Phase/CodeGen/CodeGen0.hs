@@ -36,6 +36,7 @@ data Instr s = CallFun (Val s)
              | Cmp (Val s)
              | Jmp s
              | JmpNeq s
+             | JmpNeqLoc Int -- downsstream
              | ILabel s
              | Malloc s Int -- resulting register and size of allocation
              | Cpy (Val s) (Val s)
