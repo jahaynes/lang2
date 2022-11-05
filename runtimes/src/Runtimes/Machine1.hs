@@ -12,6 +12,11 @@ import           Data.Map.Strict             (Map)
 import qualified Data.Map as M
 import           Data.Vector                 (Vector, (!))
 import qualified Data.Vector as V
+import           Debug.Trace                 (trace)
+
+--import qualified Data.Vector.Storable.Mutable as VM
+--import           Control.Monad.ST
+--import Data.Word (Word8)
 
 data Machine1 s =
     Machine1 { getCode       :: !(Vector (Instr s))
@@ -21,6 +26,7 @@ data Machine1 s =
              , getRegisters  :: !(Map s (Val s))
              , getComparison :: !Bool
              , getLinkerInfo :: !(Map s Int)  -- Labels to positions
+             , getHeap       :: !(Map s (Val s))
              } deriving Show
 
 -- TODO space leak of pos?
@@ -50,6 +56,7 @@ runMachine1 is = do
                            , getRegisters  = mempty
                            , getComparison = False
                            , getLinkerInfo = linkerInfo
+                           , getHeap       = mempty
                            }
 
     C8.pack . show $ evalState go machine
@@ -137,7 +144,20 @@ runMachine1 is = do
                         setIp loc
                         go
 
-            _ -> error $ show (code ! ip)
+            -- Generalise as foreign c call?
+            Malloc r sz -> do
+                -- TODO something
+                trace (show ("allocating ", r, sz)) $ do
+                    setIp (ip + 1)
+                    go
+
+            Cpy dest a -> do
+                trace (show ("copying ", dest, a)) $ do
+                    setIp (ip + 1)
+                    go
+
+            _ ->
+                error $ show (code ! ip)
 
 eval :: (Ord s, Show s) => Val s -> State (Machine1 s) (Val s)
 eval v =
@@ -158,6 +178,17 @@ eval v =
 
         Label{} ->
             pure v
+
+        -- Probably shouldn't be here
+        VDConsName{} ->
+            pure v
+
+        -- Probably shouldn't be here
+        VDCons{} ->
+            pure v
+
+        _ ->
+            error $ show v
 
 push :: (Ord s, Show s) => Val s -> State (Machine1 s) ()
 push v = do
