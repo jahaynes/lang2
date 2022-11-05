@@ -42,11 +42,12 @@ data Instr s = CallFun (Val s)
                deriving Show
 
 data Val s = Reg s
+           | RegPtr s
            | VInt Integer
            | VBool Bool
            | Label s
            | VDConsName s
-           | VDCons s [Val s] -- TODO include tag?
+           | VDCons s Int [Val s] -- Int is tag/constructor -- val should be registers holding pointers
            | VAddressAt s
                deriving Show
 
@@ -101,12 +102,12 @@ allocateImpl genFresh (aexp, v) = do
         TyCon "Int" ->
             pure ( [ Malloc fr 8
                    , Cpy (VAddressAt fr) v]
-                 , Reg fr )
+                 , RegPtr fr )
 
         TyCon _ -> -- assume its a pointer size?
             pure ( [ Malloc fr 8
                    , Cpy (VAddressAt fr) v]
-                 , Reg fr )
+                 , RegPtr fr )
 
 assignRegImpl :: ByteString -> State (GenState ByteString) ByteString
 assignRegImpl v = do
@@ -196,12 +197,17 @@ process' deps = goNexp
 
                         (is3, xs'') <- unzip <$> mapM (allocate deps) (zip xs xs')
 
+                        -- [RegPtr "%1",RegPtr "%2"]
                         fr <- genFresh deps FrReg --reg?
+
+                        -- Int is tag/constructor
+                        -- VDCons s Int [HeapPtr]
+                        let foo = VDCons vcn (-9) xs''
 
                         pure ( concat [ is1
                                       , concat is2
                                       , concat is3 
-                                      , [Assign fr (VDCons vcn xs'')]
+                                      , [Assign fr foo] -- HERE
                                       ]
                              , Reg fr )
 
