@@ -147,7 +147,7 @@ eval v =
         Reg r -> do
             registers <- getRegisters <$> get
             case M.lookup r registers of
-                Just v  -> pure v
+                Just v' -> pure v'
                 Nothing -> error $ "missing register: " ++ show r
 
         VBool{} ->
@@ -157,9 +157,6 @@ eval v =
             pure v
 
         Label{} ->
-            pure v
-
-        VLoc{} ->
             pure v
 
 push :: (Ord s, Show s) => Val s -> State (Machine1 s) ()

@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Phase.CodeGen.CodeGen0 where
+module Phase.CodeGen.CodeGen0 (Instr (..), SubRoutine (..), Val (..), codeGenModule0, renderCodeGen0) where
 
 import Common.State
 import Core.Operator
@@ -36,11 +36,9 @@ data Instr s = CallFun (Val s)
              | Cmp (Val s)
              | JmpLbl s
              | JmpNeqLbl s
-             | JmpNeqLoc Int -- downsstream
              | ILabel s
              | Malloc s Int -- resulting register and size of allocation
              | Cpy (Val s) (Val s)
-             | ILoc Int -- used downstream
                deriving Show
 
 data Val s = Reg s
@@ -50,8 +48,6 @@ data Val s = Reg s
            | VDConsName s
            | VDCons s [Val s] -- TODO include tag?
            | VAddressAt s
-           | VLoc Int -- used downstream
-           | RelReg Int -- used downstream
                deriving Show
 
 data Deps s =
@@ -134,7 +130,7 @@ process deps (FunDefAnfT name q expr) =
                         let rm = M.fromList $ zip vs regs
                         modify' $ \st -> st { regMap = rm }
                         let pops = map (\v -> Pop $ rm ! v) vs
-                        (is, x) <- go deps body
+                        (is, x) <- process' deps body
                         pure (pops ++ is, x)
 
             in SubRoutine { getName   = name
@@ -145,8 +141,8 @@ process deps (FunDefAnfT name q expr) =
             in process deps (FunDefAnfT name q asLambda)
 
 
-go :: (Ord s, Show s) => Deps s -> NExp s -> State (GenState s) ([Instr s], Val s)
-go deps = goNexp
+process' :: (Ord s, Show s) => Deps s -> NExp s -> State (GenState s) ([Instr s], Val s)
+process' deps = goNexp
 
     where
     goNexp (AExp aexp)  = goAexp aexp
