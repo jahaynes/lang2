@@ -96,10 +96,11 @@ runMachine1 is = do
                 a' <- eval a
                 b' <- eval b
                 case (op, a', b') of
-                    (AddI, VInt a'', VInt b'') -> setReg dst (VInt  $! a''  + b'')
-                    (SubI, VInt a'', VInt b'') -> setReg dst (VInt  $! a''  - b'')
-                    (MulI, VInt a'', VInt b'') -> setReg dst (VInt  $! a''  * b'')
-                    (EqA,  VInt a'', VInt b'') -> setReg dst (VBool $! a'' == b'')
+                    (AddI,  VInt a'',  VInt b'') -> setReg dst (VInt  $! a''  + b'')
+                    (SubI,  VInt a'',  VInt b'') -> setReg dst (VInt  $! a''  - b'')
+                    (MulI,  VInt a'',  VInt b'') -> setReg dst (VInt  $! a''  * b'')
+                    (EqA,   VInt a'',  VInt b'') -> setReg dst (VBool $! a'' == b'')
+                    (AndB, VBool a'', VBool b'') -> setReg dst (VBool $! and [a'', b''])
                     _ -> error $ show op
                 setIp (ip + 1)
                 go
@@ -148,6 +149,9 @@ eval v =
             case M.lookup r registers of
                 Just v  -> pure v
                 Nothing -> error $ "missing register: " ++ show r
+
+        VBool{} ->
+            pure v
 
         VInt{} ->
             pure v
