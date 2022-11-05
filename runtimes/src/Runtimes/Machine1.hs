@@ -5,7 +5,6 @@ module Runtimes.Machine1 where
 import Core.Operator
 import Common.State
 import Phase.CodeGen.CodeGen0
-import Phase.CodeGen.CodeGen1
 
 import           Data.ByteString             (ByteString)
 import qualified Data.ByteString.Char8 as C8
@@ -13,7 +12,6 @@ import           Data.Map.Strict             (Map)
 import qualified Data.Map as M
 import           Data.Vector                 (Vector, (!))
 import qualified Data.Vector as V
-import           Debug.Trace                 (trace)
 
 data Machine1 s =
     Machine1 { getCode       :: !(Vector (Instr s))
@@ -65,7 +63,7 @@ runMachine1 is = do
         let code = getCode machine
             ip   = getIp   machine
 
-        trace (show (code ! ip)) $ case code ! ip of
+        case code ! ip of
 
             Push v -> do
                 push v
@@ -73,13 +71,9 @@ runMachine1 is = do
                 go
 
             CallFun v -> do
-
-                Label lvl <- eval v
-
+                Label lbl <- eval v
                 linkerInfo <- getLinkerInfo <$> get
-
-                let Just loc = M.lookup lvl linkerInfo
-
+                let Just loc = M.lookup lbl linkerInfo
                 pushIp (ip + 1)
                 setIp loc
                 go
@@ -103,6 +97,7 @@ runMachine1 is = do
                 b' <- eval b
                 case (op, a', b') of
                     (AddI, VInt a'', VInt b'') -> setReg dst (VInt  $! a''  + b'')
+                    (SubI, VInt a'', VInt b'') -> setReg dst (VInt  $! a''  - b'')
                     (MulI, VInt a'', VInt b'') -> setReg dst (VInt  $! a''  * b'')
                     (EqA,  VInt a'', VInt b'') -> setReg dst (VBool $! a'' == b'')
                     _ -> error $ show op
@@ -125,21 +120,23 @@ runMachine1 is = do
                 setIp (ip + 1)
                 go
 
-{-
-            JmpNeq r -> do -- r should have already been replaced?
-                cmp <- getComparison <$> get
-                if cmp
+            JmpLbl lbl -> do
+                Just loc <- M.lookup lbl . getLinkerInfo <$> get
+                setIp loc
+                go
+
+            JmpNeqLbl lbl -> do
+                m <- get
+                if getComparison m
                     then do
                         setIp (ip + 1)
                         go
                     else do
-                        VLoc r' <- eval $ Reg r
-                        setIp r'
+                        let Just loc = M.lookup lbl (getLinkerInfo m)
+                        setIp loc
                         go
--}
 
             _ -> error $ show (code ! ip)
-
 
 eval :: (Ord s, Show s) => Val s -> State (Machine1 s) (Val s)
 eval v =
