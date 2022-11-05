@@ -22,17 +22,36 @@ data Machine1 s =
              , getIp         :: !Int
              , getRegisters  :: !(Map s (Val s))
              , getComparison :: !Bool
+             , getLinkerInfo :: !(Map s Int)  -- Labels to positions
              } deriving Show
+
+-- TODO space leak of pos?
+extractLocations :: (Int, Int, Map ByteString Int) -> Instr ByteString -> (Int, Int, Map ByteString Int)
+extractLocations (mainPos, pos, acc) instr =
+
+    case instr of
+
+        ILabel lbl ->
+            let mainPos' = if lbl == "main" then pos else mainPos
+                acc' = M.insert lbl pos acc
+            in (mainPos', pos+1, acc')
+                      
+        _ -> (mainPos, pos+1, acc)
 
 runMachine1 :: [Instr ByteString] -> ByteString
 runMachine1 is = do
 
-    let machine = Machine1 { getCode       = V.fromList is
+    let code = V.fromList is
+
+        (mainPos, _, linkerInfo) = V.foldl' extractLocations (0, 0, mempty) code
+
+        machine = Machine1 { getCode       = code
                            , getStack      = []
                            , getCallStack  = [-1]
-                           , getIp         = 0
+                           , getIp         = mainPos
                            , getRegisters  = mempty
                            , getComparison = False
+                           , getLinkerInfo = linkerInfo
                            }
 
     C8.pack . show $ evalState go machine
@@ -46,7 +65,7 @@ runMachine1 is = do
         let code = getCode machine
             ip   = getIp   machine
 
-        case code ! ip of
+        trace (show (code ! ip)) $ case code ! ip of
 
             Push v -> do
                 push v
@@ -54,9 +73,15 @@ runMachine1 is = do
                 go
 
             CallFun v -> do
-                VLoc v' <- eval v
+
+                Label lvl <- eval v
+
+                linkerInfo <- getLinkerInfo <$> get
+
+                let Just loc = M.lookup lvl linkerInfo
+
                 pushIp (ip + 1)
-                setIp v'
+                setIp loc
                 go
 
             Ret -> do
@@ -93,6 +118,10 @@ runMachine1 is = do
             Cmp r -> do
                 VBool r' <- eval r
                 modify' $ \m -> m { getComparison = r' }
+                setIp (ip + 1)
+                go
+
+            ILabel{} -> do
                 setIp (ip + 1)
                 go
 

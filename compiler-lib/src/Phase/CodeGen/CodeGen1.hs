@@ -25,44 +25,14 @@ renderCodeGen1 = T.unlines
                . zip [0..]
 
 codeGenModule1 :: (Ord s, Show s) => [SubRoutine s] -> [Instr s]
-codeGenModule1 = bakePos
-               . analyze
+codeGenModule1 = concatMap foo
+    where
+    foo sub = ILabel (getName sub) : getInstrs sub
 
 {- TODO:
     Either bake in the tr_ and fl_ branches as part of this
     or take out baking completely and refer to it as 'linkerInfo' downstream
 -}
-
-bakePos :: (Ord s, Show s) => [DSubRoutine s] -> [Instr s]
-bakePos dsubs =
-    let subPos = M.fromList $ map (\ds -> (dName ds, dLocation ds)) dsubs
-        baked  = goSub subPos <$> dsubs
-        -- TODO this loses the stack positions
-    in concatMap dInstructions baked
-    where
-    goSub subPos dSub =
-        
-        let is' = map goI (dInstructions dSub)
-        in dSub { dInstructions = is' }
-        where
-        goI i =
-            case i of
-                Push v       -> Push (goV v)
-                CallFun l    -> CallFun (goV l)
-                Pop r        -> i -- ...
-                Ret          -> i
-                BinOpInstr{} -> i -- ...
-                Assign dst v -> Assign dst (goV v)
-                Cmp v        -> Cmp (goV v)
-                JmpNeq lbl   -> JmpNeqLoc (subPos ! lbl)
-                _            -> error $ show i
-
-        goV v =
-            case v of
-                VInt{}   -> v
-                Label l  -> VLoc (subPos ! l)
-                Reg{}    -> v -- ...
-                _        -> error $ show v
 
 -- TODO - go all the way to general purpose registers now?
 -- popping from the stack into the stack doesn't really make sense
@@ -79,28 +49,29 @@ analyze = reverse . snd3 . foldr go (0, [], mempty)
             funLocs' = M.insert n loc funLocs
         in (loc', acc', funLocs')
 
-getRegistersIs :: (Ord s, Show s) => [Instr s] -> Set s
-getRegistersIs = mconcat . map getRegistersI
+        where
+        getRegistersIs :: (Ord s, Show s) => [Instr s] -> Set s
+        getRegistersIs = mconcat . map getRegistersI
 
-getRegistersI :: (Ord s, Show s) => Instr s -> Set s
-getRegistersI i =
-    case i of
-        Push v             -> getRegistersV v
-        CallFun v          -> getRegistersV v
-        Pop v              -> S.singleton v
-        Ret{}              -> mempty
-        BinOpInstr _ c a b -> S.insert c $ mconcat $ map getRegistersV [a, b]
-        Assign c a         -> S.insert c $ getRegistersV a
-        Cmp v              -> getRegistersV v
-        Jmp r              -> mempty -- ?
-        JmpNeq r           -> mempty -- ?
-        ILabel{}           -> mempty
-        _                  -> error $ show i
+        getRegistersI :: (Ord s, Show s) => Instr s -> Set s
+        getRegistersI i =
+            case i of
+                Push v             -> getRegistersV v
+                CallFun v          -> getRegistersV v
+                Pop v              -> S.singleton v
+                Ret{}              -> mempty
+                BinOpInstr _ c a b -> S.insert c $ mconcat $ map getRegistersV [a, b]
+                Assign c a         -> S.insert c $ getRegistersV a
+                Cmp v              -> getRegistersV v
+                JmpLbl{}           -> mempty
+                JmpNeqLbl{}        -> mempty
+                ILabel{}           -> mempty
+                _                  -> error $ show i
 
-getRegistersV :: (Ord s, Show s) => Val s -> Set s
-getRegistersV v =
-    case v of
-        VInt{}  -> mempty
-        Label{} -> mempty
-        Reg r   -> S.singleton r
-        _       -> error $ show v
+        getRegistersV :: (Ord s, Show s) => Val s -> Set s
+        getRegistersV v =
+            case v of
+                VInt{}  -> mempty
+                Label{} -> mempty
+                Reg r   -> S.singleton r
+                _       -> error $ show v

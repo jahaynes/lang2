@@ -34,8 +34,8 @@ data Instr s = CallFun (Val s)
              | BinOpInstr BinOp s (Val s) (Val s)
              | Assign s (Val s)
              | Cmp (Val s)
-             | Jmp s
-             | JmpNeq s
+             | JmpLbl s
+             | JmpNeqLbl s
              | JmpNeqLoc Int -- downsstream
              | ILabel s
              | Malloc s Int -- resulting register and size of allocation
@@ -240,16 +240,16 @@ go deps = goNexp
                 dnLabel <- genFresh deps FrJoin
 
                 let prs = is1 ++ [ Cmp v
-                                 , JmpNeq flLabel
-                                 , Jmp trLabel ]
+                                 , JmpNeqLbl flLabel
+                                 , JmpLbl trLabel ]
 
                 fr <- genFresh deps FrReg
 
                 (is2, tr') <- goNexp tr
-                let trs = ILabel trLabel : is2 ++ [Assign fr tr', Jmp dnLabel]
+                let trs = ILabel trLabel : is2 ++ [Assign fr tr', JmpLbl dnLabel]
 
                 (is3, fl') <- goNexp fl           
-                let fls = ILabel flLabel : is3 ++ [Assign fr fl', Jmp dnLabel]
+                let fls = ILabel flLabel : is3 ++ [Assign fr fl', JmpLbl dnLabel]
 
                 pure (prs ++ trs ++ fls ++ [ILabel dnLabel], Reg fr)
 
