@@ -7,6 +7,7 @@ import Common.State
 import Phase.CodeGen.CodeGen0
 
 import           Data.ByteString             (ByteString)
+import qualified Data.ByteString       as BS
 import qualified Data.ByteString.Char8 as C8
 import           Data.Map.Strict             (Map)
 import qualified Data.Map as M
@@ -14,9 +15,15 @@ import           Data.Vector                 (Vector, (!))
 import qualified Data.Vector as V
 import           Debug.Trace                 (trace)
 
---import qualified Data.Vector.Storable.Mutable as VM
---import           Control.Monad.ST
---import Data.Word (Word8)
+import qualified Data.Vector.Storable         as VS
+import qualified Data.Vector.Storable.Mutable as VM
+import           Control.Monad.ST
+import           Data.Serialize     (encode)
+import           Data.Word (Word8)
+
+newtype HeapAddr =
+    HeapAddr Int
+        deriving (Show, Eq, Ord)
 
 data Machine1 s =
     Machine1 { getCode       :: !(Vector (Instr s))
@@ -25,8 +32,9 @@ data Machine1 s =
              , getIp         :: !Int
              , getRegisters  :: !(Map s (Val s))
              , getComparison :: !Bool
-             , getLinkerInfo :: !(Map s Int)  -- Labels to positions
-             , getHeap       :: !(Map s (Val s))
+             , getLinkerInfo :: !(Map s Int)                       -- Labels to positions
+             , getHeap       :: !(Map HeapAddr (VS.Vector Word8))  -- address to bytes
+             , getNextFree   :: !HeapAddr                          -- where does this live? OS?
              } deriving Show
 
 -- TODO space leak of pos?
@@ -57,6 +65,7 @@ runMachine1 is = do
                            , getComparison = False
                            , getLinkerInfo = linkerInfo
                            , getHeap       = mempty
+                           , getNextFree   = HeapAddr 0
                            }
 
     C8.pack . show $ evalState go machine
@@ -146,18 +155,45 @@ runMachine1 is = do
 
             -- Generalise as foreign c call?
             Malloc r sz -> do
-                -- TODO something
-                trace (show ("allocating ", r, sz)) $ do
-                    setIp (ip + 1)
-                    go
+                HeapAddr addr <- allocate sz
+                setReg r (VHPtr addr)
+                setIp (ip + 1)
+                go
 
             Cpy dest a -> do
-                trace (show ("copying ", dest, a)) $ do
-                    setIp (ip + 1)
-                    go
+                let VAddressAt reg = dest
+                VHPtr ptr <- eval (Reg reg)
+                writeTo (HeapAddr ptr) a
+                setIp (ip + 1)
+                go
 
             _ ->
                 error $ show (code ! ip)
+
+writeTo :: HeapAddr -> Val s -> State (Machine1 s) ()
+writeTo heapAddr val =
+    modify' $ \m -> do
+        let val' = case val of
+                       VInt i -> fromIntegral i :: Int -- TODO truncation issue
+        let heap     = getHeap m
+            Just mem = M.lookup heapAddr heap
+            mem'     = runST $ do
+                            src <- VS.thaw . VS.fromList . BS.unpack $ encode val'
+                            dst <- VS.thaw mem
+                            VM.copy dst src
+                            VS.freeze dst
+        m { getHeap = M.insert heapAddr mem' heap }
+
+allocate :: Int -> State (Machine1 s) HeapAddr
+allocate sz = do
+    m <- get
+    let nf@(HeapAddr nextFree) = getNextFree m
+        heap = getHeap m
+        allocated = VS.replicate sz 0
+    put m { getNextFree = HeapAddr $ nextFree + 1
+          , getHeap     = M.insert nf allocated heap
+          }
+    pure nf
 
 eval :: (Ord s, Show s) => Val s -> State (Machine1 s) (Val s)
 eval v =
