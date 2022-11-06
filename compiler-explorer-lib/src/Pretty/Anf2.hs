@@ -22,7 +22,7 @@ renderAnfModule :: AnfModule ByteString -> Text
 renderAnfModule = TB.run . printAnfModule
 
 printAnfModule :: AnfModule ByteString -> Builder
-printAnfModule (AnfModule funDefnTs) = TB.intercalate "\n\n" (map printAnfFunDefn funDefnTs)
+printAnfModule (AnfModule _ funDefnTs) = TB.intercalate "\n\n" (map printAnfFunDefn funDefnTs)
 
 printAnfFunDefn :: FunDefAnfT ByteString -> Builder
 printAnfFunDefn (FunDefAnfT n (Quant qs) expr) =

@@ -1,5 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 module Phase.Anf.AnfModule where
 
 import Common.State
@@ -10,12 +8,16 @@ import Phase.Anf.AnfExpression
 
 import Data.ByteString.Char8 (ByteString, pack)
 
-newtype AnfModule s =
-    AnfModule { getFunDefAnfTs :: [FunDefAnfT s]
+data AnfModule s =
+    AnfModule { getDataDefnAnfTs :: [DataDefn s]
+              , getFunDefAnfTs   :: [FunDefAnfT s]
               } deriving Show
 
 anfModule :: ModuleT ByteString -> AnfModule ByteString
-anfModule = AnfModule . map anfFunDefT . getFunDefnTs
+anfModule md =
+    let funDefns  = getFunDefnTs md
+        funDefns' = map anfFunDefT funDefns
+    in AnfModule (getDataDefnTs md) funDefns'
 
 data FunDefAnfT s =
     FunDefAnfT s (Quant s) (NExp s)
@@ -97,6 +99,7 @@ normExpr expr k =
                 k $ CExp $ CCase t scrut' ps'
 
 -- both parts necessary?
+normPattern :: Show s => PatternT s -> State (AnfState s) (PExp s)
 normPattern (PatternT a b) =
     PExp <$> norm a <*> norm b
 

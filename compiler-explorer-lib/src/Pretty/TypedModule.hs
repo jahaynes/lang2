@@ -19,7 +19,7 @@ renderTypedModule :: ModuleT ByteString -> Text
 renderTypedModule = TB.run . printTypedModule
 
 printTypedModule :: ModuleT ByteString -> Builder
-printTypedModule (ModuleT funDefnTs) = TB.intercalate "\n\n" (map printTFunDefn funDefnTs)
+printTypedModule (ModuleT _ funDefnTs) = TB.intercalate "\n\n" (map printTFunDefn funDefnTs)
 
 printTFunDefn :: FunDefnT ByteString -> Builder
 

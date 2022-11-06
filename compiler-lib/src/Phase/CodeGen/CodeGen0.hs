@@ -3,6 +3,7 @@
 module Phase.CodeGen.CodeGen0 (Instr (..), SubRoutine (..), Val (..), codeGenModule0, renderCodeGen0) where
 
 import Common.State
+import Core.Module
 import Core.Operator
 import Core.Term
 import Core.Types
@@ -39,6 +40,7 @@ data Instr s = CallFun (Val s)
              | ILabel s
              | Malloc s Int -- resulting register and size of allocation
              | Cpy (Val s) (Val s)
+             | IComment s
                deriving Show
 
 data Val s = Reg s
@@ -56,6 +58,9 @@ data Deps s =
     Deps { genFresh  :: !(FreshType -> State (GenState s) s)
          , assignReg :: !(s -> State (GenState s) s)
          , allocate  :: !((AExp s, Val s) -> State (GenState s) ([Instr s], Val s))
+         , sizeInfo  :: !(Val s -> Int)
+         , tagInfo   :: !(s -> Int)
+         , comment   :: !(ByteString -> Instr s)
          }
 
 renderCodeGen0 :: [SubRoutine ByteString] -> Text
@@ -67,9 +72,16 @@ renderCodeGen0 = T.unlines . map render
                   )
 
 codeGenModule0 :: AnfModule ByteString -> [SubRoutine ByteString]
-codeGenModule0 = map (process deps) . getFunDefAnfTs
+codeGenModule0 md = process deps <$> getFunDefAnfTs md
     where
-    deps = Deps genFreshImpl assignRegImpl (allocateImpl genFreshImpl)
+    deps = Deps genFreshImpl
+                assignRegImpl
+                (allocateImpl genFreshImpl)
+                (sizeInfoImpl (getDataDefnAnfTs md))
+                (tagInfoImpl (getDataDefnAnfTs md))
+                commentImpl
+
+commentImpl = IComment
 
 genFreshImpl :: FreshType -> State (GenState ByteString) ByteString
 genFreshImpl ft = do
@@ -105,7 +117,7 @@ allocateImpl genFresh (aexp, v) = do
                    , Cpy (VAddressAt fr) v]
                  , RegPtr fr )
 
-        TyCon _ -> -- assume its a pointer size?
+        TyCon _ -> -- assume its a pointer size? TODO remove
             pure ( [ Malloc fr 8
                    , Cpy (VAddressAt fr) v]
                  , RegPtr fr )
@@ -198,17 +210,21 @@ process' deps = goNexp
 
                         (is3, xs'') <- unzip <$> mapM (allocate deps) (zip xs xs')
 
-                        -- [RegPtr "%1",RegPtr "%2"]
-                        fr <- genFresh deps FrReg --reg?
+                        fr <- genFresh deps FrReg
 
                         -- Int is tag/constructor
                         -- VDCons s Int [HeapPtr]
                         let foo = VDCons vcn (-9) xs''
+                        let fooSz = sizeInfo deps (VDConsName vcn)
+                        let malloc = Malloc fr fooSz
 
                         pure ( concat [ is1
                                       , concat is2
                                       , concat is3 
+                                      , [comment deps "Start making foo"]
+                                      , [malloc]
                                       , [Assign fr foo] -- HERE
+                                      , [comment deps "Done making foo"]
                                       ]
                              , Reg fr )
 
@@ -255,6 +271,13 @@ process' deps = goNexp
                 let fls = ILabel flLabel : is3 ++ [Assign fr fl', JmpLbl dnLabel]
 
                 pure (prs ++ trs ++ fls ++ [ILabel dnLabel], Reg fr)
+
+sizeInfoImpl :: Show s => [DataDefn ByteString] -> Val s -> Int
+sizeInfoImpl dataDefns val =
+    error $ show ("calculate size for", val, dataDefns)
+
+tagInfoImpl dataDefns consName = -9
+    -- error $ show dataDefns
 
 goTerm :: (Ord s, Show s) => Term s
                           -> State (GenState s) (Val s)

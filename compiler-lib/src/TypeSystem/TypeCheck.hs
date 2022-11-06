@@ -49,7 +49,9 @@ inferModule md = do
     -- TODO data definitions could accompany typeSigs here
     case foldl' go (Right $ GroupInference 0 env []) untypedFunDefs of
         Left ex -> Left ex
-        Right (GroupInference _ _ defs') -> Right (ModuleT defs')
+        Right (GroupInference _ _ defs') ->
+            let dataDefns = getDataDefns md
+            in Right (ModuleT dataDefns defs')
 
     where
     go eGroupInference un =

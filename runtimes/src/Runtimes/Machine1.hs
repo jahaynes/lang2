@@ -167,6 +167,10 @@ runMachine1 is = do
                 setIp (ip + 1)
                 go
 
+            IComment _ -> do
+                setIp (ip + 1)
+                go
+
             _ ->
                 error $ show (code ! ip)
 
