@@ -12,6 +12,7 @@ import Phase.Anf.AnfModule     (AnfModule (..), FunDefAnfT (..))
 
 import           Control.Monad         (replicateM)
 import           Data.ByteString.Char8 (ByteString, pack)
+import           Data.List             (findIndex)
 import           Data.Map.Strict       (Map, (!))
 import qualified Data.Map as M
 import           Data.Text             (Text)
@@ -272,9 +273,13 @@ process' deps = goNexp
 
                 pure (prs ++ trs ++ fls ++ [ILabel dnLabel], Reg fr)
 
-sizeInfoImpl :: Show s => [DataDefn ByteString] -> Val s -> Int
-sizeInfoImpl dataDefns val =
-    error $ show ("calculate size for", val, dataDefns)
+sizeInfoImpl :: (Eq s, Show s) => [DataDefn s] -> Val s -> Int
+sizeInfoImpl dataDefns (VDConsName n) =
+    -- TODO use type info here instead of selecting all
+    let allConstructors = concatMap (\(DataDefn _ _ cs) -> cs) dataDefns
+    -- TOOD Probably not a stable way of doing things
+        Just i = findIndex (==n) $ map (\(DataCon n' _) -> n') allConstructors
+    in i
 
 tagInfoImpl dataDefns consName = -9
     -- error $ show dataDefns
