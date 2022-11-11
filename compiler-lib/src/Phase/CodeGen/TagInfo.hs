@@ -2,16 +2,14 @@ module Phase.CodeGen.TagInfo where
 
 import Core.Module
 import Core.Types
-import Phase.CodeGen.Val
+import Data.List         (findIndex)
 
 newtype Tag =
     Tag Int
 
-class Tagged a where
-    getTag :: a -> Tag
-
-newtype TaggedConsName s =
-    TaggedConsName s
-
-instance Tagged (TaggedConsName s) where
-    getTag (TaggedConsName name) = Tag (-9)
+-- TODO totality
+getTag :: Eq s => [DataDefn s] -> Type s -> s -> Tag
+getTag dataDefns (TyCon typ) name =
+    let [DataDefn _ _ cs] = filter (\(DataDefn n _ _) -> n == typ) dataDefns
+        Just i = findIndex (\(DataCon n _) -> n == name) cs
+    in Tag i

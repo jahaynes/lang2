@@ -15,7 +15,6 @@ import Phase.CodeGen.Val
 
 import           Control.Monad         (replicateM)
 import           Data.ByteString.Char8 (ByteString, pack)
-import           Data.List             (findIndex)
 import           Data.Map.Strict       (Map, (!))
 import qualified Data.Map as M
 import           Data.Text             (Text)
@@ -52,6 +51,7 @@ data Deps s =
          , assignReg :: !(s -> State (GenState s) s)
          , allocate  :: !((AExp s, Val s) -> State (GenState s) ([Instr s], Val s))
          , comment   :: !(ByteString -> Instr s)
+         , dataDefns :: ![DataDefn s]
          }
 
 renderCodeGen0 :: [SubRoutine ByteString] -> Text
@@ -63,14 +63,14 @@ renderCodeGen0 = T.unlines . map render
                   )
 
 codeGenModule0 :: AnfModule ByteString -> [SubRoutine ByteString]
-codeGenModule0 md = process deps <$> getFunDefAnfTs md
+codeGenModule0 md = map (process deps)
+                  $ getFunDefAnfTs md
     where
     deps = Deps genFreshImpl
                 assignRegImpl
                 (allocateImpl genFreshImpl)
-                commentImpl
-
-commentImpl = IComment
+                IComment
+                (getDataDefnAnfTs md)
 
 genFreshImpl :: FreshType -> State (GenState ByteString) ByteString
 genFreshImpl ft = do
@@ -193,13 +193,14 @@ process' deps = goNexp
                     -- probably OK - a nullary DC can just be a tag on stack?
 
                     -- Data construction (todo - ensure saturation?)
+                    -- `typeOfCExp cexp` relies on this.  should it be the check too?
                     VDConsName name -> do
 
                         (is2, xs') <- unzip <$> mapM goAexp xs
 
                         fr <- genFresh deps FrReg
 
-                        let Tag tag      = getTag (TaggedConsName name)
+                        let Tag tag      = getTag (dataDefns deps) (typeOfCExp cexp) name
                             construction = VDCons name tag xs'
                             sz           = getSize (SizedVal construction)
 
@@ -208,7 +209,6 @@ process' deps = goNexp
                                       , [comment deps $ "Start making DataCons " <> pack (show name)]
                                       , [Malloc fr sz]
                                       , [Assign fr construction]
-                                      , [comment deps "Done making DataCons"]
                                       ]
                              , Reg fr )
 
