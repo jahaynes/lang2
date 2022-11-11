@@ -9,6 +9,9 @@ import Core.Term
 import Core.Types
 import Phase.Anf.AnfExpression
 import Phase.Anf.AnfModule     (AnfModule (..), FunDefAnfT (..))
+import Phase.CodeGen.SizeInfo
+import Phase.CodeGen.TagInfo
+import Phase.CodeGen.Val
 
 import           Control.Monad         (replicateM)
 import           Data.ByteString.Char8 (ByteString, pack)
@@ -44,23 +47,10 @@ data Instr s = CallFun (Val s)
              | IComment s
                deriving Show
 
-data Val s = Reg s
-           | RegPtr s
-           | VInt Integer
-           | VBool Bool
-           | Label s
-           | VDConsName s
-           | VDCons s Int [Val s] -- Int is tag/constructor -- val should be registers holding pointers
-           | VAddressAt s
-           | VHPtr Int
-               deriving Show
-
 data Deps s =
     Deps { genFresh  :: !(FreshType -> State (GenState s) s)
          , assignReg :: !(s -> State (GenState s) s)
          , allocate  :: !((AExp s, Val s) -> State (GenState s) ([Instr s], Val s))
-         , sizeInfo  :: !(Val s -> Int)
-         , tagInfo   :: !(s -> Int)
          , comment   :: !(ByteString -> Instr s)
          }
 
@@ -78,8 +68,6 @@ codeGenModule0 md = process deps <$> getFunDefAnfTs md
     deps = Deps genFreshImpl
                 assignRegImpl
                 (allocateImpl genFreshImpl)
-                (sizeInfoImpl (getDataDefnAnfTs md))
-                (tagInfoImpl (getDataDefnAnfTs md))
                 commentImpl
 
 commentImpl = IComment
@@ -205,27 +193,22 @@ process' deps = goNexp
                     -- probably OK - a nullary DC can just be a tag on stack?
 
                     -- Data construction (todo - ensure saturation?)
-                    VDConsName vcn -> do
+                    VDConsName name -> do
 
-                        (is2, xs')  <- unzip <$> mapM goAexp xs
-
-                        (is3, xs'') <- unzip <$> mapM (allocate deps) (zip xs xs')
+                        (is2, xs') <- unzip <$> mapM goAexp xs
 
                         fr <- genFresh deps FrReg
 
-                        -- Int is tag/constructor
-                        -- VDCons s Int [HeapPtr]
-                        let foo = VDCons vcn (-9) xs''
-                        let fooSz = sizeInfo deps (VDConsName vcn)
-                        let malloc = Malloc fr fooSz
+                        let Tag tag      = getTag (TaggedConsName name)
+                            construction = VDCons name tag xs'
+                            sz           = getSize (SizedVal construction)
 
                         pure ( concat [ is1
                                       , concat is2
-                                      , concat is3 
-                                      , [comment deps "Start making foo"]
-                                      , [malloc]
-                                      , [Assign fr foo] -- HERE
-                                      , [comment deps "Done making foo"]
+                                      , [comment deps $ "Start making DataCons " <> pack (show name)]
+                                      , [Malloc fr sz]
+                                      , [Assign fr construction]
+                                      , [comment deps "Done making DataCons"]
                                       ]
                              , Reg fr )
 
@@ -272,17 +255,6 @@ process' deps = goNexp
                 let fls = ILabel flLabel : is3 ++ [Assign fr fl', JmpLbl dnLabel]
 
                 pure (prs ++ trs ++ fls ++ [ILabel dnLabel], Reg fr)
-
-sizeInfoImpl :: (Eq s, Show s) => [DataDefn s] -> Val s -> Int
-sizeInfoImpl dataDefns (VDConsName n) =
-    -- TODO use type info here instead of selecting all
-    let allConstructors = concatMap (\(DataDefn _ _ cs) -> cs) dataDefns
-    -- TOOD Probably not a stable way of doing things
-        Just i = findIndex (==n) $ map (\(DataCon n' _) -> n') allConstructors
-    in i
-
-tagInfoImpl dataDefns consName = -9
-    -- error $ show dataDefns
 
 goTerm :: (Ord s, Show s) => Term s
                           -> State (GenState s) (Val s)
