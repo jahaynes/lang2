@@ -185,7 +185,7 @@ process' deps = goNexp
             -- An application can be a function call or a data construction
             CApp _ f xs -> do
 
-                (is1,  f') <- goAexp f
+                (is1, f') <- goAexp f
 
                 case f' of
 
@@ -198,19 +198,17 @@ process' deps = goNexp
 
                         (is2, xs') <- unzip <$> mapM goAexp xs
 
-                        fr <- genFresh deps FrReg
 
                         let Tag tag      = getTag (dataDefns deps) (typeOfCExp cexp) name
-                            construction = VDCons name tag xs'
-                            sz           = getSize (SizedVal construction)
+
+                        (fr, assignment) <- assignToStruct deps (VDCons name tag xs')
 
                         pure ( concat [ is1
                                       , concat is2
                                       , [comment deps $ "Start making DataCons " <> pack (show name)]
-                                      , [Malloc fr sz]
-                                      , [Assign fr construction]
+                                      , assignment
                                       ]
-                             , Reg fr )
+                             , fr )
 
                     -- Function call to label -- TODO dedupe
                     Label{} -> do
@@ -255,6 +253,27 @@ process' deps = goNexp
                 let fls = ILabel flLabel : is3 ++ [Assign fr fl', JmpLbl dnLabel]
 
                 pure (prs ++ trs ++ fls ++ [ILabel dnLabel], Reg fr)
+
+assignToStruct :: Show s => Deps s -> Val s -> State (GenState s) (Val s, [Instr s])
+assignToStruct deps c@(VDCons name tag xs) = do
+
+    let sz = getSize (SizedVal c)
+
+    fr <- genFresh deps FrReg
+
+    let destOffsets = init
+                    . scanl (+) 0
+                    $ 8 : map (getSize . SizedVal) xs
+
+    -- fr points to the start of malloc.  destOffsets relative to it
+
+    let instrs = map (toInstr fr) $ zip destOffsets (VTag tag:xs)
+
+    pure ( Reg fr
+         , Malloc fr sz : instrs )
+
+    where
+    toInstr fr (o, v) = Cpy (RegPtrOff fr o) v
 
 goTerm :: (Ord s, Show s) => Term s
                           -> State (GenState s) (Val s)
