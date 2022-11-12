@@ -15,6 +15,7 @@ renderCodeGen1 = T.unlines
                . zip [(0::Int)..]
 
     where
+    render (_ , ILabel s) = "\n  " <> decodeUtf8 s <> ":"
     render (_ , IComment s) = "\n  " <> decodeUtf8 s
     render (ln, instr) = T.pack $ show ln ++ ":\t" ++ show instr
 
