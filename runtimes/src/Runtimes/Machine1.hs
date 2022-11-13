@@ -5,6 +5,7 @@ module Runtimes.Machine1 where
 import Core.Operator
 import Common.State
 import Phase.CodeGen.CodeGen0
+import Phase.CodeGen.SizeInfo -- TODO should this be compile-time only?
 
 import           Data.ByteString             (ByteString)
 import qualified Data.ByteString       as BS
@@ -14,7 +15,6 @@ import qualified Data.Map as M
 import           Data.Vector                 (Vector, (!))
 import qualified Data.Vector as V
 import           Debug.Trace                 (trace)
-
 import qualified Data.Vector.Storable         as VS
 import qualified Data.Vector.Storable.Mutable as VM
 import           Control.Monad.ST
@@ -161,12 +161,23 @@ runMachine1 is = do
                 setIp (ip + 1)
                 go
 
-            Cpy dest a -> do
-                let VAddressAt reg = dest
-                VHPtr ptr <- eval (Reg reg)
-                writeTo (HeapAddr ptr) a
-                setIp (ip + 1)
-                go
+            Cpy dest a ->
+                case dest of
+
+                    VAddressAt reg -> error "not implemented" {-
+                        VHPtr ptr <- eval (Reg reg)
+                        writeTo (HeapAddr ptr) a
+                        setIp (ip + 1)
+                        go
+-}
+
+                    RegPtrOff reg off -> do
+                        VHPtr ptr <- eval (Reg reg)
+                        writeTo (HeapAddr ptr) off a
+                        setIp (ip + 1)
+                        go
+
+                    _ -> error $ show (code ! ip)
 
             IComment _ -> do
                 setIp (ip + 1)
@@ -175,17 +186,19 @@ runMachine1 is = do
             _ ->
                 error $ show (code ! ip)
 
-writeTo :: HeapAddr -> Val s -> State (Machine1 s) ()
-writeTo heapAddr val =
+writeTo :: Show s => HeapAddr -> Int -> Val s -> State (Machine1 s) ()
+writeTo heapAddr offset val =
     modify' $ \m -> do
         let val' = case val of
                        VInt i -> fromIntegral i :: Int -- TODO truncation issue
+                       VTag t -> t :: Int
         let heap     = getHeap m
             Just mem = M.lookup heapAddr heap
             mem'     = runST $ do
                             src <- VS.thaw . VS.fromList . BS.unpack $ encode val'
                             dst <- VS.thaw mem
-                            VM.copy dst src
+                            let dstSlice = VM.slice offset (getSize (SizedVal val)) dst
+                            VM.copy dstSlice src
                             VS.freeze dst
         m { getHeap = M.insert heapAddr mem' heap }
 

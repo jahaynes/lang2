@@ -17,6 +17,7 @@ instance Show s => Sized (SizedVal s) where
             VDConsName{} -> 8
             VInt{}       -> 8
             Reg{}        -> 8 -- Guess
+            VTag{}       -> 8
             VDCons _name _tag xs -> 8 + sum (map (getSize . SizedVal) xs)
 
             _            -> error $ "unknown size for: " ++ show v
