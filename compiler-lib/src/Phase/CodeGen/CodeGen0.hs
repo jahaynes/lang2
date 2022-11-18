@@ -20,6 +20,7 @@ import qualified Data.Map as M
 import           Data.Text             (Text)
 import qualified Data.Text as T
 import           Data.Text.Encoding    (decodeUtf8)
+import           Debug.Trace           (trace)
 
 data GenState s =
     GenState { regMap   :: !(Map s s)
@@ -131,9 +132,11 @@ process deps (FunDefAnfT name q expr) =
 
     case expr of
 
-        AExp (ALam _ vs body) ->
+        AExp (ALam t vs body) ->
 
-            let (instrs, rval) =
+            let vts = getParamTypes vs t
+
+                (instrs, rval) =
                     evalState' (GenState mempty 0) $ do
                         regs <- replicateM (length vs) (genFresh deps FrReg)
                         let rm = M.fromList $ zip vs regs
@@ -148,6 +151,12 @@ process deps (FunDefAnfT name q expr) =
         _ ->
             let asLambda = AExp (ALam (typeOf expr) [] expr)
             in process deps (FunDefAnfT name q asLambda)
+
+-- surely this will be reused
+getParamTypes = go []
+    where
+    go acc     []           _ = reverse acc
+    go acc (_:vs) (TyArr a b) = go (a:acc) vs b
 
 process' :: (Ord s, Show s) => Deps s -> NExp s -> State (GenState s) ([Instr s], Val s)
 process' deps = goNexp
@@ -165,16 +174,18 @@ process' deps = goNexp
 
         case aexp of
 
-            AUnPrimOp _ op a -> do
+            AUnPrimOp t op a -> do
                 (is1, a') <- goAexp a
                 fr        <- genFresh deps FrReg
-                pure (is1 ++ [UnOpInstr op fr a'], Reg fr)
+                pure ( is1 ++ [UnOpInstr op fr a']
+                     , TypedReg t fr)
 
-            ABinPrimOp _ op a b -> do
+            ABinPrimOp t op a b -> do
                 (is1, a') <- goAexp a
                 (is2, b') <- goAexp b
                 fr        <- genFresh deps FrReg
-                pure (is1 ++ is2 ++ [BinOpInstr op fr a' b'], Reg fr)
+                pure ( is1 ++ is2 ++ [BinOpInstr op fr a' b']
+                     , TypedReg t fr )
 
             ATerm _ term -> do
                 val <- goTerm term
@@ -256,7 +267,8 @@ process' deps = goNexp
                 (is3, fl') <- goNexp fl           
                 let fls = ILabel flLabel : is3 ++ [Assign fr fl', JmpLbl dnLabel]
 
-                pure (prs ++ trs ++ fls ++ [ILabel dnLabel], Reg fr)
+                pure ( prs ++ trs ++ fls ++ [ILabel dnLabel]
+                     , Reg fr )
 
 assignToStruct :: Show s => Deps s -> Val s -> State (GenState s) (Val s, [Instr s])
 assignToStruct deps c@(VDCons name tag xs) = do

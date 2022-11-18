@@ -132,7 +132,8 @@ printCExp cexp =
 printTerm :: Term ByteString -> State Int Builder
 printTerm term =
     indent $ case term of
-                 LitBool b -> if b then "True" else "False"
-                 LitInt i  -> TB.decimal i
-                 Var v     -> byteString v
-                 DCons dc  -> byteString dc
+                 LitBool b   -> if b then "True" else "False"
+                 LitInt i    -> TB.decimal i
+                 LitString s -> mconcat ["\"", byteString s, "\""]
+                 Var v       -> byteString v
+                 DCons dc    -> byteString dc
