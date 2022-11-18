@@ -13,11 +13,12 @@ newtype SizedVal s =
 instance Show s => Sized (SizedVal s) where
     getSize (SizedVal v) =
         case v of
-            RegPtr{}     -> 8
-            VDConsName{} -> 8
-            VInt{}       -> 8
-            Reg{}        -> 8 -- Guess
-            VTag{}       -> 8
+            TypedReg{}    -> 8 -- this is the size of JUST THE REGISTER. good?
+            TypedRegPtr{} -> 8 -- this is the size of JUST THE REGISTER. good?
+            VDConsName{}  -> 8
+            VInt{}        -> 8
+            Reg{}         -> 8 -- Guess
+            VTag{}        -> 8
             VDCons _name _tag xs -> 8 + sum (map (getSize . SizedVal) xs)
 
             _            -> error $ "unknown size for: " ++ show v

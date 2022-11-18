@@ -4,7 +4,7 @@ import Core.Types
 
 data Val s = Reg s
            | TypedReg (Type s) s -- ensure monotyped.  Maybe use tycon isntead of type?
-           | RegPtr s
+           | TypedRegPtr (Type s) s
            | RegPtrOff s Int
            | VInt Integer
            | VBool Bool

@@ -106,17 +106,19 @@ allocateImpl genFresh (aexp, v) = do
 
     fr <- genFresh FrReg
 
-    case typeOfAExp aexp of
+    let t = typeOfAExp aexp
+
+    case t of
 
         TyCon "Int" ->
             pure ( [ Malloc fr 8
                    , Cpy (VAddressAt fr) v]
-                 , RegPtr fr )
+                 , TypedRegPtr t fr ) -- TODO check 't'
 
         TyCon _ -> -- assume its a pointer size? TODO remove
             pure ( [ Malloc fr 8
                    , Cpy (VAddressAt fr) v]
-                 , RegPtr fr )
+                 , TypedRegPtr t fr ) -- TODO check 't'
 
 assignRegImpl :: ByteString -> State (GenState ByteString) ByteString
 assignRegImpl v = do
@@ -168,7 +170,8 @@ process' deps = goNexp
         a'        <- assignReg deps a
         (is1, b') <- goNexp b
         (is2, c') <- goNexp c
-        pure (is1 ++ [Assign a' b'] ++ is2, c')
+        pure ( is1 ++ [Assign a' b'] ++ is2
+             , c' )
 
     goAexp aexp =
 
@@ -187,8 +190,8 @@ process' deps = goNexp
                 pure ( is1 ++ is2 ++ [BinOpInstr op fr a' b']
                      , TypedReg t fr )
 
-            ATerm _ term -> do
-                val <- goTerm term
+            ATerm t term -> do
+                val <- goTerm t term
                 pure ([], val)
 
             AClo _ _ _ _ -> do
@@ -199,7 +202,7 @@ process' deps = goNexp
         case cexp of
 
             -- An application can be a function call or a data construction
-            CApp _ f xs -> do
+            CApp t f xs -> do
 
                 (is1, f') <- goAexp f
 
@@ -234,7 +237,7 @@ process' deps = goNexp
                                       , concat is2
                                       , pushes
                                       , [CallFun f', Pop fr]]
-                             , Reg fr)
+                             , TypedReg t fr) -- TODO Check this is correct 't'
 
                     -- Function call to reg -- TODO dedupe
                     Reg{} -> do
@@ -245,7 +248,7 @@ process' deps = goNexp
                                       , concat is2
                                       , pushes
                                       , [CallFun f', Pop fr]]
-                             , Reg fr)
+                             , TypedReg t fr) -- TODO Check this is correct 't'
 
             CIfThenElse _ pr tr fl -> do
 
@@ -293,16 +296,17 @@ assignToStruct deps c@(VDCons name tag xs) = do
     where
     toInstr fr (o, v) = Cpy (RegPtrOff fr o) v
 
-goTerm :: (Ord s, Show s) => Term s
+goTerm :: (Ord s, Show s) => Type s
+                          -> Term s
                           -> State (GenState s) (Val s)
-goTerm term =
+goTerm typ term =
 
     case term of
 
         Var v -> do
             mr <- M.lookup v . regMap <$> get
             pure $ case mr of
-                       Just r  -> Reg r
+                       Just r  -> TypedReg typ r
                        Nothing -> Label v
 
         LitInt i ->
