@@ -72,6 +72,8 @@ codeGenModule0 md = map (process deps)
                 IComment
                 (getDataDefnAnfTs md)
 
+-- generate a type with this register, so that reads know what to read?
+-- is there a point in returning the type if the type is always passed in?
 genFreshImpl :: FreshType -> State (GenState ByteString) ByteString
 genFreshImpl ft = do
     st <- get
@@ -91,7 +93,11 @@ data FreshType = FrReg
                | FrFalseBranch
                | FrJoin
 
+unkn :: Type ByteString
+unkn = TyCon "idk"
+
 -- the val is what's being allocated, but the AExp still has the type
+-- no longer necessary?
 allocateImpl :: Monad m => (FreshType -> m ByteString)
                         -> (AExp ByteString, Val ByteString)
                         -> m ([Instr ByteString], Val ByteString)
@@ -143,7 +149,6 @@ process deps (FunDefAnfT name q expr) =
             let asLambda = AExp (ALam (typeOf expr) [] expr)
             in process deps (FunDefAnfT name q asLambda)
 
-
 process' :: (Ord s, Show s) => Deps s -> NExp s -> State (GenState s) ([Instr s], Val s)
 process' deps = goNexp
 
@@ -162,13 +167,13 @@ process' deps = goNexp
 
             AUnPrimOp _ op a -> do
                 (is1, a') <- goAexp a
-                fr        <- genFresh deps $ FrReg
+                fr        <- genFresh deps FrReg
                 pure (is1 ++ [UnOpInstr op fr a'], Reg fr)
 
             ABinPrimOp _ op a b -> do
                 (is1, a') <- goAexp a
                 (is2, b') <- goAexp b
-                fr        <- genFresh deps $ FrReg
+                fr        <- genFresh deps FrReg
                 pure (is1 ++ is2 ++ [BinOpInstr op fr a' b'], Reg fr)
 
             ATerm _ term -> do
@@ -198,8 +203,7 @@ process' deps = goNexp
 
                         (is2, xs') <- unzip <$> mapM goAexp xs
 
-
-                        let Tag tag      = getTag (dataDefns deps) (typeOfCExp cexp) name
+                        let Tag tag = getTag (dataDefns deps) (typeOfCExp cexp) name
 
                         (fr, assignment) <- assignToStruct deps (VDCons name tag xs')
 
@@ -267,7 +271,9 @@ assignToStruct deps c@(VDCons name tag xs) = do
 
     -- fr points to the start of malloc.  destOffsets relative to it
 
-    let instrs = map (toInstr fr) $ zip destOffsets (VTag tag:xs)
+    let instrs = map (toInstr fr)
+               . zip destOffsets
+               $ VTag tag:xs
 
     pure ( Reg fr
          , Malloc fr sz : instrs )

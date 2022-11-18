@@ -1,6 +1,9 @@
 module Phase.CodeGen.Val where
 
+import Core.Types
+
 data Val s = Reg s
+           | TypedReg (Type s) s -- ensure monotyped.  Maybe use tycon isntead of type?
            | RegPtr s
            | RegPtrOff s Int
            | VInt Integer

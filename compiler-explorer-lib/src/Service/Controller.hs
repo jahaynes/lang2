@@ -94,7 +94,7 @@ server src = do
     let ps = execState pipe $ fromSource src
     case getCodeGen1 ps of
         Left e    -> pure ps { getOutput = e }
-        Right cg1 -> pure ps { getOutput = runMachine1 cg1 }
+        Right cg1 -> pure ps -- { getOutput = runMachine1 cg1 }
 
 pipe :: State ProgramState ()
 pipe = do
