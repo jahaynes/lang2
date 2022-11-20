@@ -11,7 +11,7 @@ import           Data.Map              (Map)
 import qualified Data.Map as M
 import           Data.Set              (Set)
 import qualified Data.Set as S
-
+import           Debug.Trace (trace)
 
 data GroupState s =
     GroupState { getVarNum      :: Int
@@ -39,9 +39,10 @@ substituteType         _       (TyCon a) = TyCon a
 substituteType (Subst s)     t@(TyVar a) = M.findWithDefault t a s
 substituteType         s (t1 `TyArr` t2) = substituteType s t1 `TyArr` substituteType s t2
 
+-- TODO - work with (Maybe a) not (Maybe)
 instantiate :: Polytype ByteString
             -> State (GroupState s) (Type ByteString)
-instantiate (Forall as t) = do
+instantiate pt@(Forall as t) = trace ("instantiate: " ++ show pt) $ do
     as' <- mapM (const freshTVar) as
     let s = Subst $ M.fromList $ zip as as'
     pure $ substituteType s t

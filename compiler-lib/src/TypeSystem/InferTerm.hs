@@ -10,6 +10,7 @@ import           Data.ByteString (ByteString)
 import           Data.Functor    ((<&>))
 import           Data.Map        (Map)
 import qualified Data.Map as M
+import           Debug.Trace (trace)
 
 -- Todo Either error-handling
 inferTerm :: Map ByteString (Polytype ByteString)
@@ -23,7 +24,11 @@ inferTerm env term =
         DCons d     ->
             case M.lookup d env of
                 Nothing -> error $ "unbound data cons: " ++ show d
-                Just p  -> instantiate p <&> \t -> TermT t term
+                Just p ->
+                    instantiate p <&> \t ->
+                        trace (unlines [ "inferTerm: " ++ show d
+                                       , "inferTerm: " ++ show p
+                                       , "inferTerm: " ++ show t ]) $ TermT t term
         Var v       ->
             case M.lookup v env of
                 Nothing -> error $ "unbound var: " ++ show v
