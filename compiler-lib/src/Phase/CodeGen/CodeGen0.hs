@@ -33,7 +33,7 @@ data SubRoutine s =
 
 data Instr s = CallFun (Val s)
              | Push (Val s)
-             | Pop s
+             | PopTyped (Type s) s
              | Ret
              | UnOpInstr UnOp s (Val s)
              | BinOpInstr BinOp s (Val s) (Val s)
@@ -143,7 +143,7 @@ process deps (FunDefAnfT name q expr) =
                         regs <- replicateM (length vs) (genFresh deps FrReg)
                         let rm = M.fromList $ zip vs regs
                         modify' $ \st -> st { regMap = rm }
-                        let pops = map (\v -> Pop $ rm ! v) vs
+                        let pops = map (\(t, v) -> PopTyped t (rm ! v)) $ zip vts vs
                         (is, x) <- process' deps body
                         pure (pops ++ is, x)
 
@@ -236,10 +236,11 @@ process' deps = goNexp
                         pure ( concat [ is1
                                       , concat is2
                                       , pushes
-                                      , [CallFun f', Pop fr]]
+                                      , [CallFun f', PopTyped t fr]] -- check correct t
                              , TypedReg t fr) -- TODO Check this is correct 't'
 
                     -- Function call to reg -- TODO dedupe
+                    -- TODO remove non-typed Reg
                     Reg{} -> do
                         (is2, xs') <- unzip <$> mapM goAexp xs
                         let pushes = map Push $ reverse xs'
@@ -247,7 +248,7 @@ process' deps = goNexp
                         pure ( concat [ is1
                                       , concat is2
                                       , pushes
-                                      , [CallFun f', Pop fr]]
+                                      , [CallFun f', PopTyped t fr]] -- check correct t'
                              , TypedReg t fr) -- TODO Check this is correct 't'
 
             CIfThenElse _ pr tr fl -> do

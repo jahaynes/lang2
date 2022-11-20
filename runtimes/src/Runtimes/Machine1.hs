@@ -102,7 +102,7 @@ runMachine1 is = do
                         setIp ip'
                         go
 
-            Pop r -> do
+            PopTyped _ r -> do
                 v <- pop
                 setReg r v
                 setIp (ip + 1)
