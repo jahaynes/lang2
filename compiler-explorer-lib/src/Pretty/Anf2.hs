@@ -65,9 +65,9 @@ printType = TB.intercalate " -> " . unbuild []
     unbuild acc (TyArr a b) = unbuild (a:acc) b
     unbuild acc           t = reverse $ map prt (t:acc)
 
-    prt (TyCon c) = byteString c
-    prt (TyVar v) = byteString v
-    prt t@TyArr{} = mconcat ["(", printType t,")"]
+    prt (TyCon c tvs) = TB.intercalate " " $ map byteString (c:tvs)
+    prt (TyVar v)     = byteString v
+    prt t@TyArr{}     = mconcat ["(", printType t,")"]
 
 printNexp :: NExp ByteString -> State Int Builder
 printNexp nexp =

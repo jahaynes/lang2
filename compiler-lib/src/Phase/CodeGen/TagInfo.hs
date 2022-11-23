@@ -9,7 +9,7 @@ newtype Tag =
 
 -- TODO totality
 getTag :: Eq s => [DataDefn s] -> Type s -> s -> Tag
-getTag dataDefns (TyCon typ) name =
+getTag dataDefns (TyCon typ _) name =
     let [DataDefn _ _ cs] = filter (\(DataDefn n _ _) -> n == typ) dataDefns
         Just i = findIndex (\(DataCon n _) -> n == name) cs
     in Tag i

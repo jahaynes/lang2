@@ -95,7 +95,7 @@ data FreshType = FrReg
                | FrJoin
 
 unkn :: Type ByteString
-unkn = TyCon "idk"
+unkn = TyCon "idk" []
 
 -- the val is what's being allocated, but the AExp still has the type
 -- no longer necessary?
@@ -110,12 +110,12 @@ allocateImpl genFresh (aexp, v) = do
 
     case t of
 
-        TyCon "Int" ->
+        TyCon "Int" _ ->
             pure ( [ Malloc fr 8
                    , Cpy (VAddressAt fr) v]
                  , TypedRegPtr t fr ) -- TODO check 't'
 
-        TyCon _ -> -- assume its a pointer size? TODO remove
+        TyCon _ _ -> -- assume its a pointer size? TODO remove
             pure ( [ Malloc fr 8
                    , Cpy (VAddressAt fr) v]
                  , TypedRegPtr t fr ) -- TODO check 't'

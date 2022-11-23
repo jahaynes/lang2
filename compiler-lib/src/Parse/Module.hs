@@ -117,4 +117,4 @@ parseTypeSig = do
     parseType :: Parser ParseState (Type ByteString)
     parseType = (token TLParen *> parseArrowedType <* token TRParen)
             <|> (TyVar <$> parseLowerStart)
-            <|> (TyCon <$> parseUpperStart)
+            <|> (TyCon <$> parseUpperStart <*> pure []) -- TODO unhardcode [] !

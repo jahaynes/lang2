@@ -10,13 +10,14 @@ import TypeSystem.Common
 import TypeSystem.InferExpression
 
 import           Control.Monad   (forM)
-import           Data.ByteString (ByteString)
+import           Data.ByteString.Char8 (ByteString, pack)
 import           Data.Functor    ((<&>))
 import           Data.List       (foldl')
-import           Data.Map        (Map) -- ((!), Map)
+import           Data.Map        (Map)
 import           Data.Set        (Set)
 import qualified Data.Map as M
 import qualified Data.Set as S
+import           Debug.Trace     (trace)
 
 data ModuleState s =
     ModuleState { getEnv     :: Map s (Polytype s)
@@ -37,7 +38,7 @@ inferModule md = do
             S.map (\n -> FunDefn n (funDefnMap !!! n)) <$> typeCheckPlan
 
     let typeSigs = M.fromList
-                 . map (\(TypeSig n t) -> (n, Forall [] t))
+                 . map (\(TypeSig n t) -> (n, Forall [pack "blARH"] t)) -- TODO
                  $ getTypeSigs md
 
     let dataConstructors =
@@ -74,17 +75,23 @@ inferModule md = do
 dataDefnToType :: (Ord s, Show s) => Map s (Polytype s)
                                   -> DataDefn s
                                   -> Map s (Polytype s)
-dataDefnToType env (DataDefn tn tvs dcons) =
+dataDefnToType env (DataDefn typeName tvs dcons) =
 
     env <!> (M.fromList $ map go dcons)
 
     where
-    go (DataCon dc xs) = (dc, Forall tvs (foldr TyArr (TyCon tn) (map to xs)))
+    go (DataCon dc xs) = do
+
+        let monotype = foldr TyArr (TyCon typeName tvs) (map to xs) -- not []
+            polytype = Forall tvs monotype
+
+        trace ("val: " <> show polytype) (dc, polytype)
+
         where
         to (MemberVar v)     = TyVar v
-        to (MemberType t ts) = TyCon t
-            --let ts' = map to ts
-            --in foldr TyArr (TyCon t) ts' -- TODO is this necessary/right?
+        to (MemberType t ts) = --TyCon t [] -- Not [] ! 
+            let ts' = map to ts
+            in foldr TyArr (TyCon t []) ts' -- TODO is this necessary/right?
 
 data GroupInference =
     GroupInference !Int
@@ -115,7 +122,7 @@ inferGroup env untyped = do
     -- 2
     -- Make them available in the environment
     -- (allows recursion)
-    let env' = env <!> (Forall [] <$> topLevelTypes) -- bad Forall?
+    let env' = env <!> (Forall [pack "TODO"] <$> topLevelTypes)
 
     -- Infer each expression and gather the constraints
     inferences <- forM namesAndExprs (\(n, expr) -> do

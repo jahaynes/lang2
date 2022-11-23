@@ -35,7 +35,7 @@ numToVar n =
     in pack (chr (letter + 97) : show num)
 
 substituteType :: Ord s => Subst s -> Type s -> Type s
-substituteType         _       (TyCon a) = TyCon a
+substituteType         _   (TyCon a tvs) = TyCon a tvs
 substituteType (Subst s)     t@(TyVar a) = M.findWithDefault t a s
 substituteType         s (t1 `TyArr` t2) = substituteType s t1 `TyArr` substituteType s t2
 

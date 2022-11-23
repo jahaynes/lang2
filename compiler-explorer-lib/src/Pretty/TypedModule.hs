@@ -55,15 +55,17 @@ printPolyType :: Polytype ByteString -> Builder
 printPolyType (Forall [] t) = printType t
 printPolyType (Forall q  t) = mconcat ["forall ", printVars q, ". ", printType t]
 
+
+-- TODO dedupe!
 printType :: Type ByteString -> Builder
 printType = TB.intercalate " -> " . unbuild []
     where
     unbuild acc (TyArr a b) = unbuild (a:acc) b
     unbuild acc           t = reverse $ map prt (t:acc)
 
-    prt (TyCon c) = bytestring c
-    prt (TyVar v) = bytestring v
-    prt t@TyArr{} = mconcat ["(", printType t,")"]
+    prt (TyCon c tvs) = TB.intercalate " " $ map bytestring (c:tvs)
+    prt (TyVar v)     = bytestring v
+    prt t@TyArr{}     = mconcat ["(", printType t,")"]
 
 indent :: Int -> Builder
 indent i = TB.text $ T.replicate (2*i) " "

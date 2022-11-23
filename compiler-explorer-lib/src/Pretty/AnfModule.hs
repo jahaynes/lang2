@@ -57,9 +57,9 @@ printType = TB.intercalate " -> " . unbuild []
     unbuild acc (TyArr a b) = unbuild (a:acc) b
     unbuild acc           t = reverse $ map prt (t:acc)
 
-    prt (TyCon c) = bytestring c
-    prt (TyVar v) = bytestring v
-    prt t@TyArr{} = mconcat ["(", printType t,")"]
+    prt (TyCon c tvs) = TB.intercalate " " $ map byteString (c:tvs)
+    prt (TyVar v)     = bytestring v
+    prt t@TyArr{}     = mconcat ["(", printType t,")"]
 
 -- TODO dedupe
 indent :: Int -> Builder
