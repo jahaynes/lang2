@@ -132,8 +132,8 @@ printCExp ind cexp =
 
         -- TODO
         CCase _ scrut ps ->
-            TB.intercalate "\n" ([ "case " <> printAExp 0 scrut ] ++
-                                 (map (printPExp (ind + 2)) ps))
+            TB.intercalate "\n" ( ("case " <> printAExp 0 scrut)
+                                  : map (printPExp (ind + 2)) ps )
 
 printPExp :: Int
           -> PExp ByteString
