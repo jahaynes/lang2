@@ -77,7 +77,7 @@ dataDefnToType :: (Ord s, Show s) => Map s (Polytype s)
                                   -> Map s (Polytype s)
 dataDefnToType env (DataDefn typeName tvs dcons) =
 
-    env <!> (M.fromList $ map go dcons)
+    env <!> M.fromList (map go dcons)
 
     where
     go (DataCon dc xs) = do

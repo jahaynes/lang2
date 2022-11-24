@@ -117,7 +117,7 @@ runMachine1 is = do
                     (MulI,  VInt a'',  VInt b'') -> setReg dst (VInt  $! a''     * b'')
                     (DivI,  VInt a'',  VInt b'') -> setReg dst (VInt  $! a'' `div` b'')
                     (EqA,   VInt a'',  VInt b'') -> setReg dst (VBool $! a''    == b'')
-                    (AndB, VBool a'', VBool b'') -> setReg dst (VBool $! and [a'', b''])
+                    (AndB, VBool a'', VBool b'') -> setReg dst (VBool $! a''    && b'')
                     _ -> error $ show op
                 setIp (ip + 1)
                 go

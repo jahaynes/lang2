@@ -19,7 +19,7 @@ etaSaturate md extraParams =
 saturateExpr :: Ord s => Map s [(s, Type s)]
                       -> ExprT s
                       -> ExprT s
-saturateExpr extraParams exprT = go exprT
+saturateExpr extraParams = go
 
     where
     go (TermT t term) =
@@ -48,7 +48,7 @@ saturateExpr extraParams exprT = go exprT
 
                 -- Calculate the type of the fresh enclosing lambda
                 -- TODO untested
-                let t' = foldr TyArr t (map snd eps)
+                let t' = foldr (TyArr . snd) t eps
 
                 LamT t' vs (AppT t f' xs'')
 

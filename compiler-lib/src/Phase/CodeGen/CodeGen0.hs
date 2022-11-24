@@ -13,7 +13,7 @@ import Phase.CodeGen.SizeInfo
 import Phase.CodeGen.TagInfo
 import Phase.CodeGen.Val
 
-import           Control.Monad         (replicateM)
+import           Control.Monad         (mapAndUnzipM, replicateM)
 import           Data.ByteString.Char8 (ByteString, pack)
 import           Data.Map.Strict       (Map, (!))
 import qualified Data.Map as M
@@ -60,7 +60,7 @@ renderCodeGen0 = T.unlines . map render
     where
     render (SubRoutine n is) =
         T.unlines ( decodeUtf8 n <> ":"
-                  : (map (\i -> "  " <> i) $ map (T.pack . show) is)
+                  : (map ("  " <>) $ map (T.pack . show) is)
                   )
 
 codeGenModule0 :: AnfModule ByteString -> [SubRoutine ByteString]
@@ -215,7 +215,7 @@ process' deps = goNexp
                     -- `typeOfCExp cexp` relies on this.  should it be the check too?
                     VDConsName name -> do
 
-                        (is2, xs') <- unzip <$> mapM goAexp xs
+                        (is2, xs') <- mapAndUnzipM goAexp xs
 
                         let Tag tag = getTag (dataDefns deps) (typeOfCExp cexp) name
 
@@ -230,7 +230,7 @@ process' deps = goNexp
 
                     -- Function call to label -- TODO dedupe
                     Label{} -> do
-                        (is2, xs') <- unzip <$> mapM goAexp xs
+                        (is2, xs') <- mapAndUnzipM goAexp xs
                         let pushes = map Push $ reverse xs'
                         fr <- genFresh deps FrReg
                         pure ( concat [ is1
@@ -242,7 +242,7 @@ process' deps = goNexp
                     -- Function call to reg -- TODO dedupe
                     -- TODO remove non-typed Reg
                     Reg{} -> do
-                        (is2, xs') <- unzip <$> mapM goAexp xs
+                        (is2, xs') <- mapAndUnzipM goAexp xs
                         let pushes = map Push $ reverse xs'
                         fr <- genFresh deps FrReg
                         pure ( concat [ is1
