@@ -31,9 +31,9 @@ test_primitives = unitTest $ do
                                         , LitBool True
                                         , LitString "str" ]
 
-    r === [ TermT (TyCon "Int")    (LitInt 33)
-          , TermT (TyCon "Bool")   (LitBool True)
-          , TermT (TyCon "String") (LitString "str") ]
+    r === [ TermT (TyCon "Int" [])    (LitInt 33)
+          , TermT (TyCon "Bool" [])   (LitBool True)
+          , TermT (TyCon "String" []) (LitString "str") ]
 
 test_generalisations :: Property
 test_generalisations = unitTest $ do
@@ -65,7 +65,7 @@ test_top_level_recursion = unitTest $ do
 
     let r = map getPolyType . getFunDefnTs <$> inferModule md
 
-    r === Right [Forall [] (TyCon "Int" ->> TyCon "String")]
+    r === Right [Forall [] (TyCon "Int" [] ->> TyCon "String" [])]
 
 test_nested_recursion :: Property
 test_nested_recursion = unitTest $ do
@@ -87,7 +87,7 @@ test_nested_recursion = unitTest $ do
 
     let r = map getPolyType . getFunDefnTs <$> inferModule md
 
-    r === Right [Forall [] (TyCon "Int" ->> TyCon "Int")]
+    r === Right [Forall [] (TyCon "Int" [] ->> TyCon "Int" [])]
 
 test_mutual_recursion :: Property
 test_mutual_recursion = unitTest $ do
@@ -103,13 +103,13 @@ test_mutual_recursion = unitTest $ do
                   EApp (ETerm (Var "not")) [EApp (ETerm (Var "yep")) [ETerm (Var "n")]]
 
     let md = Module { getDataDefns = []
-                    , getTypeSigs  = [ TypeSig "not" (TyCon "Bool" `TyArr` TyCon "Bool") ]
+                    , getTypeSigs  = [ TypeSig "not" (TyCon "Bool" [] `TyArr` TyCon "Bool" []) ]
                     , getFunDefns  = [ yep, yesnt ] }
 
     let r = map getPolyType . getFunDefnTs <$> inferModule md
 
-    r === Right [ Forall ["a0"] (TyArr (TyVar "a0") (TyCon "Bool"))
-                , Forall ["a0"] (TyArr (TyVar "a0") (TyCon "Bool")) ]
+    r === Right [ Forall ["a0"] (TyArr (TyVar "a0") (TyCon "Bool" []))
+                , Forall ["a0"] (TyArr (TyVar "a0") (TyCon "Bool" [])) ]
 
 unitTest :: PropertyT IO () -> Property
 unitTest = withTests 1 . property
