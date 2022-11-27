@@ -103,13 +103,13 @@ test_mutual_recursion = unitTest $ do
                   EApp (ETerm (Var "not")) [EApp (ETerm (Var "yep")) [ETerm (Var "n")]]
 
     let md = Module { getDataDefns = []
-                    , getTypeSigs  = [ TypeSig "not" (TyCon "Bool" [] `TyArr` TyCon "Bool" []) ]
+                    , getTypeSigs  = [ TypeSig "not" (TyCon "Bool" [] ->> TyCon "Bool" []) ]
                     , getFunDefns  = [ yep, yesnt ] }
 
     let r = map getPolyType . getFunDefnTs <$> inferModule md
 
-    r === Right [ Forall ["a0"] (TyArr (TyVar "a0") (TyCon "Bool" []))
-                , Forall ["a0"] (TyArr (TyVar "a0") (TyCon "Bool" [])) ]
+    r === Right [ Forall ["a0"] (TyVar "a0" ->> TyCon "Bool" [])
+                , Forall ["a0"] (TyVar "a0" ->> TyCon "Bool" []) ]
 
 unitTest :: PropertyT IO () -> Property
 unitTest = withTests 1 . property
