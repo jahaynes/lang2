@@ -48,11 +48,12 @@ data Instr s = CallFun (Val s)
                deriving Show
 
 data Deps s =
-    Deps { genFresh  :: !(FreshType -> State (GenState s) s)
-         , assignReg :: !(s -> State (GenState s) s)
-         , allocate  :: !((AExp s, Val s) -> State (GenState s) ([Instr s], Val s))
-         , comment   :: !(ByteString -> Instr s)
-         , dataDefns :: ![DataDefn s]
+    Deps { genFresh     :: !(FreshType -> State (GenState s) s)
+         , assignReg    :: !(s -> State (GenState s) s)
+         , allocate     :: !((AExp s, Val s) -> State (GenState s) ([Instr s], Val s))
+         , comment      :: !(ByteString -> Instr s)
+         , dataDefns    :: ![DataDefn s]
+         , getTypeOfVal :: !(Val s -> Type s)
          }
 
 renderCodeGen0 :: [SubRoutine ByteString] -> Text
@@ -72,6 +73,7 @@ codeGenModule0 md = map (process deps)
                 (allocateImpl genFreshImpl)
                 IComment
                 (getDataDefnAnfTs md)
+                typeOfVal
 
 -- generate a type with this register, so that reads know what to read?
 -- is there a point in returning the type if the type is always passed in?
@@ -213,13 +215,13 @@ process' deps = goNexp
 
                     -- Data construction (todo - ensure saturation?)
                     -- `typeOfCExp cexp` relies on this.  should it be the check too?
-                    VDConsName name -> do
+                    VDConsNameTyped t name -> do
 
                         (is2, xs') <- mapAndUnzipM goAexp xs
 
                         let Tag tag = getTag (dataDefns deps) (typeOfCExp cexp) name
 
-                        (fr, assignment) <- assignToStruct deps (VDCons name tag xs')
+                        (fr, assignment) <- assignToStruct deps (VDConsTyped t name tag xs')
 
                         pure ( concat [ is1
                                       , concat is2
@@ -237,18 +239,6 @@ process' deps = goNexp
                                       , concat is2
                                       , pushes
                                       , [CallFun f', PopTyped t fr]] -- check correct t
-                             , TypedReg t fr) -- TODO Check this is correct 't'
-
-                    -- Function call to reg -- TODO dedupe
-                    -- TODO remove non-typed Reg
-                    Reg{} -> do
-                        (is2, xs') <- mapAndUnzipM goAexp xs
-                        let pushes = map Push $ reverse xs'
-                        fr <- genFresh deps FrReg
-                        pure ( concat [ is1
-                                      , concat is2
-                                      , pushes
-                                      , [CallFun f', PopTyped t fr]] -- check correct t'
                              , TypedReg t fr) -- TODO Check this is correct 't'
 
                     -- TODO deduplicate/remove untyped reg
@@ -283,10 +273,10 @@ process' deps = goNexp
                 let fls = ILabel flLabel : is3 ++ [Assign fr fl', JmpLbl dnLabel]
 
                 pure ( prs ++ trs ++ fls ++ [ILabel dnLabel]
-                     , Reg fr )
+                     , TypedReg (typeOf tr) fr )
 
-assignToStruct :: Show s => Deps s -> Val s -> State (GenState s) (Val s, [Instr s])
-assignToStruct deps c@(VDCons name tag xs) = do
+assignToStruct :: (Eq s, Show s) => Deps s -> Val s -> State (GenState s) (Val s, [Instr s])
+assignToStruct deps c@(VDConsTyped t name tag xs) = do
 
     let sz = getSize (SizedVal c)
 
@@ -302,11 +292,20 @@ assignToStruct deps c@(VDCons name tag xs) = do
                . zip destOffsets
                $ VTag tag:xs
 
-    pure ( Reg fr
+    let rType = typeApply t (map (getTypeOfVal deps) xs)
+
+    pure ( TypedReg rType fr
          , Malloc fr sz : instrs )
 
     where
     toInstr fr (o, v) = Cpy (RegPtrOff fr o) v
+
+typeApply :: (Eq s, Show s) => Type s -> [Type s] -> Type s
+typeApply t' ts' = go t' ts'
+    where
+    go           t     []          = t
+    go (TyArr a b) (t:ts) | a == t = typeApply b ts
+    go           _      _          = error $ "Couldn't apply types: (" ++ show t' ++ ") (" ++ show ts' ++ ")"
 
 goTerm :: (Ord s, Show s) => Type s
                           -> Term s
@@ -328,4 +327,4 @@ goTerm typ term =
             pure $ VBool b
 
         DCons dc ->
-            pure $ VDConsName dc
+            pure $ VDConsNameTyped typ dc

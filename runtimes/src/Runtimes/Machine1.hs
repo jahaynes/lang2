@@ -171,12 +171,12 @@ runMachine1 is = do
                         go
 -}
 
-                    RegPtrOff reg off -> do
+                    RegPtrOff reg off -> error "not implemented" {- do
                         VHPtr ptr <- eval (Reg reg)
                         writeTo (HeapAddr ptr) off a
                         setIp (ip + 1)
                         go
-
+-}
                     _ -> error $ show (code ! ip)
 
             IComment _ -> do
@@ -218,14 +218,11 @@ eval v =
 
     case v of
 
-        Reg r -> do
+        TypedReg _ r -> do
             registers <- getRegisters <$> get
             case M.lookup r registers of
                 Just v' -> pure v'
                 Nothing -> error $ "missing register: " ++ show r
-
-        TypedReg _ r ->
-            eval (Reg r)
 
         VBool{} ->
             pure v
@@ -237,11 +234,11 @@ eval v =
             pure v
 
         -- Probably shouldn't be here
-        VDConsName{} ->
+        VDConsNameTyped{} ->
             pure v
 
         -- Probably shouldn't be here
-        VDCons{} ->
+        VDConsTyped{} ->
             pure v
 
         _ ->
