@@ -224,6 +224,9 @@ eval v =
                 Just v' -> pure v'
                 Nothing -> error $ "missing register: " ++ show r
 
+        TypedReg _ r ->
+            eval (Reg r)
+
         VBool{} ->
             pure v
 

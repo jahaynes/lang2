@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds,
+             DeriveGeneric,
              OverloadedStrings,
              ScopedTypeVariables,
              TypeOperators #-}
@@ -18,7 +19,7 @@ import Phase.LambdaLift.LambdaLift
 import Pretty.Anf2
 import Pretty.Module
 import Pretty.TypedModule
-import Runtimes.Machine1 (runMachine1)
+import Runtimes.Machine1                     (runMachine1)
 import TypeSystem.TypeCheck
 
 import           Data.Aeson
@@ -26,11 +27,19 @@ import           Data.ByteString             (ByteString)
 import           Data.Text                   (Text, pack)
 import           Data.Text.Encoding          (decodeUtf8, encodeUtf8)
 import           Data.Vector                 (Vector)
+import           GHC.Generics                (Generic)
 import           Network.Wai.Handler.Warp    (run)
-import           Network.Wai.Middleware.Cors (simpleCors)
+import           Network.Wai.Middleware.Cors (CorsResourcePolicy (..), cors)
 import           Servant
 
-type Api = "lexAndParse" :> ReqBody '[PlainText] Text
+data Input =
+    Input { getInput :: !Text
+          , getExec  :: !Bool
+          } deriving (Generic, Show)
+
+instance FromJSON Input
+
+type Api = "lexAndParse" :> ReqBody '[JSON] Input
                          :> Post '[JSON] ProgramState
 
 data ProgramState =
@@ -52,7 +61,6 @@ instance ToJSON ProgramState where
     toJSON ps = do
 
         let txtTokens                 = decodeUtf8 $ either id tokensToByteString (getTokens ps)
-            txtOutput                 = decodeUtf8 $ getOutput ps
             txtDefns                  = either decodeUtf8 moduleToText (getModule ps)
             txtPrettyDefns            = either decodeUtf8 render (getModule ps)
             txtInferred               = either decodeUtf8 (\(ModuleT _ tdefs) -> pack . unlines . map show $ tdefs) (getInferred ps)
@@ -66,9 +74,9 @@ instance ToJSON ProgramState where
             txtLambdaLiftedPretty     = either decodeUtf8 renderAnfModule (getLambdaLifted ps)
             txtCodeGen0               = either decodeUtf8 renderCodeGen0 (getCodeGen0 ps)
             txtCodeGen1               = either decodeUtf8 renderCodeGen1 (getCodeGen1 ps)
+            txtOutput                 = decodeUtf8 $ getOutput ps
 
-        object [ "output"                 .= String txtOutput
-               , "tokens"                 .= String txtTokens
+        object [ "tokens"                 .= String txtTokens
                , "defns"                  .= String txtDefns
                , "prettyDefns"            .= String txtPrettyDefns
                , "inferred"               .= String txtInferred
@@ -82,6 +90,7 @@ instance ToJSON ProgramState where
                , "lambdaLiftedPretty"     .= String txtLambdaLiftedPretty
                , "codeGen0"               .= String txtCodeGen0
                , "codeGen1"               .= String txtCodeGen1
+               , "output"                 .= String txtOutput
                ]
 
 fromSource :: Text -> ProgramState
@@ -90,11 +99,17 @@ fromSource txt = ProgramState txt "" na na na na na na na na na
     na = Left "Not Available"
 
 server :: Server Api
-server src = do
-    let ps = execState pipe $ fromSource src
-    case getCodeGen1 ps of
-        Left e    -> pure ps { getOutput = e }
-        Right cg1 -> pure ps -- { getOutput = runMachine1 cg1 }
+server input =
+
+    let output = execState pipe 
+               . fromSource
+               $ getInput input
+
+    in pure $
+         case getCodeGen1 output of
+           Left e                    -> output { getOutput = e }
+           Right cg1 | getExec input -> output { getOutput = runMachine1 cg1 }
+                     | otherwise     -> output { getOutput = "<Didn't run>"  }
 
 pipe :: State ProgramState ()
 pipe = do
@@ -144,4 +159,19 @@ pipe = do
         ps { getCodeGen1 = codeGenModule1 <$> getCodeGen0 ps }
 
 runController :: Int -> IO ()
-runController port = run port . simpleCors $ serve (Proxy :: Proxy Api) server 
+runController port = run port
+                   . cors (const $ Just corsPolicy)
+                   . serve (Proxy :: Proxy Api)
+                   $ server
+
+corsPolicy :: CorsResourcePolicy
+corsPolicy =
+    CorsResourcePolicy { corsOrigins        = Just (["http://localhost:3000"], False)
+                       , corsMethods        = []
+                       , corsRequestHeaders = ["Content-Type"]
+                       , corsExposedHeaders = Nothing
+                       , corsMaxAge         = Nothing
+                       , corsVaryOrigin     = False
+                       , corsRequireOrigin  = True
+                       , corsIgnoreFailures = False
+                       }

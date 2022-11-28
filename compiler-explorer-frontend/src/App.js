@@ -28,9 +28,17 @@ class App extends React.Component {
     const codeGen1               = this.getAndClearElement("codeGen1")
     const output                 = this.getAndClearElement("output")
 
-    fetch("http://127.0.0.1:8080/lexAndParse", { method: 'POST', body: source.value })
+    const req = { getInput: source.value
+                , getExec:  false
+                }
+
+    fetch("http://127.0.0.1:8080/lexAndParse", { method:  'POST'
+                                               , headers: { 'Accept': 'application/json'
+                                                          , 'Content-Type': 'application/json' }
+                                               , body:    JSON.stringify(req)
+                                               })
       .then(resp => resp.json())
-      .then((ts) => {
+      .then(ts => {
         tokens.value                 = ts.tokens;
         prettyDefns.value            = ts.prettyDefns;
         inferred.value               = ts.inferred;
