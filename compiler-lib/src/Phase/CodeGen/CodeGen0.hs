@@ -251,6 +251,17 @@ process' deps = goNexp
                                       , [CallFun f', PopTyped t fr]] -- check correct t'
                              , TypedReg t fr) -- TODO Check this is correct 't'
 
+                    -- TODO deduplicate/remove untyped reg
+                    TypedReg{} -> do
+                        (is2, xs') <- mapAndUnzipM goAexp xs
+                        let pushes = map Push $ reverse xs'
+                        fr <- genFresh deps FrReg
+                        pure ( concat [ is1
+                                      , concat is2
+                                      , pushes
+                                      , [CallFun f', PopTyped t fr]] -- check correct t'
+                             , TypedReg t fr) -- TODO Check this is correct 't'
+
             CIfThenElse _ pr tr fl -> do
 
                 (is1, v) <- goAexp pr
