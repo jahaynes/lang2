@@ -9,6 +9,7 @@ import           Data.ByteString (ByteString)
 import qualified Data.Map as M
 import           Data.Set        (Set)
 import qualified Data.Set as S
+import           Debug.Trace     (trace)
 
 type Unifier s = (Subst s, [Constraint s])
 
@@ -17,10 +18,11 @@ data Constraint s =
     Constraint (Type s) (Type s)
         deriving (Eq, Show)
 
-runSolve :: Ord s => [Constraint s] -> Either ByteString (Subst s)
-runSolve cs = solver (Subst mempty, cs)
+runSolve :: (Show s, Ord s) => [Constraint s] -> Either ByteString (Subst s)
+runSolve cs = 
+    trace ("constraints are: " ++ show cs) $ solver (Subst mempty, cs)
 
-solver :: Ord s => Unifier s -> Either ByteString (Subst s)
+solver :: (Show s, Ord s) => Unifier s -> Either ByteString (Subst s)
 solver (su, cs) =
     case cs of
         [] -> pure su
@@ -28,13 +30,13 @@ solver (su, cs) =
             su1  <- unifies t1 t2
             solver (su1 `compose` su, map (substituteConstraint su1) cs0)
 
-compose :: Ord s => Subst s -> Subst s -> Subst s
+compose :: (Show s, Ord s) => Subst s -> Subst s -> Subst s
 (Subst s1) `compose` (Subst s2) = Subst $ M.map (substituteType (Subst s1)) s2 `M.union` s1
 
-substituteConstraint :: Ord s => Subst s -> Constraint s -> Constraint s
+substituteConstraint :: (Ord s, Show s) => Subst s -> Constraint s -> Constraint s
 substituteConstraint s (Constraint t1 t2) = Constraint (substituteType s t1) (substituteType s t2)
 
-unifyMany :: Ord s => [Type s] -> [Type s] -> Either ByteString (Subst s)
+unifyMany :: (Show s, Ord s) => [Type s] -> [Type s] -> Either ByteString (Subst s)
 unifyMany [] [] = pure $ Subst mempty
 unifyMany (t1 : ts1) (t2 : ts2) =
   do su1 <- unifies t1 t2
@@ -43,7 +45,7 @@ unifyMany (t1 : ts1) (t2 : ts2) =
      return (su2 `compose` su1)
 unifyMany _ _ = Left "unification mismatch"
 
-unifies :: (Eq s, Ord s) => Type s -> Type s -> Either ByteString (Subst s)
+unifies :: (Eq s, Ord s, Show s) => Type s -> Type s -> Either ByteString (Subst s)
 unifies t1 t2 | t1 == t2 = pure (Subst mempty)
 unifies (TyVar v) t = v `bind` t
 unifies t (TyVar v) = v `bind` t

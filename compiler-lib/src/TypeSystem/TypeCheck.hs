@@ -37,15 +37,15 @@ inferModule md = do
     let untypedFunDefs =
             S.map (\n -> FunDefn n (funDefnMap !!! n)) <$> typeCheckPlan
 
-    let typeSigs = M.fromList
-                 . map (\(TypeSig n t) -> (n, Forall [pack "blARH"] t)) -- TODO
-                 $ getTypeSigs md
+    --let typeSigs = M.fromList
+    --             . map (\(TypeSig n t) -> (n, Forall [pack "blARH"] t)) -- TODO
+    --             $ getTypeSigs md
 
     let dataConstructors =
             foldl' dataDefnToType mempty (getDataDefns md)
 
     let env =
-            typeSigs <!> dataConstructors
+            dataConstructors -- typeSigs <!> dataConstructors
 
     -- TODO data definitions could accompany typeSigs here
     case foldl' go (Right $ GroupInference 0 env []) untypedFunDefs of
@@ -82,7 +82,7 @@ dataDefnToType env (DataDefn typeName tvs dcons) =
     where
     go (DataCon dc xs) = do
 
-        let monotype = foldr TyArr (TyCon typeName tvs) (map to xs) -- not []
+        let monotype = foldr TyArr (TyCon typeName (map TyVar tvs)) (map to xs) -- not []
             polytype = Forall tvs monotype
 
         trace ("val: " <> show polytype) (dc, polytype)
@@ -111,6 +111,8 @@ inferGroup :: Map ByteString (Polytype ByteString)
 
 inferGroup env untyped = do
 
+    -- env is: fromList [("Yes",Forall ["a"] ("a" -> ("Answer" "a")))]
+
     let namesAndExprs = map (\(FunDefn n e) -> (n, e)) $ S.toList untyped
 
     -- TODO merge the following 2 steps (why instantiate to immediately generalise)
@@ -118,11 +120,16 @@ inferGroup env untyped = do
     -- 1
     -- Assign provided type-sig, or generate fresh one
     topLevelTypes <- fromEnvOrFresh env (map fst namesAndExprs)
+    -- topLevelTypes: fromList [(\"yes\",\"a0\")]
+    -- This is fine.  a0 just means we don't know yet
+
+    currentState <- get
+    -- currentState is: GroupState {getVarNum = 1, getConstraints = []}"
 
     -- 2
     -- Make them available in the environment
     -- (allows recursion)
-    let env' = env <!> (Forall [pack "TODO"] <$> topLevelTypes)
+    let env' = env <!> (Forall [pack "TODO"] <$> topLevelTypes) -- WHAT?
 
     -- Infer each expression and gather the constraints
     inferences <- forM namesAndExprs (\(n, expr) -> do
@@ -134,8 +141,18 @@ inferGroup env untyped = do
     let (inferredConstraints, inferredTypedDefs) =
             first concat $ unzip inferences
 
-    -- Deduce the types from the constraints
-    case runSolve inferredConstraints of
+    {-  inferredConstraints: [ Constraint (TyVar "a0")
+                                          (TyVar "d0")
+
+                             , Constraint (TyArr (TyVar "b0")     (TyArr (TyArr (TyVar "b0") (TyCon "List" [])) (TyCon "List" [TyVar "b0"])))
+                                          (TyArr (TyCon "Int" []) (TyArr (TyCon "List" [TyVar "c0"]) (TyVar "d0")))
+                             ]
+    -}
+
+    trace ("inferredConstraints: " ++ show inferredConstraints) $ do
+
+      -- Deduce the types from the constraints
+      case runSolve inferredConstraints of
 
         Left e -> pure $ Left e
 
@@ -153,10 +170,11 @@ inferGroup env untyped = do
 
             pure . Right $ GroupInference n' env'' funDefnTs
 
-fromEnvOrFresh :: Map ByteString (Polytype ByteString)
+fromEnvOrFresh :: Show s => Map ByteString (Polytype ByteString)
                -> [ByteString]
                -> State (GroupState s) (Map ByteString (Type ByteString))
 fromEnvOrFresh env names =
+    -- Names are: ["yes"]
     M.fromList <$> mapM go names
     where
     go n =

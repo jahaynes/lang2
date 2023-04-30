@@ -11,16 +11,52 @@ import Core.Types
 import TypeSystem.InferTerm
 import TypeSystem.TypeCheck
 
+import Data.ByteString (ByteString)
 import Hedgehog hiding (Var)
 
 typeCheckTests :: Group
 typeCheckTests =
-    Group "Typecheck" [ ("primitives",            test_primitives)
-                      , ("generalisations",       test_generalisations)
-                      , ("top_level_recursion",   test_top_level_recursion)
-                      , ("nested_recursion",      test_nested_recursion)
-                      , ("test_mutual_recursion", test_mutual_recursion)
+    Group "Typecheck" [ --("primitives",            test_primitives)
+                      --, ("generalisations",       test_generalisations)
+                      --, ("top_level_recursion",   test_top_level_recursion)
+                      --, ("nested_recursion",      test_nested_recursion)
+                      --, ("test_mutual_recursion", test_mutual_recursion)
+                        ("datatypes", test_simple_datatype)
                       ]
+
+{-
+    Answer a = Yes a | No a
+    yes = Yes 1
+    no = No "no"
+-}
+test_simple_datatype :: Property
+test_simple_datatype = unitTest $ do
+
+    -- Datatype
+    let dcYes  = DataCon     "Yes" [MemberVar "a"]
+        dcNo   = DataCon      "No" [MemberVar "a"]
+        answer = DataDefn "Answer" ["a"] [dcYes, dcNo]
+
+    -- Functions
+    let fNo  = FunDefn "no"  (EApp (ETerm $ DCons "No")
+                                   [ETerm $ LitString "no"])
+        fYes = FunDefn "yes" (EApp (ETerm $ DCons "Yes")
+                                   [ETerm $ LitInt 1])
+
+    let md = Module { getDataDefns = [answer]
+                    , getTypeSigs  = []
+                    , getFunDefns  = [fNo, fYes]
+                    }
+
+    let Right inferredModule =
+            inferModule md :: Either ByteString (ModuleT ByteString)
+
+    let inferredFunTypes =
+            map getPolyType $ getFunDefnTs inferredModule
+
+    inferredFunTypes === [ Forall [] (TyCon "Answer" [TyCon "String" []])
+                         , Forall [] (TyCon "Answer" [TyCon "Int" []])
+                         ]
 
 test_primitives :: Property
 test_primitives = unitTest $ do

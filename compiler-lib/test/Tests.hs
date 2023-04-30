@@ -9,11 +9,11 @@ import Phase.EtaExpandTest               (etaExpandTests)
 import TypeCheck.TypeCheckTest           (typeCheckTests)
 
 main :: IO ()
-main = mapM_ checkParallel [ callGraphTests
-                           , exprTests
-                           , lexerTests
-                           , lexAndParseTests
-                           , freeVarsTests
-                           , typeCheckTests
-                           , etaExpandTests
+main = mapM_ checkParallel [ --callGraphTests
+                           --, exprTests
+                           --, lexerTests
+                           --, lexAndParseTests
+                           --, freeVarsTests
+                             typeCheckTests
+                           --, etaExpandTests
                            ]

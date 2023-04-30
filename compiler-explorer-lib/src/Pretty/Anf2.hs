@@ -65,7 +65,7 @@ printType = TB.intercalate " -> " . unbuild []
     unbuild acc (TyArr a b) = unbuild (a:acc) b
     unbuild acc           t = reverse $ map prt (t:acc)
 
-    prt (TyCon c tvs) = TB.intercalate " " $ map byteString (c:tvs)
+    prt (TyCon c tvs) = TB.intercalate " " (byteString c : map prt tvs)
     prt (TyVar v)     = byteString v
     prt t@TyArr{}     = mconcat ["(", printType t,")"]
 

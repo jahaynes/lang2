@@ -14,6 +14,8 @@ import           Data.ByteString (ByteString)
 import           Data.Functor    ((<&>))
 import           Data.Map        (Map)
 import qualified Data.Map as M
+import           Debug.Trace     (trace)
+import           Text.Printf     (printf)
 
 inferExpr :: Map ByteString (Polytype ByteString)
           -> Expr ByteString
@@ -34,14 +36,26 @@ inferExpr env expr =
             pure ( cs
                  , LamT ty vs e' )
 
+        -- Applications are problematic:
         EApp f xs -> do
             (c1, f')  <-                 inferExpr env  f
             (cs, xs') <- unzip <$> mapM (inferExpr env) xs
             tv        <- freshTVar
             let ts = map typeOf xs'
+            
             let t1 = typeOf f'
-            pure ( c1 ++ concat cs ++ [Constraint t1 (foldr TyArr tv ts)]
-                 , AppT tv f' xs' )
+            
+            let newConstraint = Constraint t1 (foldr TyArr tv ts)
+
+            let bar = printf "Application is: %s <-> %s" (show f') (show xs')
+
+            let foo = printf "new constraint: %s <-> %s" (show t1) (show $ (foldr TyArr tv ts))
+
+            trace bar $
+              trace foo $
+                pure ( c1 ++ concat cs ++ [newConstraint]
+                     , AppT tv f' xs' )
+        -- 
 
         ELet a b c -> do
             tv <- freshTVar
@@ -94,6 +108,14 @@ inferExpr env expr =
 
             pure ( cs ++ concat clhs ++ concat crhs ++ lhs ++ rhs
                  , CaseT tv scrut' ps')
+
+
+typeApply :: (Eq s, Show s) => Type s -> [Type s] -> Type s
+typeApply t' ts' = go t' ts'
+    where
+    go           t     []          = t
+    go (TyArr a b) (t:ts) | a == t = typeApply b ts
+    go           _      _          = error $ "Couldn't apply types: (" ++ show t' ++ ") (" ++ show ts' ++ ")"
 
 inferPattern :: Map ByteString (Polytype ByteString)
              -> Pattern ByteString

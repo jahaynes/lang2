@@ -17,6 +17,11 @@ inferTerm :: Map ByteString (Polytype ByteString)
           -> Term ByteString
           -> State (GroupState ByteString) (ExprT ByteString)
 inferTerm env term =
+    -- env is: fromList [ ("Yes", Forall ["a"] ("a" -> ("Answer" "a")))
+    --                  , ("yes", Forall ["TODO"] "a0")]
+
+    -- "yes" should eventually be: Forall [] (Answer "Int")
+
     case term of
         LitBool{}   -> pure $ TermT typeBool term
         LitInt{}    -> pure $ TermT typeInt term
@@ -29,7 +34,18 @@ inferTerm env term =
                         trace (unlines [ "inferTerm: " ++ show d
                                        , "inferTerm: " ++ show p
                                        , "inferTerm: " ++ show t ]) $ TermT t term
-        Var v       ->
+
+                    {-
+                        inferTerm: "Yes"
+                        inferTerm: Forall ["a"] ("a" -> ("Answer" "a"))
+                        inferTerm: ("b0" -> ("Answer" "a"))                    
+                    -}
+
+                    -- This is wrong.
+                    -- should it instantiate as:
+                    -- inferTerm: ("b0" -> ("Answer" "b0"))         
+
+        Var v       -> -- No problem here
             case M.lookup v env of
                 Nothing -> error $ "unbound var: " ++ show v
                 Just p  -> instantiate p <&> \t -> TermT t term
