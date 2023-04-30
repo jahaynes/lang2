@@ -16,79 +16,16 @@ import Hedgehog hiding (Var)
 
 typeCheckTests :: Group
 typeCheckTests =
-    Group "Typecheck" [ --("primitives",            test_primitives)
-                      --, ("generalisations",       test_generalisations)
-                      --, ("top_level_recursion",   test_top_level_recursion)
-                      --, ("nested_recursion",      test_nested_recursion)
-                      --, ("test_mutual_recursion", test_mutual_recursion)
-                        ("datatypes", test_simple_datatype)
-                      , ("recursive_datatypes", test_recursive_datatype)
+    Group "Typecheck" [ ("primitives",            test_primitives)
+                      , ("generalisations",       test_generalisations)
+                      , ("top_level_recursion",   test_top_level_recursion)
+                      , ("nested_recursion",      test_nested_recursion)
+                      , ("test_mutual_recursion", test_mutual_recursion)
+                      , ("datatypes",             test_simple_datatype)
+                      , ("recursive_datatypes",   test_recursive_datatype)
                       ]
 
-{-
-    Answer a = Yes a | No a
-    yes = Yes 1
-    no = No "no"
--}
-test_simple_datatype :: Property
-test_simple_datatype = unitTest $ do
 
-    -- Datatype
-    let dcYes  = DataCon     "Yes" [MemberVar "a"]
-        dcNo   = DataCon      "No" [MemberVar "a"]
-        answer = DataDefn "Answer" ["a"] [dcYes, dcNo]
-
-    -- Functions
-    let fNo  = FunDefn "no"  (EApp (ETerm $ DCons "No")
-                                   [ETerm $ LitString "no"])
-        fYes = FunDefn "yes" (EApp (ETerm $ DCons "Yes")
-                                   [ETerm $ LitInt 1])
-
-    let md = Module { getDataDefns = [answer]
-                    , getTypeSigs  = []
-                    , getFunDefns  = [fNo, fYes]
-                    }
-
-    let Right inferredModule =
-            inferModule md :: Either ByteString (ModuleT ByteString)
-
-    let inferredFunTypes =
-            map getPolyType $ getFunDefnTs inferredModule
-
-    inferredFunTypes === [ Forall [] (TyCon "Answer" [TyCon "String" []])
-                         , Forall [] (TyCon "Answer" [TyCon "Int" []])
-                         ]
-
-{-
-    List a = Empty | Cons a (List a)
-    myList = Cons 1 (Cons 2 Empty)
--}
-test_recursive_datatype :: Property
-test_recursive_datatype = unitTest $ do
-
-    -- Datatype
-    let dcEmpty = DataCon  "Empty" []
-        dcCons  = DataCon  "Cons" [MemberVar "a", MemberType "Cons" [MemberVar "a"]]
-        list    = DataDefn "List" ["a"] [dcEmpty, dcCons]
-
-    -- Functions
-    let myList  = FunDefn "myList" (EApp (ETerm $ DCons "Cons") [ ETerm $ LitInt 2
-                                                                , ETerm $ DCons "Empty"])
-
-    let md = Module { getDataDefns = [list]
-                    , getTypeSigs  = []
-                    , getFunDefns  = [myList]
-                    }
-
-    let inferredModule =
-            inferModule md :: Either ByteString (ModuleT ByteString)
-
-    error $ show inferredModule
-
-    --let inferredFunTypes =
-            -- map getPolyType $ getFunDefnTs inferredModule
-
-    --inferredFunTypes === [ ]
 
 test_primitives :: Property
 test_primitives = unitTest $ do
@@ -178,6 +115,69 @@ test_mutual_recursion = unitTest $ do
 
     r === Right [ Forall ["a0"] (TyVar "a0" ->> TyCon "Bool" [])
                 , Forall ["a0"] (TyVar "a0" ->> TyCon "Bool" []) ]
+
+{-
+    Answer a = Yes a | No a
+    yes = Yes 1
+    no = No "no"
+-}
+test_simple_datatype :: Property
+test_simple_datatype = unitTest $ do
+
+    -- Datatype
+    let dcYes  = DataCon     "Yes" [MemberVar "a"]
+        dcNo   = DataCon      "No" [MemberVar "a"]
+        answer = DataDefn "Answer" ["a"] [dcYes, dcNo]
+
+    -- Functions
+    let fNo  = FunDefn "no"  (EApp (ETerm $ DCons "No")
+                                   [ETerm $ LitString "no"])
+        fYes = FunDefn "yes" (EApp (ETerm $ DCons "Yes")
+                                   [ETerm $ LitInt 1])
+
+    let md = Module { getDataDefns = [answer]
+                    , getTypeSigs  = []
+                    , getFunDefns  = [fNo, fYes]
+                    }
+
+    let Right inferredModule =
+            inferModule md :: Either ByteString (ModuleT ByteString)
+
+    let inferredFunTypes =
+            map getPolyType $ getFunDefnTs inferredModule
+
+    inferredFunTypes === [ Forall [] (TyCon "Answer" [TyCon "String" []])
+                         , Forall [] (TyCon "Answer" [TyCon "Int" []])
+                         ]
+
+{-
+    List a = Empty | Cons a (List a)
+    myList = Cons 1 Empty
+-}
+test_recursive_datatype :: Property
+test_recursive_datatype = unitTest $ do
+
+    -- Datatype
+    let dcEmpty = DataCon  "Empty" []
+        dcCons  = DataCon  "Cons" [MemberVar "a", MemberType "List" [MemberVar "a"]]
+        list    = DataDefn "List" ["a"] [dcEmpty, dcCons]
+
+    -- Functions
+    let myList  = FunDefn "myList" (EApp (ETerm $ DCons "Cons") [ ETerm $ LitInt 1
+                                                                , ETerm $ DCons "Empty"])
+
+    let md = Module { getDataDefns = [list]
+                    , getTypeSigs  = []
+                    , getFunDefns  = [myList]
+                    }
+
+    let Right inferredModule =
+            inferModule md :: Either ByteString (ModuleT ByteString)
+
+    let inferredFunTypes =
+            map getPolyType $ getFunDefnTs inferredModule
+
+    inferredFunTypes === [Forall [] (TyCon "List" [TyCon "Int" []])]
 
 unitTest :: PropertyT IO () -> Property
 unitTest = withTests 1 . property
