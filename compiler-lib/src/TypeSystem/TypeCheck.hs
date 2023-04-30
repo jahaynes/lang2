@@ -17,7 +17,6 @@ import           Data.Map        (Map)
 import           Data.Set        (Set)
 import qualified Data.Map as M
 import qualified Data.Set as S
-import           Debug.Trace     (trace)
 
 data ModuleState s =
     ModuleState { getEnv     :: Map s (Polytype s)
@@ -37,15 +36,15 @@ inferModule md = do
     let untypedFunDefs =
             S.map (\n -> FunDefn n (funDefnMap !!! n)) <$> typeCheckPlan
 
-    --let typeSigs = M.fromList
-    --             . map (\(TypeSig n t) -> (n, Forall [pack "blARH"] t)) -- TODO
-    --             $ getTypeSigs md
+    let typeSigs = M.fromList
+                 . map (\(TypeSig n t) -> (n, Forall [pack "TODO"] t))
+                 $ getTypeSigs md
 
     let dataConstructors =
             foldl' dataDefnToType mempty (getDataDefns md)
 
     let env =
-            dataConstructors -- typeSigs <!> dataConstructors
+            typeSigs <!> dataConstructors
 
     -- TODO data definitions could accompany typeSigs here
     case foldl' go (Right $ GroupInference 0 env []) untypedFunDefs of
@@ -80,25 +79,20 @@ dataDefnToType env (DataDefn typeName tvs dcons) =
     env <!> M.fromList (map go dcons)
 
     where
-    go (DataCon dc xs) = do
-
-        let monotype = foldr TyArr (TyCon typeName (map TyVar tvs)) (map to xs) -- not []
-            polytype = Forall tvs monotype
-
-        trace ("val: " <> show polytype) (dc, polytype)
+    go (DataCon dc xs) =
+        let monotype = foldr TyArr (TyCon typeName (map TyVar tvs)) (map to xs)
+        in (dc, Forall tvs monotype)
 
         where
         to (MemberVar v)     = TyVar v
-        to (MemberType t ts) = --TyCon t [] -- Not [] ! 
-            let ts' = map to ts
-            in foldr TyArr (TyCon t []) ts' -- TODO is this necessary/right?
+        to (MemberType t ts) = TyCon t (map to ts)
 
 data GroupInference =
     GroupInference !Int
                    !(Map ByteString (Polytype ByteString))
                    ![FunDefnT ByteString]
 
-
+(!!!) :: (Ord k, Show k, Show v) => Map k v -> k -> v
 (!!!) m k =
     case M.lookup k m of
         Nothing -> error $ "Couldn't find " ++ show k ++ " in " ++ show m
@@ -111,8 +105,6 @@ inferGroup :: Map ByteString (Polytype ByteString)
 
 inferGroup env untyped = do
 
-    -- env is: fromList [("Yes",Forall ["a"] ("a" -> ("Answer" "a")))]
-
     let namesAndExprs = map (\(FunDefn n e) -> (n, e)) $ S.toList untyped
 
     -- TODO merge the following 2 steps (why instantiate to immediately generalise)
@@ -120,11 +112,6 @@ inferGroup env untyped = do
     -- 1
     -- Assign provided type-sig, or generate fresh one
     topLevelTypes <- fromEnvOrFresh env (map fst namesAndExprs)
-    -- topLevelTypes: fromList [(\"yes\",\"a0\")]
-    -- This is fine.  a0 just means we don't know yet
-
-    currentState <- get
-    -- currentState is: GroupState {getVarNum = 1, getConstraints = []}"
 
     -- 2
     -- Make them available in the environment
@@ -141,18 +128,8 @@ inferGroup env untyped = do
     let (inferredConstraints, inferredTypedDefs) =
             first concat $ unzip inferences
 
-    {-  inferredConstraints: [ Constraint (TyVar "a0")
-                                          (TyVar "d0")
-
-                             , Constraint (TyArr (TyVar "b0")     (TyArr (TyArr (TyVar "b0") (TyCon "List" [])) (TyCon "List" [TyVar "b0"])))
-                                          (TyArr (TyCon "Int" []) (TyArr (TyCon "List" [TyVar "c0"]) (TyVar "d0")))
-                             ]
-    -}
-
-    trace ("inferredConstraints: " ++ show inferredConstraints) $ do
-
-      -- Deduce the types from the constraints
-      case runSolve inferredConstraints of
+    -- Deduce the types from the constraints
+    case runSolve inferredConstraints of
 
         Left e -> pure $ Left e
 
@@ -174,7 +151,6 @@ fromEnvOrFresh :: Show s => Map ByteString (Polytype ByteString)
                -> [ByteString]
                -> State (GroupState s) (Map ByteString (Type ByteString))
 fromEnvOrFresh env names =
-    -- Names are: ["yes"]
     M.fromList <$> mapM go names
     where
     go n =

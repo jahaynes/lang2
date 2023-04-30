@@ -5,22 +5,19 @@ module TypeCheck.ConstraintSolver where
 import Core.Types
 import TypeSystem.Common
 
-import           Data.ByteString (ByteString)
+import           Data.ByteString.Char8 (ByteString, pack)
 import qualified Data.Map as M
 import           Data.Set        (Set)
 import qualified Data.Set as S
-import           Debug.Trace     (trace)
 
 type Unifier s = (Subst s, [Constraint s])
-
 
 data Constraint s =
     Constraint (Type s) (Type s)
         deriving (Eq, Show)
 
 runSolve :: (Show s, Ord s) => [Constraint s] -> Either ByteString (Subst s)
-runSolve cs = 
-    trace ("constraints are: " ++ show cs) $ solver (Subst mempty, cs)
+runSolve cs = solver (Subst mempty, cs)
 
 solver :: (Show s, Ord s) => Unifier s -> Either ByteString (Subst s)
 solver (su, cs) =
@@ -50,7 +47,13 @@ unifies t1 t2 | t1 == t2 = pure (Subst mempty)
 unifies (TyVar v) t = v `bind` t
 unifies t (TyVar v) = v `bind` t
 unifies (TyArr t1 t2) (TyArr t3 t4) = unifyMany [t1, t2] [t3, t4]
-unifies _ _ = Left "Unification fail"
+
+unifies (TyCon tc1 as) (TyCon tc2 bs)
+  | tc1 == tc2 = unifyMany as bs
+
+-- TODO More here?
+
+unifies t1 t2 = Left . pack $ "Unification fail: " ++ show t1 ++ " <-> " ++ show t2
 
 bind :: (Eq s, Ord s) => s -> Type s -> Either ByteString (Subst s)
 bind a t | t == TyVar a    = pure (Subst mempty)

@@ -22,6 +22,7 @@ typeCheckTests =
                       --, ("nested_recursion",      test_nested_recursion)
                       --, ("test_mutual_recursion", test_mutual_recursion)
                         ("datatypes", test_simple_datatype)
+                      , ("recursive_datatypes", test_recursive_datatype)
                       ]
 
 {-
@@ -57,6 +58,37 @@ test_simple_datatype = unitTest $ do
     inferredFunTypes === [ Forall [] (TyCon "Answer" [TyCon "String" []])
                          , Forall [] (TyCon "Answer" [TyCon "Int" []])
                          ]
+
+{-
+    List a = Empty | Cons a (List a)
+    myList = Cons 1 (Cons 2 Empty)
+-}
+test_recursive_datatype :: Property
+test_recursive_datatype = unitTest $ do
+
+    -- Datatype
+    let dcEmpty = DataCon  "Empty" []
+        dcCons  = DataCon  "Cons" [MemberVar "a", MemberType "Cons" [MemberVar "a"]]
+        list    = DataDefn "List" ["a"] [dcEmpty, dcCons]
+
+    -- Functions
+    let myList  = FunDefn "myList" (EApp (ETerm $ DCons "Cons") [ ETerm $ LitInt 2
+                                                                , ETerm $ DCons "Empty"])
+
+    let md = Module { getDataDefns = [list]
+                    , getTypeSigs  = []
+                    , getFunDefns  = [myList]
+                    }
+
+    let inferredModule =
+            inferModule md :: Either ByteString (ModuleT ByteString)
+
+    error $ show inferredModule
+
+    --let inferredFunTypes =
+            -- map getPolyType $ getFunDefnTs inferredModule
+
+    --inferredFunTypes === [ ]
 
 test_primitives :: Property
 test_primitives = unitTest $ do

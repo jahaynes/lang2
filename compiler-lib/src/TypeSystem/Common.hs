@@ -11,7 +11,6 @@ import           Data.Map              (Map)
 import qualified Data.Map as M
 import           Data.Set              (Set)
 import qualified Data.Set as S
-import           Debug.Trace (trace)
 
 data GroupState s =
     GroupState { getVarNum      :: Int
@@ -35,34 +34,16 @@ numToVar n =
     in pack (chr (letter + 97) : show num)
 
 substituteType :: (Show s, Ord s) => Subst s -> Type s -> Type s
-substituteType         s   (TyCon a tvs) = trace ("fst: " ++ show s ++ " over " ++ show (TyCon a tvs)) $ TyCon a (map (substituteType s) tvs) -- JESUS IS THAT IT HERE?
-substituteType (Subst s)     t@(TyVar a) = trace ("snd: " ++ show s) $ M.findWithDefault t a s
-substituteType         s (t1 `TyArr` t2) = trace ("thr: " ++ show s) $ substituteType s t1 `TyArr` substituteType s t2
-
-                    {-
-                        inferTerm: "Yes"
-                        inferTerm: Forall ["a"] ("a" -> ("Answer" "a"))
-                        inferTerm: ("b0" -> ("Answer" "a"))                    
-                    -}
-
-                    -- This is wrong.
-                    -- should it instantiate as:
-                    -- inferTerm: ("b0" -> ("Answer" "b0"))        
+substituteType         s   (TyCon a tvs) = TyCon a (map (substituteType s) tvs)
+substituteType (Subst s)     t@(TyVar a) = M.findWithDefault t a s
+substituteType         s (t1 `TyArr` t2) = substituteType s t1 `TyArr` substituteType s t2
 
 instantiate :: Show s => Polytype ByteString
             -> State (GroupState s) (Type ByteString)
-instantiate pt@(Forall as t) = trace ("instantiate: " ++ show pt) $ do
+instantiate (Forall as t) = do
     as' <- mapM (const freshTVar) as
     let s = Subst $ M.fromList $ zip as as'
-
-    let msg = "substitution became: " ++ show s ++ " over " ++ show t
-    trace msg $ do
-      let done = substituteType s t
-
-      trace ("foo: " ++ show done) $ pure done
-    -- substitution became: Subst (fromList [("a","b0")])
-    -- correct, but why isn't it applied above?
-
+    pure $ substituteType s t
 
 -- is this the wrong way to find all the free type vars?
 -- (only inspects the top-level type)
