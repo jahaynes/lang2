@@ -111,8 +111,18 @@ printTypedExpression ind aexp =
                                 , indent (ind+2) <> "then " <> printTypedExpression (ind+2) tr
                                 , indent (ind+2) <> "else " <> printTypedExpression (ind+2) fl ]
 
-        CaseT{} ->
-            "TYPEMODULE CASE"
+        (CaseT _ scrut patterns) ->
+            TB.intercalate "\n" ( indent ind <> "case " <> printTypedExpression ind scrut <> " of"
+                                : map (printPattern (ind+1)) patterns )
+
+printPattern :: Int
+             -> PatternT ByteString
+             -> Builder
+printPattern ind (PatternT lhs rhs) =
+    mconcat [ indent ind
+            , printTypedExpression ind lhs
+            , " -> "
+            , printTypedExpression ind rhs ]
 
 bytestring :: ByteString -> Builder
 bytestring = TB.text . decodeUtf8
