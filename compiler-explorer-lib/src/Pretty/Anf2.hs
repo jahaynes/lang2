@@ -33,13 +33,13 @@ printAnfFunDefn (FunDefAnfT n (Quant qs) expr) =
 
         AExp (ALam _ vs body) ->
             let vs' = TB.intercalate " " $ map byteString vs
-                impl = evalState (printNexp body) 2
+                impl = evalState (printNExp body) 2
             in TB.intercalate "\n" [ sig
                                    , TB.intercalate " " [byteString n, vs', "="]
                                    , impl ]
 
         _ ->
-            let impl = evalState (printNexp expr) 2
+            let impl = evalState (printNExp expr) 2
             in TB.intercalate "\n" [ sig
                                    , byteString n <> " ="
                                    , impl ]
@@ -69,8 +69,8 @@ printType = TB.intercalate " -> " . unbuild []
     prt (TyVar v)     = byteString v
     prt t@TyArr{}     = mconcat ["(", printType t,")"]
 
-printNexp :: NExp ByteString -> State Int Builder
-printNexp nexp =
+printNExp :: NExp ByteString -> State Int Builder
+printNExp nexp =
 
     case nexp of
 
@@ -82,8 +82,8 @@ printNexp nexp =
 
         NLet a b c -> do
             a' <- indent $ "let " <> byteString a <> " = "
-            b' <- noIndent $ printNexp b
-            c' <- printNexp c
+            b' <- noIndent $ printNExp b
+            c' <- printNExp c
             pure $ mconcat [a', b', " in\n", c']
 
 printAExp :: AExp ByteString -> State Int Builder
@@ -123,11 +123,24 @@ printCExp cexp =
         CIfThenElse _ pr tr fl -> do
             pr'  <- noIndent $ printAExp pr
             pr'' <- indent ("if " <> pr')
-            tr'  <- noIndent $ printNexp tr
+            tr'  <- noIndent $ printNExp tr
             tr'' <- withIndent $ indent ("then " <> tr')
-            fl'  <- noIndent $ printNexp fl
+            fl'  <- noIndent $ printNExp fl
             fl'' <- withIndent $ indent ("else " <> fl')
             pure $ TB.intercalate "\n" [pr'', tr'', fl'']
+
+        CCase _ scrut pexps -> do
+            scrut'  <- noIndent $ printAExp scrut
+            case'   <- indent $ TB.intercalate " " ["case", scrut', "of"]
+            pexps'  <- mapM printPExp pexps
+            pexps'' <- mapM (withIndent . indent) pexps'
+            pure $ TB.intercalate "\n" (case':pexps'')
+
+printPExp :: PExp ByteString -> State Int Builder
+printPExp (PExp lhs rhs) = do
+    lhs' <- noIndent $ printNExp lhs
+    rhs' <- noIndent $ printNExp rhs
+    pure $ TB.intercalate " " [lhs', "->", rhs']
 
 printTerm :: Term ByteString -> State Int Builder
 printTerm term =
