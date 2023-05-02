@@ -20,5 +20,6 @@ data Val s = TypedReg (Type s) s -- ensure monotyped.  Maybe use tycon isntead o
 typeOfVal :: Val ByteString -> Type ByteString
 typeOfVal v =
     case v of
-        VInt {} -> typeInt
-        _       -> error $ show v
+        VInt {}             -> typeInt
+        VDConsNameTyped t _ -> t
+        _                   -> error $ show v

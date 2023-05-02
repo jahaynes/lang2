@@ -54,6 +54,7 @@ data Deps s =
          , comment      :: !(ByteString -> Instr s)
          , dataDefns    :: ![DataDefn s]
          , getTypeOfVal :: !(Val s -> Type s)
+         , sToBs        :: !(s -> ByteString)
          }
 
 renderCodeGen0 :: [SubRoutine ByteString] -> Text
@@ -74,6 +75,7 @@ codeGenModule0 md = map (process deps)
                 IComment
                 (getDataDefnAnfTs md)
                 typeOfVal
+                id
 
 -- generate a type with this register, so that reads know what to read?
 -- is there a point in returning the type if the type is always passed in?
@@ -274,6 +276,25 @@ process' deps = goNexp
 
                 pure ( prs ++ trs ++ fls ++ [ILabel dnLabel]
                      , TypedReg (typeOf tr) fr )
+
+            CCase _ (ATerm _ term) patterns ->
+
+                case term of
+
+                    LitInt i -> do
+                        let todoInstrs = [ comment deps ("{case of litint " <> (pack $ show i) <> "}")
+                                         , comment deps "{patterns}" ]
+                        pure (todoInstrs, VInt 37)
+
+                    Var v -> do
+                        let todoInstrs = [ comment deps ("{case of var " <> sToBs deps v <> "}")
+                                         , comment deps "{patterns}" ]
+                        pure (todoInstrs, VInt 37)
+
+                    DCons dc -> do
+                        let todoInstrs = [ comment deps ("{case of datacons " <> sToBs deps dc <> "}")
+                                         , comment deps "{patterns}" ]
+                        pure (todoInstrs, VInt 38)
 
 assignToStruct :: (Eq s, Show s) => Deps s -> Val s -> State (GenState s) (Val s, [Instr s])
 assignToStruct deps c@(VDConsTyped t name tag xs) = do
