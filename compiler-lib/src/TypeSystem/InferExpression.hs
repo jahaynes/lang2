@@ -100,7 +100,7 @@ inferPattern :: Map ByteString (Polytype ByteString)
              -> State (GroupState ByteString) ( [Constraint ByteString]
                                               , PatternT ByteString )
 inferPattern env (Pattern a b) = do
-
+    -- TODO: should probably enforce arity of LHS data constructions
     lhsVars <- fmap (Forall []) <$> labelLeftFreshVars a -- Guess
     (acs, a') <- inferExpr (env <!> lhsVars) a
     (bcs, b') <- inferExpr (env <!> lhsVars) b
