@@ -174,9 +174,9 @@ norm (FunDefnT name (Quant qs) expr) =
         sub = M.fromList $ zip qs normed
     in FunDefnT name (Quant normed) (mapType (go sub) expr)
     where
-    go   _ t@TyCon{}   = t
-    go sub (TyVar v)   = TyVar (sub !!! v)
-    go sub (TyArr a b) = TyArr (go sub a) (go sub b)
+    go sub (TyCon tc ts) = TyCon tc (map (go sub) ts)
+    go sub (TyVar v)     = TyVar (sub !!! v)
+    go sub (TyArr a b)   = TyArr (go sub a) (go sub b)
 
 first :: (a -> b) -> (a, c) -> (b, c)
 first f (x, y) = (f x, y)

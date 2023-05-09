@@ -79,9 +79,9 @@ inferExpr env expr =
 
         ECase scrut ps -> do
 
-            tv                <- freshTVar
-            (cs, scrut')      <- inferExpr env scrut
-            (clhs, crhs, ps') <- unzip3 <$> mapM (inferPattern env) ps
+            tv           <- freshTVar
+            (cs, scrut') <- inferExpr env scrut
+            (pcs, ps')   <- unzip <$> mapM (inferPattern env) ps
 
             -- get left and right hand types
             let (lts, rts) = unzip $ map (\(PatternT a b) -> (typeOf a, typeOf b)) ps'
@@ -92,21 +92,20 @@ inferExpr env expr =
             -- the right-side of each pattern must match the whole type
             let rhs = map (Constraint tv) rts
 
-            pure ( cs ++ concat clhs ++ concat crhs ++ lhs ++ rhs
+            pure ( cs ++ concat pcs ++ lhs ++ rhs
                  , CaseT tv scrut' ps')
 
 inferPattern :: Map ByteString (Polytype ByteString)
              -> Pattern ByteString
              -> State (GroupState ByteString) ( [Constraint ByteString]
-                                              , [Constraint ByteString]
                                               , PatternT ByteString )
 inferPattern env (Pattern a b) = do
-    env' <- labelLeftFreshVars a
-    (clhs, a') <- inferExpr (env <!> env') a
-    (crhs, b') <- inferExpr (env <!> env') b
-    pure ( clhs
-         , crhs
-         , PatternT a' b' )
+
+    lhsVars <- fmap (Forall []) <$> labelLeftFreshVars a -- Guess
+    (acs, a') <- inferExpr (env <!> lhsVars) a
+    (bcs, b') <- inferExpr (env <!> lhsVars) b
+    pure ( acs <> bcs
+         , PatternT a' b')
 
 (<!>) :: (Ord k, Show v, Eq v) => Map k v -> Map k v -> Map k v
 m1 <!> m2 = M.unionWith same m1 m2
@@ -116,14 +115,15 @@ m1 <!> m2 = M.unionWith same m1 m2
 
 
 labelLeftFreshVars :: Expr ByteString
-                   -> State (GroupState ByteString) (Map ByteString (Polytype ByteString))
+                   -> State (GroupState ByteString) (Map ByteString (Type ByteString))
 labelLeftFreshVars a =
 
     case a of
 
-        EApp (ETerm DCons{}) xs ->
-            -- TODO guessed ForAll
-            M.fromList <$> mapM (\x -> freshTVar <&> \fr -> (x, Forall [] fr)) (varsFrom xs)
+        EApp dc xs -> do
+            fdc <- labelLeftFreshVars dc
+            fxs <- mapM labelLeftFreshVars xs
+            pure $ mconcat (fdc:fxs)
 
         ETerm DCons{} ->
             pure mempty
@@ -137,10 +137,8 @@ labelLeftFreshVars a =
         ETerm LitString{} ->
             pure mempty
 
-        ETerm (Var v) -> do
-            -- TODO guessed ForAll
-            fv <- freshTVar
-            pure $ M.singleton v (Forall [] fv)
+        ETerm (Var v) ->
+            M.singleton v <$> freshTVar
 
 -- TODO dedupe?
 varsFrom :: Show s => [Expr s] -> [s]
