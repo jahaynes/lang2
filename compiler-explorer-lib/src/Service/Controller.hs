@@ -26,7 +26,6 @@ import TypeSystem.TypeCheck
 import           Control.Monad.IO.Class      (liftIO)
 import           Data.Aeson
 import           Data.ByteString             (ByteString)
-import           Data.Functor                ((<&>))
 import           Data.IORef
 import           Data.Text                   (Text, pack)
 import           Data.Text.Encoding          (decodeUtf8, encodeUtf8)

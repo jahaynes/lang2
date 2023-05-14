@@ -17,6 +17,7 @@ library
                     vector-builder
   exposed-modules:  Common.CallGraph
                     Common.State
+                    Common.StateT
                     Common.Writer
                     Core.Expression
                     Core.Module

@@ -1,16 +1,14 @@
-{-# LANGUAGE OverloadedStrings #-}
 
 module Runtimes.Machine2 (runMachine2) where
 
 import Core.Operator
-import Common.State
+import Common.StateT
 import Phase.CodeGen.CodeGen0
-import Phase.CodeGen.SizeInfo -- TODO should this be compile-time only?
-import Phase.CodeGen.Val
 
+import           Control.Monad.IO.Class      (liftIO)
 import           Data.ByteString             (ByteString)
-import qualified Data.ByteString       as BS
 import qualified Data.ByteString.Char8 as C8
+import           Data.Functor                ((<&>))
 import           Data.Map.Strict             (Map)
 import qualified Data.Map as M
 
@@ -18,111 +16,151 @@ import           Data.Vector ((!), Vector)
 import qualified Data.Vector          as V
 
 data MachineState s =
-    MachineState { stack   :: [Val s]
-                 , regs    :: Map s (Val s)
-                 , ipStack :: [Int]
-                 , ip      :: Int
-                 , mcmp    :: Maybe Comparison
+    MachineState { getStack   :: [Val s]
+                 , getRegs    :: Map s (Val s)
+                 , getIpStack :: [Int]
+                 , getIp      :: Int
+                 , getMCmp    :: Maybe Comparison
                  }
 
-data Comparison = Ceq | CNeq deriving Show
+data Comparison = Ceq | CNeq
 
 runMachine2 :: [Instr ByteString] -> IO ByteString
 runMachine2 is =
     let vis = V.fromList is
-    in case findLbl "main" vis of
-           Nothing -> pure "No main found"
-           Just ip -> go (MachineState [] mempty [-1] ip Nothing) vis
+        ip  = findLbl vis (C8.pack "main")
+    in
+    fst <$> runStateT (run vis) (initialMachine ip)
 
--- TODO convert to state monad
-go :: MachineState ByteString -> Vector (Instr ByteString) -> IO ByteString
-go ms vis = do
+initialMachine :: Ord s => Int -> MachineState s
+initialMachine ip =
+    MachineState { getStack   = []
+                 , getRegs    = mempty
+                 , getIpStack = [-1]
+                 , getIp      = ip
+                 , getMCmp    = Nothing
+                 }
 
-    let MachineState stack regs ipstack ip mCmp = ms
-    
-    let i = vis ! ip
+incIp :: Monad m => StateT (MachineState s) m ()
+incIp = modifyt $ \ms -> ms { getIp = getIp ms + 1 }
 
-    print i
+push :: Monad m => Val s -> StateT (MachineState s) m ()
+push v = modifyt $ \ms -> ms { getStack = v : getStack ms }
 
-    case i of
+pushIp :: Monad m => Int -> StateT (MachineState s) m ()
+pushIp ip = modifyt $ \ms -> ms { getIpStack = ip : getIpStack ms }
 
-        ILabel{} ->
-            go (MachineState stack regs ipstack (ip + 1) mCmp) vis
+pop :: Monad m => StateT (MachineState s) m (Val s)
+pop = do
+    ms <- gett
+    case getStack ms of
+        [] -> error "Stack underflow"
+        (s:tack) -> do
+            putt ms { getStack = tack }
+            pure s
+
+popIp :: Monad m => StateT (MachineState s) m Int
+popIp = do
+    ms <- gett
+    case getIpStack ms of
+        [] -> error "Ip underflow"
+        (i:pStack) -> do
+            putt ms { getIpStack = pStack }
+            pure i
+
+setCmp :: Monad m => Comparison -> StateT (MachineState s) m ()
+setCmp cmp = modifyt $ \ms -> ms { getMCmp = Just cmp }
+
+setReg :: (Ord s, Monad m) => s -> Val s -> StateT (MachineState s) m ()
+setReg r v = modifyt $ \ms -> ms { getRegs = M.insert r v (getRegs ms) }
+
+jmpTo :: Monad m => Int -> StateT (MachineState s) m ()
+jmpTo ip = modifyt $ \ms -> ms { getIp = ip }
+
+run :: Vector (Instr ByteString) -> StateT (MachineState ByteString) IO ByteString
+run vis = go
+
+  where
+  go = do
+
+    (ip, regs) <- gett <&> \ms -> (getIp ms, getRegs ms)
+
+    case (vis ! ip) of
+
+        ILabel{} -> do
+            incIp
+            go
 
         Push val -> do
-            let stack' = eval regs val:stack
-            print ("Stack", stack')
-            go (MachineState stack' regs ipstack (ip + 1) mCmp) vis
-        
+            push $! eval regs val
+            incIp
+            go
+
         PopTyped _ r -> do
-            let (s:tack) = stack
-            go (MachineState tack (M.insert r s regs) ipstack (ip + 1) mCmp) vis
+            setReg r =<< pop
+            incIp
+            go
 
         Ret -> do
-            let (ip':ipstack') = ipstack
+            ip' <- popIp
             if ip' == -1
-                then pure . C8.pack . show . eval regs $ head stack
-                else go (MachineState stack regs ipstack' ip' mCmp) vis
+                then do
+                    s <- pop
+                    regs <- getRegs <$> gett
+                    pure . C8.pack . show $ eval regs s
+                else do
+                    jmpTo ip'
+                    go
 
         Assign dst a -> do
+            setReg dst $! eval regs a
+            incIp
+            go
+
+        BinOpInstr op dst a b -> do
             let a' = eval regs a
-            go (MachineState stack (M.insert dst a' regs) ipstack (ip + 1) mCmp) vis
-
-        BinOpInstr AddI dst a b -> do
-            let VInt a' = eval regs a
-                VInt b' = eval regs b
-                c       = VInt $! a' + b'
-            go (MachineState stack (M.insert dst c regs) ipstack (ip + 1) mCmp) vis
-
-        BinOpInstr SubI dst a b -> do
-            let VInt a' = eval regs a
-                VInt b' = eval regs b
-                c       = VInt $! a' - b'
-            go (MachineState stack (M.insert dst c regs) ipstack (ip + 1) mCmp) vis
-
-        CallFun (Label f) -> do 
-            let ipstack' = ip + 1: ipstack
-                Just ip' = findLbl f vis
-            print ("ipstack", ipstack')
-            go (MachineState stack regs ipstack' ip' mCmp) vis
+                b' = eval regs b
+            setReg dst $! binOp op a' b'
+            incIp
+            go
 
         CallFun f -> do
             let LabelPos ip' = eval regs f
-                ipstack' = ip + 1: ipstack
-            print ("ipstack", ipstack')
-            go (MachineState stack regs ipstack' ip' mCmp) vis
-
-        BinOpInstr EqA dst a b -> do
-            let a'    = eval regs a
-                b'    = eval regs b
-                e     = vEq a' b'
-                regs' = M.insert dst e regs
-            go (MachineState stack regs' ipstack (ip + 1) mCmp) vis
+            pushIp $! ip + 1
+            jmpTo ip'
+            go
 
         Cmp r -> do
             let VBool r' = eval regs r
-                cmp = Just $ if r' then Ceq else CNeq
-            go (MachineState stack regs ipstack (ip + 1) cmp) vis
+            setCmp $! if r' then Ceq else CNeq
+            incIp
+            go
 
-        JmpNeqLbl lbl ->
-            case mcmp ms of
-                Nothing    -> error "foo"
-                Just Ceq  -> go (MachineState stack regs ipstack (ip+1) mCmp) vis
+        JmpNeqLbl lbl -> do
+
+            cmp <- getMCmp <$> gett
+
+            case cmp of
+
+                Nothing ->
+                    error "foo"
+
+                Just Ceq -> do
+                    incIp
+                    go
+
                 Just CNeq -> do
-                    let LabelPos ip' = eval regs (Label lbl)
-                    go (MachineState stack regs ipstack ip' mCmp) vis
+                    jmpTo $! findLbl vis lbl
+                    go
 
         JmpLbl lbl -> do
-            let LabelPos ip' = eval regs (Label lbl)
-            go (MachineState stack regs ipstack ip' mCmp) vis
+            jmpTo $! findLbl vis lbl
+            go
 
         _ -> error $ "^ Unknown instruction ^"
 
     where
-    vEq (VInt a)  (VInt b)  = VBool $! a == b
-    vEq (VBool a) (VBool b) = VBool $! a == b
-
-    eval    _    (Label lbl) = let Just i = findLbl lbl vis in LabelPos i
+    eval    _    (Label lbl) = LabelPos $! findLbl vis lbl
     eval    _   lp@LabelPos{} = lp
     eval    _       v@VInt{} = v
     eval    _      v@VBool{} = v
@@ -130,13 +168,26 @@ go ms vis = do
         case M.lookup r regs of
             Nothing -> error $ "Not found: " ++ show r
             Just v  -> v -- eval regs v
-    eval regs x = error $ show ("unknown", x)
+    eval _ x = error $ show ("unknown", x)
 
-findLbl :: ByteString -> Vector (Instr ByteString) -> Maybe Int
-findLbl lbl = V.headM
-            . V.map fst
-            . V.filter (isLabel . snd)
-            . V.imap ((,))
+binOp :: Show s => BinOp -> Val s -> Val s -> Val s
+binOp AddI  (VInt a)  (VInt b) = VInt $! a + b
+binOp SubI  (VInt a)  (VInt b) = VInt $! a - b
+binOp EqA   (VInt a)  (VInt b) = VBool $! a == b
+binOp EqA  (VBool a) (VBool b) = VBool $! a == b
+binOp a b c                    = error $ show ("binop", a, b, c)
+
+findLbl :: (Eq s, Show s) => Vector (Instr s) -> s -> Int
+findLbl vis lbl =
+    case findLbl' vis of
+        Nothing -> error $ "No such label: " ++ show lbl
+        Just ip -> ip
+
     where
-    isLabel (ILabel lbl') = lbl == lbl'
-    isLabel             _ = False
+    findLbl' = V.headM
+             . V.map fst
+             . V.filter (isLabel . snd)
+             . V.imap ((,))
+        where
+        isLabel (ILabel lbl') = lbl == lbl'
+        isLabel             _ = False
