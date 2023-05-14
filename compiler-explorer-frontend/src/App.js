@@ -10,6 +10,19 @@ class App extends React.Component {
     return elem;
   }
 
+  run() {
+
+    this.lexAndParse();
+
+    const output = this.getAndClearElement("output");
+
+    fetch("http://127.0.0.1:8080/run", { method:  'POST'
+                                       , headers: { 'Accept': 'application/json'
+                                                  , 'Content-Type': 'application/json' } })
+      .then(resp => resp.json())
+      .then(out => output.value = out);
+  }
+
   lexAndParse() {
     const source = document.getElementById("text")
 
@@ -26,11 +39,8 @@ class App extends React.Component {
     const lambdaLiftedPretty     = this.getAndClearElement("lambdaLiftedPretty")
     const codeGen0               = this.getAndClearElement("codeGen0")
     const codeGen1               = this.getAndClearElement("codeGen1")
-    const output                 = this.getAndClearElement("output")
 
-    const req = { getInput: source.value
-                , getExec:  false
-                }
+    const req = { getInput: source.value }
 
     fetch("http://127.0.0.1:8080/lexAndParse", { method:  'POST'
                                                , headers: { 'Accept': 'application/json'
@@ -52,7 +62,6 @@ class App extends React.Component {
         lambdaLiftedPretty.value     = ts.lambdaLiftedPretty;
         codeGen0.value               = ts.codeGen0;
         codeGen1.value               = ts.codeGen1;
-        output.value                 = ts.output;
       })
   }
 
@@ -72,6 +81,8 @@ class App extends React.Component {
           <textarea id='tokens' className='editor' spellCheck='false' rows='14'></textarea>
           <textarea id='prettyDefns' className='editor' spellCheck='false' rows='14'></textarea>
           <textarea id='output' className='editor' spellCheck='false' rows='14'></textarea>
+          <button id='exec' onClick={e => this.run()}>Run</button>
+          <button id='stop' onClick={e => alert('stop')}>Stop All</button>
         </div>
 
         <label>Type Inference / Pretty</label>

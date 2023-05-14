@@ -199,7 +199,7 @@ process' deps = goNexp
                 pure ([], val)
 
             AClo _ _ _ _ -> do
-                error "clo"
+                error $ "clo: " ++ show aexp
 
     goCexp cexp =
 

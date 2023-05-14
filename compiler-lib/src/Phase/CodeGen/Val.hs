@@ -9,13 +9,13 @@ data Val s = TypedReg (Type s) s -- ensure monotyped.  Maybe use tycon isntead o
            | VInt Integer
            | VBool Bool
            | Label s
+           | LabelPos Int -- Just in interpreter? or bake sooner?
            | VDConsNameTyped (Type s) s
            | VDConsTyped (Type s) s Int [Val s] -- Int is tag/constructor -- val should be registers holding pointers
            | VAddressAt s
            | VHPtr Int
            | VTag Int
                deriving Show
-
 
 typeOfVal :: Val ByteString -> Type ByteString
 typeOfVal v =

@@ -1,5 +1,6 @@
 {-# LANGUAGE DataKinds,
              DeriveGeneric,
+             LambdaCase,
              OverloadedStrings,
              ScopedTypeVariables,
              TypeOperators #-}
@@ -19,11 +20,14 @@ import Phase.LambdaLift.LambdaLift
 import Pretty.Anf2
 import Pretty.Module
 import Pretty.TypedModule
-import Runtimes.Machine1                     (runMachine1)
+import Runtimes.Machine2                     (runMachine2)
 import TypeSystem.TypeCheck
 
+import           Control.Monad.IO.Class      (liftIO)
 import           Data.Aeson
 import           Data.ByteString             (ByteString)
+import           Data.Functor                ((<&>))
+import           Data.IORef
 import           Data.Text                   (Text, pack)
 import           Data.Text.Encoding          (decodeUtf8, encodeUtf8)
 import           Data.Vector                 (Vector)
@@ -32,15 +36,16 @@ import           Network.Wai.Handler.Warp    (run)
 import           Network.Wai.Middleware.Cors (CorsResourcePolicy (..), cors)
 import           Servant
 
-data Input =
-    Input { getInput :: !Text
-          , getExec  :: !Bool
+newtype Input =
+    Input { getInput :: Text
           } deriving (Generic, Show)
 
 instance FromJSON Input
 
 type Api = "lexAndParse" :> ReqBody '[JSON] Input
                          :> Post '[JSON] ProgramState
+
+      :<|> "run" :> Post '[JSON] Text
 
 data ProgramState =
     ProgramState { getSource           :: Text
@@ -98,18 +103,25 @@ fromSource txt = ProgramState txt "" na na na na na na na na na
     where
     na = Left "Not Available"
 
-server :: Server Api
-server input =
+server :: IORef (Maybe ProgramState) -> Server Api
+server ioref = setProgramState :<|> runCurrentProgramState
 
-    let output = execState pipe 
-               . fromSource
-               $ getInput input
+    where
+    setProgramState input = liftIO $ do
+        writeIORef ioref Nothing
+        let programState = execState pipe . fromSource $ getInput input
+        writeIORef ioref (Just programState)
+        pure programState
 
-    in pure $
-         case getCodeGen1 output of
-           Left e                    -> output { getOutput = e }
-           Right cg1 | getExec input -> output { getOutput = runMachine1 cg1 }
-                     | otherwise     -> output { getOutput = "<Didn't run>"  }
+    runCurrentProgramState =
+        liftIO (readIORef ioref) >>= \case
+            Nothing -> pure "<Not run>"
+            Just ps ->
+                case getCodeGen1 ps of
+                    Left err -> pure "err"
+                    Right ins -> do
+                        out <- liftIO $ runMachine2 ins
+                        pure $ decodeUtf8 out
 
 pipe :: State ProgramState ()
 pipe = do
@@ -119,8 +131,8 @@ pipe = do
     phaseAnfConvert
     phaseClosureConvert
     phaseLambdaLift
-    ---phaseCodeGen0
-    ---phaseCodeGen1
+    phaseCodeGen0
+    phaseCodeGen1
 
     where
     phaseLexAndParse :: State ProgramState ()
@@ -159,10 +171,13 @@ pipe = do
         ps { getCodeGen1 = codeGenModule1 <$> getCodeGen0 ps }
 
 runController :: Int -> IO ()
-runController port = run port
-                   . cors (const $ Just corsPolicy)
-                   . serve (Proxy :: Proxy Api)
-                   $ server
+runController port = do
+
+    ioref <- newIORef Nothing
+
+    run port . cors (const $ Just corsPolicy)
+             . serve (Proxy :: Proxy Api)
+             $ server ioref
 
 corsPolicy :: CorsResourcePolicy
 corsPolicy =
