@@ -130,8 +130,8 @@ pipe = do
     phaseAnfConvert
     phaseClosureConvert
     phaseLambdaLift
-    phaseCodeGen0
-    phaseCodeGen1
+    --phaseCodeGen0
+    --phaseCodeGen1
 
     where
     phaseLexAndParse :: State ProgramState ()

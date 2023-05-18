@@ -11,6 +11,7 @@ import Phase.Anf.AnfModule
 import Pretty.Operator
 
 import           Data.ByteString       (ByteString)
+import qualified Data.ByteString.Char8 as C8
 import           Data.Functor          ((<&>))
 import           Data.Text             (Text)
 import qualified Data.Text as T
@@ -94,11 +95,16 @@ printAExp aexp =
         ATerm _ term ->
             printTerm term
 
-        ALam _ vs body ->
-            pure "lam"
+        ALam _ vs body -> do
+            body' <- printNExp body
+            let vs' = byteString $ C8.intercalate " " vs
+            pure $ mconcat ["(\\", vs', ".", body', ")"]
 
-        AClo _ _ vs body ->
-            pure "clo"
+        AClo _ fvs vs body -> do
+            body' <- printNExp body
+            let fvs' = byteString $ C8.intercalate " " fvs
+                vs'  = byteString $ C8.intercalate " " vs
+            pure $ mconcat ["(\\", vs', " {", fvs', "}.", body', ")"]
 
         AUnPrimOp _ op a -> do
             a' <- printAExp a
