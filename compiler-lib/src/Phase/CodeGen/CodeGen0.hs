@@ -14,12 +14,10 @@ import Phase.CodeGen.TagInfo
 import Phase.CodeGen.Val
 
 import           Control.Monad         (mapAndUnzipM, replicateM)
-import           Data.ByteString.Char8 (ByteString, pack)
+import           Data.ByteString       (ByteString)
+import qualified Data.ByteString.Char8 as C8
 import           Data.Map.Strict       (Map, (!))
 import qualified Data.Map as M
-import           Data.Text             (Text)
-import qualified Data.Text as T
-import           Data.Text.Encoding    (decodeUtf8)
 import           Debug.Trace           (trace)
 
 data GenState s =
@@ -57,12 +55,12 @@ data Deps s =
          , sToBs        :: !(s -> ByteString)
          }
 
-renderCodeGen0 :: [SubRoutine ByteString] -> Text
-renderCodeGen0 = T.unlines . map render
+renderCodeGen0 :: [SubRoutine ByteString] -> ByteString
+renderCodeGen0 = C8.unlines . map render
     where
     render (SubRoutine n is) =
-        T.unlines ( decodeUtf8 n <> ":"
-                  : (map ("  " <>) $ map (T.pack . show) is)
+        C8.unlines ( n <> ":"
+                  : (map ("  " <>) $ map (C8.pack . show) is)
                   )
 
 codeGenModule0 :: AnfModule ByteString -> [SubRoutine ByteString]
@@ -91,7 +89,7 @@ genFreshImpl ft = do
                     FrFalseBranch -> "fl_"
                     FrJoin        -> "dn_"
 
-    pure $ pr <> pack (show num)
+    pure $ pr <> C8.pack (show num)
 
 data FreshType = FrReg
                | FrTrueBranch
@@ -128,7 +126,7 @@ assignRegImpl :: ByteString -> State (GenState ByteString) ByteString
 assignRegImpl v = do
     st <- get
     let num = freshNum st
-        reg = "%" <> pack (show num)
+        reg = "%" <> C8.pack (show num)
     put st { regMap   = M.insert v reg $ regMap st 
            , freshNum = num + 1 }
     pure reg
@@ -227,7 +225,7 @@ process' deps = goNexp
 
                         pure ( concat [ is1
                                       , concat is2
-                                      , [comment deps $ "Start making DataCons " <> pack (show name)]
+                                      , [comment deps $ "Start making DataCons " <> C8.pack (show name)]
                                       , assignment
                                       ]
                              , fr )
@@ -282,7 +280,7 @@ process' deps = goNexp
                 case term of
 
                     LitInt i -> do
-                        let todoInstrs = [ comment deps ("{case of litint " <> (pack $ show i) <> "}")
+                        let todoInstrs = [ comment deps ("{case of litint " <> (C8.pack $ show i) <> "}")
                                          , comment deps "{patterns}" ]
                         pure (todoInstrs, VInt 37)
 

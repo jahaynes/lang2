@@ -5,19 +5,17 @@ module Phase.CodeGen.CodeGen1 (codeGenModule1, renderCodeGen1) where
 import Phase.CodeGen.CodeGen0 (Instr (..), SubRoutine (..))
 
 import           Data.ByteString (ByteString)
-import           Data.Text.Encoding (decodeUtf8)
-import           Data.Text       (Text)
-import qualified Data.Text as T
+import qualified Data.ByteString.Char8 as C8
 
-renderCodeGen1 :: [Instr ByteString] -> Text
-renderCodeGen1 = T.unlines
+renderCodeGen1 :: [Instr ByteString] -> ByteString
+renderCodeGen1 = C8.unlines
                . map render
                . zip [(0::Int)..]
 
     where
-    render (_ , ILabel s) = "\n  " <> decodeUtf8 s <> ":"
-    render (_ , IComment s) = "\n  " <> decodeUtf8 s
-    render (ln, instr) = T.pack $ show ln ++ ":\t" ++ show instr
+    render (_ , ILabel s) = "\n  " <> s <> ":"
+    render (_ , IComment s) = "\n  " <> s
+    render (ln, instr) = C8.pack $ show ln ++ ":\t" ++ show instr
 
 codeGenModule1 :: [SubRoutine s] -> [Instr s]
 codeGenModule1 = concatMap toInstrs

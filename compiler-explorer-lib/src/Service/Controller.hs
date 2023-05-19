@@ -47,17 +47,17 @@ type Api = "lexAndParse" :> ReqBody '[JSON] Input
       :<|> "run" :> Post '[JSON] Text
 
 data ProgramState =
-    ProgramState { getSource           :: Text
-                 , getOutput           :: ByteString
-                 , getTokens           :: Either ByteString (Vector Token)
-                 , getModule           :: Either ByteString (Module ByteString)
-                 , getInferred         :: Either ByteString (ModuleT ByteString)
-                 , getEtaExpanded      :: Either ByteString (ModuleT ByteString)
-                 , getAnfConverted     :: Either ByteString (AnfModule ByteString)
-                 , getClosureConverted :: Either ByteString (AnfModule ByteString)
-                 , getLambdaLifted     :: Either ByteString (AnfModule ByteString)
-                 , getCodeGen0         :: Either ByteString [SubRoutine ByteString]
-                 , getCodeGen1         :: Either ByteString [Instr ByteString]
+    ProgramState { getSource           :: !Text
+                 , getOutput           :: !ByteString
+                 , getTokens           :: !(Either ByteString (Vector Token))
+                 , getModule           :: !(Either ByteString (Module ByteString))
+                 , getInferred         :: !(Either ByteString (ModuleT ByteString))
+                 , getEtaExpanded      :: !(Either ByteString (ModuleT ByteString))
+                 , getAnfConverted     :: !(Either ByteString (AnfModule ByteString))
+                 , getClosureConverted :: !(Either ByteString (AnfModule ByteString))
+                 , getLambdaLifted     :: !(Either ByteString (AnfModule ByteString))
+                 , getCodeGen0         :: !(Either ByteString [SubRoutine ByteString])
+                 , getCodeGen1         :: !(Either ByteString [Instr ByteString])
                  }
 
 instance ToJSON ProgramState where
@@ -76,8 +76,8 @@ instance ToJSON ProgramState where
             txtClosureConvertedPretty = either decodeUtf8 renderAnfModule (getClosureConverted ps)
             txtLambdaLifted           = either decodeUtf8 (\(AnfModule _ anfdefs) -> pack . unlines . map show $ anfdefs) (getLambdaLifted ps)
             txtLambdaLiftedPretty     = either decodeUtf8 renderAnfModule (getLambdaLifted ps)
-            txtCodeGen0               = either decodeUtf8 renderCodeGen0 (getCodeGen0 ps)
-            txtCodeGen1               = either decodeUtf8 renderCodeGen1 (getCodeGen1 ps)
+            txtCodeGen0               = decodeUtf8 $ either id renderCodeGen0 (getCodeGen0 ps)
+            txtCodeGen1               = decodeUtf8 $ either id renderCodeGen1 (getCodeGen1 ps)
             txtOutput                 = decodeUtf8 $ getOutput ps
 
         object [ "tokens"                 .= String txtTokens

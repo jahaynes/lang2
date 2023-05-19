@@ -11,8 +11,6 @@ library
   build-depends:    base,
                     bytestring,
                     containers,
-                    text,
-                    -- TODO remove text
                     vector,
                     vector-builder
   exposed-modules:  Common.CallGraph
