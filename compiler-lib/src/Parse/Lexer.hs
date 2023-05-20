@@ -5,73 +5,18 @@ module Parse.Lexer where
 import           Parse.Parser
 import           Parse.Token
 
-import           Data.ByteString       (ByteString)
+import           Data.ByteString             (ByteString)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as C8
-import           Data.Char             (isAlphaNum, isDigit, isLower, isSpace, isUpper)
-import           Data.Vector           (Vector)
+import           Data.Char                   (isAlphaNum, isDigit, isLower, isSpace, isUpper)
+import           Data.Vector                 (Vector)
 import qualified Data.Vector as V
 
+runLexer :: ByteString -> Either ByteString (Vector Int, Vector Token)
+runLexer = runLexer' lexer
 
--- TODO applicative
-lex'' :: ByteString -> Either ByteString (Vector Int, Vector Token)
-lex'' s = lex' s $ do
-    (positions, tokens) <- V.unzip <$> many nextPositionedToken
-    pDropWhile isSpace
-    pure (positions, V.fromList . disambiguateNegation $ V.toList tokens)
-
--- Split '-' into binary minus and unary negation, based on its preceding token
--- TODO vectorise
-disambiguateNegation :: [Token] -> [Token]
-disambiguateNegation = go [] TAmbiguous
-    where
-    go acc    _          [] = reverse acc
-    go acc prev (TMinus:ts) =
-        let x = f prev
-        in go (x:acc) x ts
-    go acc _ (t:ts) = go (t:acc) t ts
-
-    f TIn     = TNegate
-    f TIf     = TNegate
-    f TThen   = TNegate
-    f TElse   = TNegate
-    f TDot    = TNegate
-    f TLParen = TNegate
-    f TEqEq   = TNegate
-    f TGt     = TNegate
-    f TGtEq   = TNegate
-    f TLt     = TNegate
-    f TLtEq   = TNegate
-    f TEq     = TNegate
-    f TPlus   = TNegate
-    f TMinus  = TNegate
-    f TMul    = TNegate
-    f TDiv    = TNegate
-    f TNegate = TNegate
-    f TAnd    = TNegate
-    f TOr     = TNegate
-
-    f TRParen         = TMinus
-    f (TLitInt _)     = TMinus
-    f (TLowerStart _) = TMinus
-
-    f TLet            = TAmbiguous
-    f TLambda         = TAmbiguous
-    f (TLitBool _)    = TAmbiguous
-    f (TLitString _)  = TAmbiguous
-    f (TUpperStart _) = TAmbiguous
-    f TPipe           = TAmbiguous
-    f TColon          = TAmbiguous
-    f TArr            = TAmbiguous
-    f TAmbiguous      = TAmbiguous
-    f TPlusPlus       = TAmbiguous
-    f TDollar         = TAmbiguous -- check
-    f TCase           = TAmbiguous -- check
-    f TOf             = TAmbiguous -- check
-    f TErr            = TAmbiguous -- check
-
-lex' :: ByteString -> Parser LexState a -> Either ByteString a
-lex' s p =
+runLexer' :: Parser LexState a -> ByteString -> Either ByteString a
+runLexer' p s =
     let ps = LexState { ls_source = s
                       , ls_pos    = 0
                       }
@@ -81,9 +26,67 @@ lex' s p =
         Right (s', x) | ls_pos s' == BS.length (ls_source s') -> Right x
                       | otherwise                             -> Left $ "Leftover input: " <> C8.pack (show s')
 
+lexer :: Parser LexState (Vector Int, Vector Token)
+lexer = do
+    (positions, tokens) <- V.unzip <$> many nextPositionedToken
+    pDropWhile isSpace
+    pure (positions, disambiguateNegation tokens)
+
+disambiguateNegation :: Vector Token -> Vector Token
+disambiguateNegation = disam . pairs . V.cons TAmbiguous
+
+    where
+    pairs :: Vector a -> Vector (a, a)
+    pairs xs = V.zip (V.init xs) (V.tail xs)
+
+    disam :: Vector (Token, Token) -> Vector Token
+    disam = V.map g
+        where
+        g (prev, TMinus) = f prev
+        g (   _,      t) = t
+
+        f TIn     = TNegate
+        f TIf     = TNegate
+        f TThen   = TNegate
+        f TElse   = TNegate
+        f TDot    = TNegate
+        f TLParen = TNegate
+        f TEqEq   = TNegate
+        f TGt     = TNegate
+        f TGtEq   = TNegate
+        f TLt     = TNegate
+        f TLtEq   = TNegate
+        f TEq     = TNegate
+        f TPlus   = TNegate
+        f TMinus  = TNegate
+        f TMul    = TNegate
+        f TDiv    = TNegate
+        f TNegate = TNegate
+        f TAnd    = TNegate
+        f TOr     = TNegate
+
+        f TRParen         = TMinus
+        f (TLitInt _)     = TMinus
+        f (TLowerStart _) = TMinus
+
+        f TLet            = TAmbiguous
+        f TLambda         = TAmbiguous
+        f (TLitBool _)    = TAmbiguous
+        f (TLitString _)  = TAmbiguous
+        f (TUpperStart _) = TAmbiguous
+        f TPipe           = TAmbiguous
+        f TColon          = TAmbiguous
+        f TArr            = TAmbiguous
+        f TAmbiguous      = TAmbiguous
+        f TPlusPlus       = TAmbiguous
+        f TDollar         = TAmbiguous -- check
+        f TCase           = TAmbiguous -- check
+        f TOf             = TAmbiguous -- check
+        f TErr            = TAmbiguous -- check
+
 data LexState =
-    LexState { ls_source     :: !ByteString
-             , ls_pos        :: !Int
+    LexState { ls_source :: !ByteString
+             , ls_pos    :: !Int
              } deriving Show
 
 nextPositionedToken :: Parser LexState (Int, Token)

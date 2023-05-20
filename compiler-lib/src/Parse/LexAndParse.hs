@@ -22,7 +22,7 @@ tokensToByteString = C8.unlines . map (C8.pack . show) . toList
 lexAndParse :: ByteString -> ( Either ByteString (Vector Token)
                              , Either ByteString (Module ByteString) )
 lexAndParse source =
-    case lex'' source of
+    case runLexer source of
 
         Left e -> ( Left e
                   , Left "" )

@@ -19,73 +19,76 @@ lexerTests =
                    ]
 
 test_string_match :: Property
-test_string_match = unitTest $ do
-    let x = lex' "foo" $ string "foo"
-    x === Right ()
+test_string_match = unitTest $
+    runLexer' (string "foo") "foo" ===
+        Right ()
 
 test_string_mismatch :: Property
-test_string_mismatch = unitTest $ do
-    let x = lex' "bar" $ string "foo"
-    x === Left "String mismatch"
+test_string_mismatch = unitTest $
+    Left "String mismatch" ===
+        runLexer' (string "foo") "bar"
 
 test_string_out_of_input :: Property
-test_string_out_of_input = unitTest $ do
-    let x = lex' "fo" $ string "foo"
-    x === Left "Insufficient input"
+test_string_out_of_input = unitTest $
+    runLexer' (string "foo") "fo" ===
+        Left "Insufficient input"
 
 test_integer :: Property
 test_integer = unitTest $ do
-    lex'    "" integer === Left "Expected digits"
-    lex' "abc" integer === Left "Expected digits"
-    lex' "123" integer === Right 123
-    --lex' "123abc" integer === Right 123 TODO should fail
+    runLexer' integer    "" === Left "Expected digits"
+    runLexer' integer "abc" === Left "Expected digits"
+    runLexer' integer "123" === Right 123
+    --runLexer' integer "123abc"  === Right 123 TODO should fail
 
 test_booleans :: Property
 test_booleans = unitTest $ do
-    lex'      "" boolean === Left "no alternatives left"
-    lex'  "True" boolean === Right True
-    lex' "False" boolean === Right False
-    lex' "Truef" boolean === Left "no alternatives left"
+    runLexer' boolean     ""  === Left "no alternatives left"
+    runLexer' boolean  "True" === Right True
+    runLexer' boolean "False" === Right False
+    runLexer' boolean "Truef" === Left "no alternatives left"
 
 test_get_position :: Property
-test_get_position = unitTest $ do
-    let x = lex' "foobarbaz" $ do
-                p1 <- getPosition
-                _  <- string "foobar"
-                p2 <- getPosition
-                _  <- string "baz"
-                p3 <- getPosition
-                pure (p1, p2, p3)
-    x === Right (0, 6, 9)
+test_get_position = unitTest $
+    runLexer' lexer' "foobarbaz" ===
+        Right (0, 6, 9)
+    where
+    lexer' = do
+        p1 <- getPosition
+        _  <- string "foobar"
+        p2 <- getPosition
+        _  <- string "baz"
+        p3 <- getPosition
+        pure (p1, p2, p3)
 
 test_dropwhile :: Property
 test_dropwhile = unitTest $
-    let Right r =
-            lex' "aaabbb" $ do
-                p1 <- pDropWhile (const False) *> getPosition
-                p2 <- pDropWhile (=='c')       *> getPosition
-                p3 <- pDropWhile (=='a')       *> getPosition
-                p4 <- pDropWhile (=='b')       *> getPosition
-                p5 <- pDropWhile (const True)  *> getPosition
-                pure (p1, p2, p3, p4, p5)
-    in r === (0, 0, 3, 6, 6)
+    runLexer' lexer' "aaabbb" ===
+        Right (0, 0, 3, 6, 6)
+    where
+    lexer' = do
+        p1 <- pDropWhile (const False) *> getPosition
+        p2 <- pDropWhile (=='c')       *> getPosition
+        p3 <- pDropWhile (=='a')       *> getPosition
+        p4 <- pDropWhile (=='b')       *> getPosition
+        p5 <- pDropWhile (const True)  *> getPosition
+        pure (p1, p2, p3, p4, p5)
 
 test_literal_string :: Property
 test_literal_string = unitTest $ do
 
-    lex' "" litString ===
+    runLexer' litString "" ===
         Left "Out of litString"
 
-    lex' "abc" litString ===
+    runLexer' litString "abc" ===
         Left "Doesn't start with \""
 
-    lex' "\"abc" litString ===
+    runLexer' litString "\"abc" ===
         Left "Ran off the end"
 
-    lex' "\"foo bar\"" litString ===
+    runLexer' litString "\"foo bar\"" ===
         Right "foo bar"
 
-    lex' "\"a \\\"quoted\\\" string\"" litString ===
+    runLexer' litString "\"a \\\"quoted\\\" string\"" ===
         Right "a \\\"quoted\\\" string"
 
 unitTest :: PropertyT IO () -> Property

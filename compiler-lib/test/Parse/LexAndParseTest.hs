@@ -104,7 +104,7 @@ lexAndParseWith :: Parser ParseState a
                 -> Either ByteString (Vector Token, Either ByteString (ParseState, a))
 lexAndParseWith p source = do
     let lineStarts = findLineStarts source
-    (positions, tokens) <- lex'' source
+    (positions, tokens) <- runLexer source
     let pr = runParser p $ ParseState { ps_tokens     = tokens
                                       , ps_pos        = 0
                                       , ps_positions  = positions
