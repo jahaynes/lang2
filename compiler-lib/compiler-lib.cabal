@@ -14,8 +14,10 @@ library
                     vector,
                     vector-builder
   exposed-modules:  Common.CallGraph
+                    Common.EitherT
                     Common.State
                     Common.StateT
+                    Common.Trans
                     Common.Writer
                     Core.Expression
                     Core.Module
@@ -56,6 +58,8 @@ test-suite test-compiler-lib
                       compiler-lib
     ghc-options:      -Wall -O2
     other-modules:    Common.CallGraphTest
+                      Common.Identity
+                      Common.TransTest
                       Parse.ExpressionTest
                       Parse.LexerTest
                       Parse.LexAndParseTest

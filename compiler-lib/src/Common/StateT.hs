@@ -1,7 +1,9 @@
 module Common.StateT where
 
+import Common.Trans
+
 import Control.Monad.IO.Class
-import Data.Functor ((<&>))
+import Data.Functor           ((<&>))
 
 newtype StateT s m a = StateT { runStateT :: s -> m (a, s) }
 
@@ -26,6 +28,12 @@ instance Monad m => Monad (StateT s m) where
     StateT rma >>= mf = StateT $ \s -> do
         (a, s') <- rma s
         runStateT (mf a) s'
+
+instance Trans (StateT s) where
+
+    lift ma = StateT $ \s -> do
+        a <- ma
+        pure (a, s)
 
 instance MonadIO m => MonadIO (StateT s m) where
 
