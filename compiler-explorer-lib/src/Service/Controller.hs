@@ -10,6 +10,9 @@ module Service.Controller (runController) where
 import Common.State
 import Core.Module
 import Parse.LexAndParse
+import Parse.Lexer
+import Parse.Module
+import Parse.Parser
 import Parse.Token
 import Phase.Anf.AnfModule
 import Phase.CodeGen.CodeGen0
@@ -124,22 +127,35 @@ server ioref = setProgramState :<|> runCurrentProgramState
 
 pipe :: State ProgramState ()
 pipe = do
-    phaseLexAndParse
+
+    source <- encodeUtf8 . getSource <$> get
+
+    let lineStarts                     = findLineStarts source
+        Right (tokenPositions, tokens) = runLexer source
+        Right defns                    = doParse parseDefns tokenPositions lineStarts tokens
+
+    modify' $ \ps -> ps { getTokens = Right tokens
+                        , getModule = Right defns
+                        }
+
+    -- TODO pass these steps in, for lex-and-parse testing purposes
+
+    --phaseLexAndParse
     phaseTypeCheck
     phaseEtaExpand
     phaseAnfConvert
     phaseClosureConvert
     phaseLambdaLift
-    --phaseCodeGen0
-    --phaseCodeGen1
+    phaseCodeGen0
+    phaseCodeGen1
 
     where
-    phaseLexAndParse :: State ProgramState ()
-    phaseLexAndParse = modify' $ \ps ->
-        let (eTokens, eMd) = lexAndParse . encodeUtf8 $ getSource ps
-        in ps { getTokens = eTokens
-              , getModule = eMd
-              }
+    --phaseLexAndParse :: State ProgramState ()
+    --phaseLexAndParse = modify' $ \ps ->
+        --let (eTokens, eMd) = lexAndParse . encodeUtf8 $ getSource ps
+        --in ps { getTokens = eTokens
+              --, getModule = eMd
+              --}
 
     phaseTypeCheck :: State ProgramState ()
     phaseTypeCheck = modify' $ \ps ->

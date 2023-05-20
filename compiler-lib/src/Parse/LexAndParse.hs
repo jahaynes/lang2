@@ -1,11 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Parse.LexAndParse where
+module Parse.LexAndParse (findLineStarts, tokensToByteString) where
 
-import Core.Module
-import Parse.Lexer
-import Parse.Module
-import Parse.Parser
 import Parse.Token
 
 import           Data.ByteString             (ByteString)
@@ -19,21 +15,10 @@ import           Data.Word                   (Word8)
 tokensToByteString :: Vector Token -> ByteString
 tokensToByteString = C8.unlines . map (C8.pack . show) . toList
 
-lexAndParse :: ByteString -> ( Either ByteString (Vector Token)
-                             , Either ByteString (Module ByteString) )
-lexAndParse source =
-    case runLexer source of
-
-        Left e -> ( Left e
-                  , Left "" )
-
-        Right (pos, tokens) -> ( Right tokens
-                               , parse' pos (findLineStarts source) tokens parseDefns )
-
 data LineState =
-    LineState { newLines :: ![Int]
-              , position :: !Int
-              , last     :: !Word8 }
+    LineState { newLines  :: ![Int]
+              , _position :: !Int
+              , _last     :: !Word8 }
 
 findLineStarts :: ByteString -> IntSet
 findLineStarts bs

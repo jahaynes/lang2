@@ -55,12 +55,12 @@ instance Alternative (Parser s) where -- TODO accumulate failure alternatives?
                     Right r -> Right r
                     Left _  -> Left "no alternatives left"
 
-parse' :: Vector Int
-       -> IntSet
-       -> Vector Token
-       -> Parser ParseState a
-       -> Either ByteString a
-parse' pos ls s p =
+doParse :: Parser ParseState a
+        -> Vector Int
+        -> IntSet
+        -> Vector Token
+        -> Either ByteString a
+doParse p pos ls s =
     let ps = ParseState { ps_tokens     = s
                         , ps_pos        = 0
                         , ps_positions  = pos
