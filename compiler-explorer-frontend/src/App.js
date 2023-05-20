@@ -61,8 +61,8 @@ class App extends React.Component {
         lambdaLifted.value           = ts.lambdaLifted;
         lambdaLiftedPretty.value     = ts.lambdaLiftedPretty;
         codeGen0.value               = ts.codeGen0;
-        codeGen1.value               = ts.codeGen1;
-      })
+        codeGen1.value               = ts.codeGen1; })
+      .catch(exception => console.log(exception));
   }
 
   render() {
