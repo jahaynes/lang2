@@ -29,6 +29,8 @@ library
                     Pretty.Term
                     Pretty.TypedModule
                     Service.Controller
+                    Service.ProgramState
+                    Service.Service
   ghc-options:      -Wall -O2
   hs-source-dirs:   src
   default-language: Haskell2010

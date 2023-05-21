@@ -57,10 +57,10 @@ instance Alternative (Parser s) where -- TODO accumulate failure alternatives?
 
 doParse :: Parser ParseState a
         -> Vector Int
-        -> IntSet
         -> Vector Token
+        -> IntSet
         -> Either ByteString a
-doParse p pos ls s =
+doParse p pos s ls =
     let ps = ParseState { ps_tokens     = s
                         , ps_pos        = 0
                         , ps_positions  = pos
