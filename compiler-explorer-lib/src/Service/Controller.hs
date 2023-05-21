@@ -7,7 +7,10 @@
 
 module Service.Controller (runController) where
 
+import Common.EitherT
 import Common.State
+import Common.StateT
+import Common.Trans
 import Core.Module
 import Parse.LexAndParse
 import Parse.Lexer
@@ -125,6 +128,21 @@ server ioref = setProgramState :<|> runCurrentProgramState
                         out <- liftIO $ runMachine2 ins
                         pure $ decodeUtf8 out
 
+
+-- TODO break out into service
+newPipe :: forall m. Monad m => EitherT ByteString (StateT ProgramState m) ()
+newPipe = do
+
+    phaseTypeCheck
+
+    where
+    phaseTypeCheck :: EitherT ByteString (StateT ProgramState m) ()
+    phaseTypeCheck = do
+        ps       :: ProgramState       <- lift gett
+        modu     :: Module ByteString  <- t (getModule ps)
+        inferred :: ModuleT ByteString <- t (inferModule modu)
+        error "wip"
+
 pipe :: State ProgramState ()
 pipe = do
 
@@ -138,7 +156,8 @@ pipe = do
                         , getModule = Right defns
                         }
 
-    -- TODO pass these steps in, for lex-and-parse testing purposes
+    -- What monad stack to use?
+    -- Monad m => StateT (EitherT String m) ()
 
     --phaseLexAndParse
     phaseTypeCheck
