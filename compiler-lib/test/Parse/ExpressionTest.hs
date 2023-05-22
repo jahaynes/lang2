@@ -27,35 +27,35 @@ exprTests =
 
 test_variable_match :: Property
 test_variable_match = unitTest $
-    let x = parse' undefined undefined [TLowerStart "abc"] parseVariable
+    let x = doParse parseLiteral undefined [TLowerStart "abc"] undefined
     in x === Right (ETerm (Var "abc"))
 
 test_variable_mismatch :: Property
 test_variable_mismatch = unitTest $
-    let x = parse' undefined undefined [TEqEq] parseVariable
+    let x = doParse parseLiteral undefined [TEqEq] undefined
     in x === Left "no alternatives left"
 
 test_neg_variable_match :: Property
 test_neg_variable_match = unitTest $
-    let x = parse' undefined undefined [TNegate, TLowerStart "def"] parseVariable
+    let x = doParse parseLiteral undefined [TNegate, TLowerStart "def"] undefined
     in x === Right (EUnPrimOp Negate (ETerm (Var "def")))
 
 test_lit_string :: Property
 test_lit_string = unitTest $
-    let x = parse' undefined undefined [TLitString "xy"] parseLiteral
+    let x = doParse parseLiteral undefined [TLitString "xy"] undefined
     in x === Right (ETerm (LitString "xy"))
 
 test_lit_bool :: Property
 test_lit_bool = unitTest $ do
-    let x = parse' undefined undefined [TLitBool True] parseLiteral
-        y = parse' undefined undefined [TLitBool False] parseLiteral
+    let x = doParse parseLiteral undefined [TLitBool True] undefined
+        y = doParse parseLiteral undefined [TLitBool False] undefined
     x === Right (ETerm (LitBool True))
     y === Right (ETerm (LitBool False))
 
 test_lit_int :: Property
 test_lit_int = unitTest $ do
-    let x = parse' undefined undefined [TLitInt 4] parseLiteral
-        y = parse' undefined undefined [TNegate, TLitInt 5] parseLiteral
+    let x = doParse parseLiteral undefined [TLitInt 4] undefined
+        y = doParse parseLiteral undefined [TNegate, TLitInt 5] undefined
     x === Right (ETerm (LitInt 4))
     y === Right (ETerm (LitInt (-5)))
 
