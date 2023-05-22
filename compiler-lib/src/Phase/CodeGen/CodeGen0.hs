@@ -2,7 +2,10 @@
 
 module Phase.CodeGen.CodeGen0 (Instr (..), SubRoutine (..), Val (..), codeGenModule0, renderCodeGen0) where
 
+import Common.EitherT (EitherT (..), left)
 import Common.State
+import Common.StateT
+import Common.Trans
 import Core.Module
 import Core.Operator
 import Core.Term
@@ -46,9 +49,9 @@ data Instr s = CallFun (Val s)
                deriving Show
 
 data Deps s =
-    Deps { genFresh     :: !(FreshType -> State (GenState s) s)
-         , assignReg    :: !(s -> State (GenState s) s)
-         , allocate     :: !((AExp s, Val s) -> State (GenState s) ([Instr s], Val s))
+    Deps { genFresh     :: !(FreshType -> EitherT ByteString (State (GenState s)) s)
+         , assignReg    :: !(s -> EitherT ByteString (State (GenState s)) s)
+         , allocate     :: !((AExp s, Val s) -> EitherT ByteString (State (GenState s)) ([Instr s], Val s))
          , comment      :: !(ByteString -> Instr s)
          , dataDefns    :: ![DataDefn s]
          , getTypeOfVal :: !(Val s -> Type s)
@@ -63,9 +66,9 @@ renderCodeGen0 = C8.unlines . map render
                   : (map ("  " <>) $ map (C8.pack . show) is)
                   )
 
-codeGenModule0 :: AnfModule ByteString -> [SubRoutine ByteString]
-codeGenModule0 md = map (process deps)
-                  $ getFunDefAnfTs md
+codeGenModule0 :: AnfModule ByteString -> Either ByteString [SubRoutine ByteString]
+codeGenModule0 md = do
+    mapM (process deps) (getFunDefAnfTs md)
     where
     deps = Deps genFreshImpl
                 assignRegImpl
@@ -77,27 +80,23 @@ codeGenModule0 md = map (process deps)
 
 -- generate a type with this register, so that reads know what to read?
 -- is there a point in returning the type if the type is always passed in?
-genFreshImpl :: FreshType -> State (GenState ByteString) ByteString
+-- Don't need whole EitherT
+genFreshImpl :: FreshType -> EitherT e (State (GenState ByteString)) ByteString
 genFreshImpl ft = do
-    st <- get
+    st <- lift get
     let num = freshNum st
-    put st { freshNum = num + 1 }
-
+    lift $ put st { freshNum = num + 1 }
     let pr = case ft of
                     FrReg         -> "%"
                     FrTrueBranch  -> "tr_"
                     FrFalseBranch -> "fl_"
                     FrJoin        -> "dn_"
-
     pure $ pr <> C8.pack (show num)
 
 data FreshType = FrReg
                | FrTrueBranch
                | FrFalseBranch
                | FrJoin
-
-unkn :: Type ByteString
-unkn = TyCon "idk" []
 
 -- the val is what's being allocated, but the AExp still has the type
 -- no longer necessary?
@@ -122,35 +121,35 @@ allocateImpl genFresh (aexp, v) = do
                    , Cpy (VAddressAt fr) v]
                  , TypedRegPtr t fr ) -- TODO check 't'
 
-assignRegImpl :: ByteString -> State (GenState ByteString) ByteString
+-- Don't need the whole EitherT
+assignRegImpl :: ByteString -> EitherT e (State (GenState ByteString)) ByteString
 assignRegImpl v = do
-    st <- get
+    st <- lift get
     let num = freshNum st
         reg = "%" <> C8.pack (show num)
-    put st { regMap   = M.insert v reg $ regMap st 
-           , freshNum = num + 1 }
+    lift $ put st { regMap   = M.insert v reg $ regMap st
+                  , freshNum = num + 1 }
     pure reg
 
-process :: (Show s, Ord s) => Deps s -> FunDefAnfT s -> SubRoutine s
+process :: (Show s, Ord s) => Deps s -> FunDefAnfT s -> Either ByteString (SubRoutine s)
 process deps (FunDefAnfT name q expr) =
 
     case expr of
 
-        AExp (ALam t vs body) ->
+        AExp (ALam t vs body) -> do
 
             let vts = getParamTypes vs t
 
-                (instrs, rval) =
-                    evalState' (GenState mempty 0) $ do
-                        regs <- replicateM (length vs) (genFresh deps FrReg)
-                        let rm = M.fromList $ zip vs regs
-                        modify' $ \st -> st { regMap = rm }
-                        let pops = map (\(t, v) -> PopTyped t (rm ! v)) $ zip vts vs
-                        (is, x) <- process' deps body
-                        pure (pops ++ is, x)
+            (instrs, rval) <- evalState' (GenState mempty 0) $ runEitherT $ do
+                regs <- replicateM (length vs) (genFresh deps FrReg)
+                let rm = M.fromList $ zip vs regs
+                lift $ modify' $ \st -> st { regMap = rm }
+                let pops = map (\(t, v) -> PopTyped t (rm ! v)) $ zip vts vs
+                (is, x) <- process' deps body
+                pure (pops ++ is, x)
 
-            in SubRoutine { getName   = name
-                          , getInstrs = instrs ++ [Push rval, Ret] }
+            pure SubRoutine { getName   = name
+                            , getInstrs = instrs ++ [Push rval, Ret] }
 
         _ ->
             let asLambda = AExp (ALam (typeOf expr) [] expr)
@@ -162,7 +161,9 @@ getParamTypes = go []
     go acc     []           _ = reverse acc
     go acc (_:vs) (TyArr a b) = go (a:acc) vs b
 
-process' :: (Ord s, Show s) => Deps s -> NExp s -> State (GenState s) ([Instr s], Val s)
+process' :: (Ord s, Show s) => Deps s
+                            -> NExp s
+                            -> EitherT ByteString (State (GenState s)) ([Instr s], Val s)
 process' deps = goNexp
 
     where
@@ -197,7 +198,7 @@ process' deps = goNexp
                 pure ([], val)
 
             AClo _ _ _ _ -> do
-                error $ "clo: " ++ show aexp
+                left . C8.pack $ "clo: " ++ show aexp
 
     goCexp cexp =
 
@@ -294,7 +295,9 @@ process' deps = goNexp
                                          , comment deps "{patterns}" ]
                         pure (todoInstrs, VInt 38)
 
-assignToStruct :: (Eq s, Show s) => Deps s -> Val s -> State (GenState s) (Val s, [Instr s])
+assignToStruct :: (Eq s, Show s) => Deps s
+                                 -> Val s
+                                 -> EitherT ByteString (State (GenState s)) (Val s, [Instr s])
 assignToStruct deps c@(VDConsTyped t name tag xs) = do
 
     let sz = getSize (SizedVal c)
@@ -328,13 +331,13 @@ typeApply t' ts' = go t' ts'
 
 goTerm :: (Ord s, Show s) => Type s
                           -> Term s
-                          -> State (GenState s) (Val s)
+                          -> EitherT ByteString (State (GenState s)) (Val s)
 goTerm typ term =
 
     case term of
 
         Var v -> do
-            mr <- M.lookup v . regMap <$> get
+            mr <- M.lookup v . regMap <$> lift get
             pure $ case mr of
                        Just r  -> TypedReg typ r
                        Nothing -> Label v

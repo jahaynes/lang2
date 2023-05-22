@@ -65,7 +65,7 @@ pipe = do
 
     phaseCodeGen0 :: State ProgramState ()
     phaseCodeGen0 = modify' $ \ps ->
-        ps { getCodeGen0 = codeGenModule0 <$> getLambdaLifted ps }
+        ps { getCodeGen0 = codeGenModule0 =<< getLambdaLifted ps }
 
     phaseCodeGen1 :: State ProgramState ()
     phaseCodeGen1 = modify' $ \ps ->
