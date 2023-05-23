@@ -46,6 +46,7 @@ data Instr s = CallFun (Val s)
              | Malloc s Int -- resulting register and size of allocation
              | Cpy (Val s) (Val s)
              | IComment s
+             | ClosurePlaceholder
                deriving Show
 
 data Deps s =
@@ -197,8 +198,9 @@ process' deps = goNexp
                 val <- goTerm t term
                 pure ([], val)
 
-            AClo _ _ _ _ -> do
-                left . C8.pack $ "clo: " ++ show aexp
+            AClo t _ _ _ -> do
+                fr <- genFresh deps FrReg
+                pure ([ClosurePlaceholder], TypedReg t fr)
 
     goCexp cexp =
 
