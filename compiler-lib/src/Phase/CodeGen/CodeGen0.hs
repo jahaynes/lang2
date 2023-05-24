@@ -20,7 +20,7 @@ import           Control.Monad         (mapAndUnzipM, replicateM)
 import           Data.ByteString       (ByteString)
 import qualified Data.ByteString.Char8 as C8
 import           Data.Map.Strict       (Map, (!))
-import qualified Data.Map as M
+import qualified Data.Map.Strict as M
 import           Debug.Trace           (trace)
 
 data GenState s =
@@ -198,9 +198,22 @@ process' deps = goNexp
                 val <- goTerm t term
                 pure ([], val)
 
-            AClo t _ _ _ -> do
-                fr <- genFresh deps FrReg
-                pure ([ClosurePlaceholder], TypedReg t fr)
+            AClo t fvs vs body -> do
+                rClosure <- genFresh deps FrReg
+
+                (bodyInstrs, rBody) <- goNexp body
+
+                st <- lift get
+
+                pure ( comment deps "-- Lift this closure section out ---"
+                     : comment deps "pop ptr_env"
+                     : comment deps "pop formal parameters"
+                     : comment deps "bind env parameters to registers"
+                     : bodyInstrs ++
+                       Push rBody
+                     : Ret
+                     : comment deps "-- Lift this closure section out ---"
+                     : [], TypedReg t rClosure)
 
     goCexp cexp =
 
