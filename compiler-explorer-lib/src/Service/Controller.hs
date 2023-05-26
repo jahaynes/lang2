@@ -64,7 +64,7 @@ runController port = do
 
 corsPolicy :: CorsResourcePolicy
 corsPolicy =
-    CorsResourcePolicy { corsOrigins        = Just (["http://localhost:3000"], False)
+    CorsResourcePolicy { corsOrigins        = Just (["http://10.0.0.1:3000"], False)
                        , corsMethods        = []
                        , corsRequestHeaders = ["Content-Type"]
                        , corsExposedHeaders = Nothing

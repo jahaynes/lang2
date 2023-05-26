@@ -199,21 +199,16 @@ process' deps = goNexp
                 pure ([], val)
 
             AClo t fvs vs body -> do
-                rClosure <- genFresh deps FrReg
 
                 (bodyInstrs, rBody) <- goNexp body
 
                 st <- lift get
 
-                pure ( comment deps "-- Lift this closure section out ---"
-                     : comment deps "pop ptr_env"
+                pure ( comment deps "pop ptr_env"
                      : comment deps "pop formal parameters"
                      : comment deps "bind env parameters to registers"
                      : bodyInstrs ++
-                       Push rBody
-                     : Ret
-                     : comment deps "-- Lift this closure section out ---"
-                     : [], TypedReg t rClosure)
+                     [], rBody)
 
     goCexp cexp =
 

@@ -128,7 +128,7 @@ lambdaLiftDefn nameGen (FunDefAnfT t n fun) =
     -- TODO dedupe with above
     -- assumes lco has type t
     liftLambdaOrClosure mName (AClo t fvs vs body) = do
-        newName <- nameGen "lmkclo"
+        newName <- nameGen "lclo"
         let body' =
                 case mName of
                     -- If this lambda has a name
