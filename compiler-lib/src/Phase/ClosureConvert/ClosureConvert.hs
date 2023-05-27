@@ -44,24 +44,23 @@ closureConvertDefn genName topLevelScope (FunDefAnfT n q fun) = do
 
                 aexp' <- cca aexp
 
-                -- TODO, do some anf here?
                 case aexp' of
                     AClo{} -> do
-                        
                         v <- genName
-                        
-                        pure $ CExp $ CApp (typeOfAExp aexp') aexp' [ATerm (typeOfAExp aexp') (LitInt 66)] -- todo env here.  wrong env type
-                    _      -> pure $ AExp aexp'
+                        let t = typeOfAExp aexp'
+                        let app = CExp $ CApp t aexp' [AClosEnv]
+                        pure $ NLet v app (AExp $ ATerm t (Var v))
+                    _ -> pure $ AExp aexp'
 
             -- Includes a in the scope to allow recursion
             NLet a (AExp (ALam t vs body)) c ->
-                withScope' [a] $
+                withScope' a $
                     NLet a <$> (AExp <$> cclam (Just a) t vs body)
                            <*> go c
 
             -- Includes a in the scope to allow recursion
             NLet a b c ->
-                withScope' [a] $
+                withScope' a $
                     NLet a <$> go b
                            <*> go c
 
@@ -70,9 +69,12 @@ closureConvertDefn genName topLevelScope (FunDefAnfT n q fun) = do
 
             case cexp of
 
-                CApp t f xs ->
-                    CApp t <$> cca f
-                           <*> mapM cca xs
+                CApp t f xs -> do
+
+                    f' <- cca f
+                    case f' of
+                        AClo{} -> error "Yay! clo"
+                        _      -> CApp t f' <$> mapM cca xs
 
                 CIfThenElse t pr tr fl ->
                     CIfThenElse t <$> cca pr
@@ -122,12 +124,18 @@ genNameImpl = do
     put $! (n+1, x)
     pure $ "ccanf_" <> pack (show n)
 
-withScope' :: Ord s => [s]
-                   -> State (Int, Scope s) a
-                   -> State (Int, Scope s) a
-withScope' vs f = do
-    initScope <- getScope <$> get
-    modify' $ \fv -> fv { getScope = initScope <> S.fromList vs }
+withScope' :: Ord s => s
+                    -> State (Int, Scope s) a
+                    -> State (Int, Scope s) a
+withScope' v f = do
+
+    -- Save the initial scope
+    i@(n, Scope initScope) <- get
+
+    -- Use the new scope for the action
+    put (n, Scope (S.insert v initScope))
     x <- f
-    modify' $ \fv -> fv { getScope = initScope }
+
+    -- Restore the old scope
+    put i
     pure x

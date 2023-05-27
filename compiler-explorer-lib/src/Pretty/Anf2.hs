@@ -115,6 +115,9 @@ printAExp aexp =
             b' <- noIndent $ printAExp b
             pure $ TB.intercalate " " [a', printBinOp op, b']
 
+        AClosEnv ->
+            pure "{env}"
+
 printCExp :: CExp ByteString -> State Int Builder
 printCExp cexp =
 

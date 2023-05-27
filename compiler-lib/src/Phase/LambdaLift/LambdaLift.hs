@@ -88,6 +88,9 @@ lambdaLiftDefn nameGen (FunDefAnfT t n fun) =
                 ABinPrimOp t o <$> lla a
                                <*> lla b
 
+            AClosEnv{} ->
+                pure aexp
+
     llc cexp =
 
         case cexp of

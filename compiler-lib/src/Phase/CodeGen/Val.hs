@@ -4,6 +4,7 @@ import Core.Types
 import Data.ByteString (ByteString)
 
 data Val s = TypedReg (Type s) s -- ensure monotyped.  Maybe use tycon isntead of type?
+           | UntypedReg s
            | TypedRegPtr (Type s) s
            | RegPtrOff s Int
            | VInt Integer

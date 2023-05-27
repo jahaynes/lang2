@@ -16,7 +16,7 @@ class App extends React.Component {
 
     const output = this.getAndClearElement("output");
 
-    fetch("http://10.0.0.1:8080/run", { method:  'POST'
+    fetch("http://127.0.0.1:8080/run", { method:  'POST'
                                        , headers: { 'Accept': 'application/json'
                                                   , 'Content-Type': 'application/json' } })
       .then(resp => resp.json())
@@ -42,7 +42,7 @@ class App extends React.Component {
 
     const req = { getInput: source.value }
 
-    fetch("http://10.0.0.1:8080/lexAndParse", { method:  'POST'
+    fetch("http://127.0.0.1:8080/lexAndParse", { method:  'POST'
                                                , headers: { 'Accept': 'application/json'
                                                           , 'Content-Type': 'application/json' }
                                                , body:    JSON.stringify(req)
