@@ -1,11 +1,14 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Phase.ClosureConvert.ClosureConvert where
 
 import Common.State
+import Core.Term
 import Phase.Anf.AnfExpression
 import Phase.Anf.AnfModule             (AnfModule (..), FunDefAnfT (..))
 import Phase.ClosureConvert.FreeVars
 
-import           Data.ByteString       (ByteString)
+import           Data.ByteString.Char8 (ByteString, pack)
 import           Data.Set              (Set)
 import qualified Data.Set as S
 
@@ -15,12 +18,13 @@ closureConvert md = md { getFunDefAnfTs = closureConvert' $ getFunDefAnfTs md }
 closureConvert' :: [FunDefAnfT ByteString] -> [FunDefAnfT ByteString]
 closureConvert' funDefs =
     let topLevelScope = S.fromList $ map (\(FunDefAnfT n _ _) -> n) funDefs
-    in evalState (mapM (closureConvertDefn topLevelScope) funDefs) (Scope mempty)
+    in evalState (mapM (closureConvertDefn genNameImpl topLevelScope) funDefs) (0, Scope mempty)
 
-closureConvertDefn :: (Ord s, Show s) => Set s
+closureConvertDefn :: (Ord s, Show s) => State (Int, Scope s) s
+                                      -> Set s
                                       -> FunDefAnfT s
-                                      -> State (Scope s) (FunDefAnfT s)
-closureConvertDefn topLevelScope (FunDefAnfT n q fun) = do
+                                      -> State (Int, Scope s) (FunDefAnfT s)
+closureConvertDefn genName topLevelScope (FunDefAnfT n q fun) = do
 
     fun' <- case fun of
                 AExp (ALam t vs body) -> AExp . ALam t vs <$> go body
@@ -36,18 +40,28 @@ closureConvertDefn topLevelScope (FunDefAnfT n q fun) = do
             CExp cexp ->
                 CExp <$> ccc cexp
 
-            AExp aexp ->
-                AExp <$> cca aexp
+            AExp aexp -> do
+
+                aexp' <- cca aexp
+
+                -- TODO, do some anf here?
+                case aexp' of
+                    AClo{} -> do
+                        
+                        v <- genName
+                        
+                        pure $ CExp $ CApp (typeOfAExp aexp') aexp' [ATerm (typeOfAExp aexp') (LitInt 66)] -- todo env here.  wrong env type
+                    _      -> pure $ AExp aexp'
 
             -- Includes a in the scope to allow recursion
             NLet a (AExp (ALam t vs body)) c ->
-                withScope [a] $
+                withScope' [a] $
                     NLet a <$> (AExp <$> cclam (Just a) t vs body)
                            <*> go c
 
             -- Includes a in the scope to allow recursion
             NLet a b c ->
-                withScope [a] $
+                withScope' [a] $
                     NLet a <$> go b
                            <*> go c
 
@@ -100,3 +114,20 @@ closureConvertDefn topLevelScope (FunDefAnfT n q fun) = do
             pure $ if null fvs
                     then ALam t     vs body'
                     else AClo t  fvs vs body'
+
+-- Just for a little ANF transform for the newly introduced closure-call
+genNameImpl :: State (Int, a) ByteString
+genNameImpl = do
+    (n, x) <- get
+    put $! (n+1, x)
+    pure $ "ccanf_" <> pack (show n)
+
+withScope' :: Ord s => [s]
+                   -> State (Int, Scope s) a
+                   -> State (Int, Scope s) a
+withScope' vs f = do
+    initScope <- getScope <$> get
+    modify' $ \fv -> fv { getScope = initScope <> S.fromList vs }
+    x <- f
+    modify' $ \fv -> fv { getScope = initScope }
+    pure x
