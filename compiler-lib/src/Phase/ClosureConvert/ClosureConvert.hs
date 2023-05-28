@@ -53,12 +53,15 @@ closureConvertDefn genName topLevelScope (FunDefAnfT n q fun) = do
                     _ -> pure $ AExp aexp'
 
             -- Includes a in the scope to allow recursion
-            NLet a (AExp (ALam t vs body)) c ->
-                withScope' a $
-                    NLet a <$> (AExp <$> cclam (Just a) t vs body)
-                           <*> go c
+            -- TODO: should the withScope be this broad? probably
+            NLet a (AExp (ALam t vs body)) c -> withScope' a $ do
+                aexp' <- cclam (Just a) t vs body
+                case aexp' of
+                    AClo{} -> NLet a (CExp $ CApp t aexp' [AClosEnv]) <$> go c
+                    _      -> NLet a (AExp aexp')                     <$> go c
 
             -- Includes a in the scope to allow recursion
+            -- TODO: should the withScope be this broad? probably
             NLet a b c ->
                 withScope' a $
                     NLet a <$> go b
@@ -69,12 +72,9 @@ closureConvertDefn genName topLevelScope (FunDefAnfT n q fun) = do
 
             case cexp of
 
-                CApp t f xs -> do
-
-                    f' <- cca f
-                    case f' of
-                        AClo{} -> error "Yay! clo"
-                        _      -> CApp t f' <$> mapM cca xs
+                CApp t f xs ->
+                    CApp t <$> cca f
+                           <*> mapM cca xs
 
                 CIfThenElse t pr tr fl ->
                     CIfThenElse t <$> cca pr
@@ -92,13 +92,16 @@ closureConvertDefn genName topLevelScope (FunDefAnfT n q fun) = do
 
             case aexp of
 
-                t@ATerm{} ->
-                    pure t
+                ATerm{} ->
+                    pure aexp
 
                 ALam t vs body ->
                     cclam Nothing t vs body
 
                 AClo{} ->
+                    error "Doesn't exist yet"
+
+                AClosEnv ->
                     error "Doesn't exist yet"
 
                 AUnPrimOp t o a ->
@@ -115,7 +118,7 @@ closureConvertDefn genName topLevelScope (FunDefAnfT n q fun) = do
                 fvs = S.toList $ getFreeVars scope body'
             pure $ if null fvs
                     then ALam t     vs body'
-                    else AClo t  fvs vs body'
+                    else AClo t fvs vs body'
 
 -- Just for a little ANF transform for the newly introduced closure-call
 genNameImpl :: State (Int, a) ByteString
