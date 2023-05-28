@@ -37,6 +37,8 @@ class App extends React.Component {
     const closureConvertedPretty = this.getAndClearElement("closureConvertedPretty")
     const lambdaLifted           = this.getAndClearElement("lambdaLifted")
     const lambdaLiftedPretty     = this.getAndClearElement("lambdaLiftedPretty")
+    const uncurried              = this.getAndClearElement("uncurried")
+    const uncurriedPretty        = this.getAndClearElement("uncurriedPretty")
     const codeGen0               = this.getAndClearElement("codeGen0")
     const codeGen1               = this.getAndClearElement("codeGen1")
 
@@ -60,6 +62,8 @@ class App extends React.Component {
         closureConvertedPretty.value = ts.closureConvertedPretty;
         lambdaLifted.value           = ts.lambdaLifted;
         lambdaLiftedPretty.value     = ts.lambdaLiftedPretty;
+        uncurried.value              = ts.uncurried;
+        uncurriedPretty.value        = ts.uncurriedPretty;
         codeGen0.value               = ts.codeGen0;
         codeGen1.value               = ts.codeGen1; })
       .catch(exception => console.log(exception));
@@ -112,6 +116,12 @@ class App extends React.Component {
         <div>
           <textarea id='lambdaLifted' className='editor' spellCheck='false' rows='14'></textarea>
           <textarea id='lambdaLiftedPretty' className='editor' spellCheck='false' rows='14'></textarea>
+        </div>
+
+        <label>Uncurried</label>
+        <div>
+          <textarea id='uncurried' className='editor' spellCheck='false' rows='14'></textarea>
+          <textarea id='uncurriedPretty' className='editor' spellCheck='false' rows='14'></textarea>
         </div>
 
       </div>

@@ -13,6 +13,7 @@ import Phase.CodeGen.CodeGen1
 import Phase.ClosureConvert.ClosureConvert
 import Phase.EtaExpand.EtaExpand
 import Phase.LambdaLift.LambdaLift
+import Phase.Uncurry.Uncurry
 import Service.ProgramState
 import TypeSystem.TypeCheck
 
@@ -25,6 +26,7 @@ pipe = do
     phaseAnfConvert
     phaseClosureConvert
     phaseLambdaLift
+    phaseUncurry
     phaseCodeGen0
     phaseCodeGen1
 
@@ -63,9 +65,13 @@ pipe = do
     phaseLambdaLift = modify' $ \ps ->
         ps { getLambdaLifted = lambdaLift <$> getClosureConverted ps }
 
+    phaseUncurry :: State ProgramState ()
+    phaseUncurry = modify' $ \ps ->
+        ps { getUncurried = uncurryModule =<< getLambdaLifted ps }
+
     phaseCodeGen0 :: State ProgramState ()
     phaseCodeGen0 = modify' $ \ps ->
-        ps { getCodeGen0 = codeGenModule0 =<< getLambdaLifted ps }
+        ps { getCodeGen0 = codeGenModule0 =<< getLambdaLifted ps } -- TODO reconnect uncurried once done
 
     phaseCodeGen1 :: State ProgramState ()
     phaseCodeGen1 = modify' $ \ps ->

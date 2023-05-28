@@ -35,6 +35,7 @@ data SubRoutine s =
 data Instr s = CallFun (Val s)
              | Push (Val s)
              | PopTyped (Type s) s
+             | PopUntyped s -- Just for Env for now.  Remove later?
              | Ret
              | UnOpInstr UnOp s (Val s)
              | BinOpInstr BinOp s (Val s) (Val s)
@@ -46,7 +47,8 @@ data Instr s = CallFun (Val s)
              | Malloc s Int -- resulting register and size of allocation
              | Cpy (Val s) (Val s)
              | IComment s
-             | ClosurePlaceholder
+             | ClosurePlaceholder -- can kill this?
+             | AssignFromEnv {-env ptr reg-} s {-dest reg-} s {-env var-} s
                deriving Show
 
 data Deps s =
@@ -199,16 +201,19 @@ process' deps = goNexp
                 pure ([], val)
 
             AClo t fvs vs body -> do
-
                 (bodyInstrs, rBody) <- goNexp body
+                regPtrEnv <- genFresh deps FrReg
+                envRegs   <- mapM (\_ -> genFresh deps FrReg) fvs
+                let instrs = concat [ [comment deps "pop ptr_env"]
+                                    , [PopUntyped regPtrEnv]
+                                    , [comment deps "pop formal parameters"]
+                                    , popTypedParams t vs
+                                    , [comment deps "bind env parameters to registers"]
+                                    , zipWith (AssignFromEnv regPtrEnv) envRegs fvs
+                                    , bodyInstrs
+                                    ]
 
-                st <- lift get
-
-                pure ( comment deps "pop ptr_env"
-                     : comment deps "pop formal parameters"
-                     : comment deps "bind env parameters to registers"
-                     : bodyInstrs ++
-                     [], rBody)
+                pure (instrs, rBody)
 
             AClosEnv evs -> do
                 fr <- genFresh deps FrReg
@@ -311,6 +316,10 @@ process' deps = goNexp
                                          , comment deps "{patterns}" ]
                         pure (todoInstrs, VInt 38)
 
+popTypedParams :: Type s -> [s] -> [Instr s]
+popTypedParams           _     [] = []
+popTypedParams (TyArr a b) (x:xs) = PopTyped a x : popTypedParams b xs
+
 assignToStruct :: (Eq s, Show s) => Deps s
                                  -> Val s
                                  -> EitherT ByteString (State (GenState s)) (Val s, [Instr s])
@@ -336,6 +345,7 @@ assignToStruct deps c@(VDConsTyped t name tag xs) = do
          , Malloc fr sz : instrs )
 
     where
+    toInstr :: s -> (Int, Val s) -> Instr s
     toInstr fr (o, v) = Cpy (RegPtrOff fr o) v
 
 typeApply :: (Eq s, Show s) => Type s -> [Type s] -> Type s

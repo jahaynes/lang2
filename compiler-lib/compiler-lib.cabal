@@ -43,6 +43,7 @@ library
                     Phase.EtaExpand.EtaSaturate
                     Phase.LambdaLift.Alpha
                     Phase.LambdaLift.LambdaLift
+                    Phase.Uncurry.Uncurry
                     TypeCheck.ConstraintSolver
                     TypeSystem.Common
                     TypeSystem.InferExpression

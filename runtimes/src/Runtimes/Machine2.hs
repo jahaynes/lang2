@@ -157,7 +157,11 @@ run vis = go
             jmpTo $! findLbl vis lbl
             go
 
-        _ -> error $ "^ Unknown instruction ^"
+        IComment{} -> do
+            incIp
+            go
+
+        x -> error $ "^ Unknown instruction ^: " ++ show x
 
     where
     eval    _    (Label lbl) = LabelPos $! findLbl vis lbl
@@ -168,11 +172,18 @@ run vis = go
         case M.lookup r regs of
             Nothing -> error $ "Not found: " ++ show r
             Just v  -> v -- eval regs v
+
+    eval regs (UntypedReg r) =
+        case M.lookup r regs of
+            Nothing -> error $ "Not found: " ++ show r
+            Just v  -> v -- eval regs v
+
     eval _ x = error $ show ("unknown", x)
 
 binOp :: Show s => BinOp -> Val s -> Val s -> Val s
 binOp AddI  (VInt a)  (VInt b) = VInt $! a + b
 binOp SubI  (VInt a)  (VInt b) = VInt $! a - b
+binOp MulI  (VInt a)  (VInt b) = VInt $! a * b
 binOp EqA   (VInt a)  (VInt b) = VBool $! a == b
 binOp EqA  (VBool a) (VBool b) = VBool $! a == b
 binOp a b c                    = error $ show ("binop", a, b, c)
