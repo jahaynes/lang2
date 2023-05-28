@@ -27,7 +27,7 @@ exprTests =
 
 test_variable_match :: Property
 test_variable_match = unitTest $
-    let x = doParse parseLiteral undefined [TLowerStart "abc"] undefined
+    let x = doParse parseVariable undefined [TLowerStart "abc"] undefined
     in x === Right (ETerm (Var "abc"))
 
 test_variable_mismatch :: Property
@@ -37,7 +37,7 @@ test_variable_mismatch = unitTest $
 
 test_neg_variable_match :: Property
 test_neg_variable_match = unitTest $
-    let x = doParse parseLiteral undefined [TNegate, TLowerStart "def"] undefined
+    let x = doParse parseVariable undefined [TNegate, TLowerStart "def"] undefined
     in x === Right (EUnPrimOp Negate (ETerm (Var "def")))
 
 test_lit_string :: Property
