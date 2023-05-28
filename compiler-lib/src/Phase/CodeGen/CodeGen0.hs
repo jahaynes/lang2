@@ -210,10 +210,10 @@ process' deps = goNexp
                      : bodyInstrs ++
                      [], rBody)
 
-            AClosEnv -> do
+            AClosEnv evs -> do
                 fr <- genFresh deps FrReg
                 pure ( comment deps "allocate an env"
-                     : comment deps "copy each param in"
+                     : comment deps ("copy each param from " <> C8.pack (show evs) <> " in")
                      : [], UntypedReg fr )
 
     goCexp cexp =
