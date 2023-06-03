@@ -71,7 +71,7 @@ pipe = do
 
     phaseCodeGen0 :: State ProgramState ()
     phaseCodeGen0 = modify' $ \ps ->
-        ps { getCodeGen0 = codeGenModule0 =<< getLambdaLifted ps } -- TODO reconnect uncurried once done
+        ps { getCodeGen0 = codeGenModule0 =<< getUncurried ps }
 
     phaseCodeGen1 :: State ProgramState ()
     phaseCodeGen1 = modify' $ \ps ->

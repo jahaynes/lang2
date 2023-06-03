@@ -24,28 +24,19 @@ findTypes (FunDefAnfT name _ fundef) =
     in (name, inputTypes, returnType)
 
     where
+    {- The return type is the type of a def/expression
+       minus its input types -}
     findReturnType :: NExp s -> Type s
     findReturnType def =
-
         case def of
-            AExp (ALam _ _ body) -> goNexp body
-            _                    -> goNexp def
-
-        where
-        goNexp (NLet _ _ c) = goNexp c
-        goNexp (CExp cexp)  = goCexp cexp
-        goNexp (AExp aexp)  = goAexp aexp
-
-        goCexp (CApp t _ _) = t
-
-        goAexp (ABinPrimOp t _ _ _) = t
-        goAexp (ATerm t _)          = t
-        goAexp (ALam t _ _)         = t
+            AExp (ALam _ _ body)   -> typeOf body
+            AExp (AClo _ _ _ body) -> typeOf body
+            _                      -> typeOf def
 
     findInputTypesFromReturnType :: Eq s => Type s -> Type s -> [Type s]
-    findInputTypesFromReturnType returnType = go []
+    findInputTypesFromReturnType returnType = go
         where
-        go acc (TyArr a b)
-            | b == returnType = reverse (a:acc)
-            | otherwise       = go (a:acc) b
-        go [] _ = []
+        go (TyArr a b)
+            | b == returnType = [a]
+            | otherwise       = a : go b
+        go _ = []
