@@ -67,11 +67,11 @@ pipe = do
 
     phaseUncurry :: State ProgramState ()
     phaseUncurry = modify' $ \ps ->
-        ps { getUncurried = uncurryModule =<< getLambdaLifted ps }
+        ps { getUncurried = uncurryModule =<< getLambdaLifted ps } -- TODO
 
     phaseCodeGen0 :: State ProgramState ()
     phaseCodeGen0 = modify' $ \ps ->
-        ps { getCodeGen0 = codeGenModule0 =<< getUncurried ps }
+        ps { getCodeGen0 = codeGenModule0 =<< getLambdaLifted ps }
 
     phaseCodeGen1 :: State ProgramState ()
     phaseCodeGen1 = modify' $ \ps ->

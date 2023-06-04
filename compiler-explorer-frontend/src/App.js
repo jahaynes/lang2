@@ -26,18 +26,12 @@ class App extends React.Component {
   lexAndParse() {
     const source = document.getElementById("text")
 
-    const tokens                 = this.getAndClearElement("tokens")
     const prettyDefns            = this.getAndClearElement("prettyDefns")
-    const inferred               = this.getAndClearElement("inferred")
     const inferredPretty         = this.getAndClearElement("inferredPretty")
     const etaExpanded            = this.getAndClearElement("etaExpanded")
-    const anfConverted           = this.getAndClearElement("anfConverted")
     const anfPretty              = this.getAndClearElement("anfPretty")
-    const closureConverted       = this.getAndClearElement("closureConverted")
     const closureConvertedPretty = this.getAndClearElement("closureConvertedPretty")
-    const lambdaLifted           = this.getAndClearElement("lambdaLifted")
     const lambdaLiftedPretty     = this.getAndClearElement("lambdaLiftedPretty")
-    const uncurried              = this.getAndClearElement("uncurried")
     const uncurriedPretty        = this.getAndClearElement("uncurriedPretty")
     const codeGen0               = this.getAndClearElement("codeGen0")
     const codeGen1               = this.getAndClearElement("codeGen1")
@@ -51,18 +45,12 @@ class App extends React.Component {
                                                })
       .then(resp => resp.json())
       .then(ts => {
-        tokens.value                 = ts.tokens;
         prettyDefns.value            = ts.prettyDefns;
-        inferred.value               = ts.inferred;
         inferredPretty.value         = ts.inferredPretty;
         etaExpanded.value            = ts.etaExpanded;
-        anfConverted.value           = ts.anfConverted;
         anfPretty.value              = ts.anfPretty;
-        closureConverted.value       = ts.closureConverted;
         closureConvertedPretty.value = ts.closureConvertedPretty;
-        lambdaLifted.value           = ts.lambdaLifted;
         lambdaLiftedPretty.value     = ts.lambdaLiftedPretty;
-        uncurried.value              = ts.uncurried;
         uncurriedPretty.value        = ts.uncurriedPretty;
         codeGen0.value               = ts.codeGen0;
         codeGen1.value               = ts.codeGen1; })
@@ -73,26 +61,40 @@ class App extends React.Component {
     return (
       <div className="App">
 
-        <label>Source / CodeGens</label>
+        <label>Source / Codegen0 </label>
         <div>
           <textarea id='text' className='editor' spellCheck='false' rows='14' onChange={e => this.lexAndParse()}></textarea>
           <textarea id='codeGen0' className='editor' spellCheck='false' rows='14'></textarea>
-          <textarea id='codeGen1' className='editor' spellCheck='false' rows='14'></textarea>
         </div>
 
-        <label>Tokens / Definitions / Output</label>
         <div>
-          <textarea id='tokens' className='editor' spellCheck='false' rows='14'></textarea>
-          <textarea id='prettyDefns' className='editor' spellCheck='false' rows='14'></textarea>
-          <textarea id='output' className='editor' spellCheck='false' rows='14'></textarea>
+          <label>Codegen1 / Output</label>
           <button id='exec' onClick={e => this.run()}>Run</button>
           <button id='stop' onClick={e => alert('stop')}>Stop All</button>
         </div>
-
-        <label>Type Inference / Pretty</label>
         <div>
-          <textarea id='inferred' className='editor' spellCheck='false' rows='14'></textarea>
-          <textarea id='inferredPretty' className='editor' spellCheck='false' rows='14'></textarea>
+          <textarea id='codeGen1' className='editor' spellCheck='false' rows='14'></textarea>
+          <textarea id='output' className='editor' spellCheck='false' rows='14'></textarea>
+        </div>
+
+        <label>Uncurried</label>
+        <div>
+          <textarea id='uncurriedPretty' className='editor' spellCheck='false' rows='14'></textarea>
+        </div>
+
+        <label>Lambda Lifted</label>
+        <div>
+          <textarea id='lambdaLiftedPretty' className='editor' spellCheck='false' rows='14'></textarea>
+        </div>
+
+        <label>Closure Converted</label>
+        <div>
+          <textarea id='closureConvertedPretty' className='editor' spellCheck='false' rows='14'></textarea>
+        </div>
+
+        <label>Anf Converted</label>
+        <div>
+          <textarea id='anfPretty' className='editor' spellCheck='false' rows='14'></textarea>
         </div>
 
         <label>Eta Expanded</label>
@@ -100,34 +102,18 @@ class App extends React.Component {
           <textarea id='etaExpanded' className='editor' spellCheck='false' rows='14'></textarea>
         </div>
 
-        <label>Anf Converted</label>
+        <label>Type Inference / Pretty</label>
         <div>
-          <textarea id='anfConverted' className='editor' spellCheck='false' rows='14'></textarea>
-          <textarea id='anfPretty' className='editor' spellCheck='false' rows='14'></textarea>
+          <textarea id='inferredPretty' className='editor' spellCheck='false' rows='14'></textarea>
         </div>
 
-        <label>Closure Converted</label>
+        <label>Tokens / Definitions</label>
         <div>
-          <textarea id='closureConverted' className='editor' spellCheck='false' rows='14'></textarea>
-          <textarea id='closureConvertedPretty' className='editor' spellCheck='false' rows='14'></textarea>
+          <textarea id='prettyDefns' className='editor' spellCheck='false' rows='14'></textarea>
         </div>
-
-        <label>Lambda Lifted</label>
-        <div>
-          <textarea id='lambdaLifted' className='editor' spellCheck='false' rows='14'></textarea>
-          <textarea id='lambdaLiftedPretty' className='editor' spellCheck='false' rows='14'></textarea>
-        </div>
-
-        <label>Uncurried</label>
-        <div>
-          <textarea id='uncurried' className='editor' spellCheck='false' rows='14'></textarea>
-          <textarea id='uncurriedPretty' className='editor' spellCheck='false' rows='14'></textarea>
-        </div>
-
       </div>
     );
   }
-
 }
 
 export default App;
