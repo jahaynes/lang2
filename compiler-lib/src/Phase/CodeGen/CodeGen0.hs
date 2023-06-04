@@ -35,7 +35,7 @@ data SubRoutine s =
 data Instr s = CallFun (Val s)
              | Push (Val s)
              | PopTyped (Type s) s
-             | PopUntyped s -- Just for Env for now.  Remove later?
+             | PopEnv s
              | Ret
              | UnOpInstr UnOp s (Val s)
              | BinOpInstr BinOp s (Val s) (Val s)
@@ -47,7 +47,6 @@ data Instr s = CallFun (Val s)
              | Malloc s Int -- resulting register and size of allocation
              | Cpy (Val s) (Val s)
              | IComment s
-             | ClosurePlaceholder -- can kill this?
              | AssignFromEnv {-env ptr reg-} s {-dest reg-} s {-env var-} s
                deriving Show
 
@@ -208,7 +207,7 @@ process' deps = goNexp
 
                 regPtrEnv <- genFresh deps FrReg
                 let part1 = [ comment deps "pop ptr_env"
-                            , PopUntyped regPtrEnv ]
+                            , PopEnv regPtrEnv ]
 
                 fvs' <- mapM (assignReg deps) fvs
                 let part2 = comment deps "bind env parameters to registers"
