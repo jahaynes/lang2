@@ -201,18 +201,34 @@ process' deps = goNexp
                 pure ([], val)
 
             AClo t fvs vs body -> do
-                (bodyInstrs, rBody) <- goNexp body
+
+                -- Preserve the reg map and restore it after the body.
+                -- So we don't forever bind 'y' to a particular reg
+                --regMap1 <- regMap <$> lift get
+
                 regPtrEnv <- genFresh deps FrReg
-                envRegs   <- mapM (\_ -> genFresh deps FrReg) fvs
-                let instrs = concat [ [comment deps "pop ptr_env"]
-                                    , [PopUntyped regPtrEnv]
-                                    , [comment deps "pop formal parameters"]
-                                    , popTypedParams t vs
-                                    , [comment deps "bind env parameters to registers"]
-                                    , zipWith (AssignFromEnv regPtrEnv) envRegs fvs
+                let part1 = [ comment deps "pop ptr_env"
+                            , PopUntyped regPtrEnv ]
+
+                fvs' <- mapM (assignReg deps) fvs
+                let part2 = comment deps "bind env parameters to registers"
+                          : zipWith (AssignFromEnv regPtrEnv) fvs fvs'
+
+                typedParams <- bindToType t <$> mapM (assignReg deps) vs
+                let part3 = comment deps "pop formal parameters"
+                          : typedParams
+
+                (bodyInstrs, rBody) <- goNexp body
+                
+                let instrs = concat [ part1
+                                    , part2
+                                    , part3
+                                    , [comment deps "closure body"]
                                     , bodyInstrs
                                     ]
 
+                -- Restore the regmap
+                --lift . modify' $ \gs -> gs { regMap = regMap1 }
                 pure (instrs, rBody)
 
             AClosEnv evs -> do
@@ -316,9 +332,9 @@ process' deps = goNexp
                                          , comment deps "{patterns}" ]
                         pure (todoInstrs, VInt 38)
 
-popTypedParams :: Type s -> [s] -> [Instr s]
-popTypedParams           _     [] = []
-popTypedParams (TyArr a b) (x:xs) = PopTyped a x : popTypedParams b xs
+bindToType :: Type s -> [s] -> [Instr s]
+bindToType (TyArr a b) (x:xs) = PopTyped a x : bindToType b xs
+bindToType           _     [] = []
 
 assignToStruct :: (Eq s, Show s) => Deps s
                                  -> Val s

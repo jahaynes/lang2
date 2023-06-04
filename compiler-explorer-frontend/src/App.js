@@ -77,14 +77,10 @@ class App extends React.Component {
           <textarea id='output' className='editor' spellCheck='false' rows='14'></textarea>
         </div>
 
-        <label>Uncurried</label>
-        <div>
-          <textarea id='uncurriedPretty' className='editor' spellCheck='false' rows='14'></textarea>
-        </div>
-
-        <label>Lambda Lifted</label>
+        <label>Lambda Lifted / Uncurried</label>
         <div>
           <textarea id='lambdaLiftedPretty' className='editor' spellCheck='false' rows='14'></textarea>
+          <textarea id='uncurriedPretty' className='editor' spellCheck='false' rows='14'></textarea>
         </div>
 
         <label>Closure Converted</label>
