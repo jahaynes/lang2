@@ -92,7 +92,7 @@ run vis = go
             go
 
         Push val -> do
-            push $! eval regs val
+            push =<< eval regs val
             incIp
             go
 
@@ -107,31 +107,31 @@ run vis = go
                 then do
                     s <- pop
                     regs <- getRegs <$> gett
-                    pure . C8.pack . show $ eval regs s
+                    C8.pack . show <$> eval regs s
                 else do
                     jmpTo ip'
                     go
 
         Assign dst a -> do
-            setReg dst $! eval regs a
+            setReg dst =<< eval regs a
             incIp
             go
 
         BinOpInstr op dst a b -> do
-            let a' = eval regs a
-                b' = eval regs b
+            a' <- eval regs a
+            b' <- eval regs b
             setReg dst $! binOp op a' b'
             incIp
             go
 
         CallFun f -> do
-            let LabelPos ip' = eval regs f
+            LabelPos ip' <- eval regs f
             pushIp $! ip + 1
             jmpTo ip'
             go
 
         Cmp r -> do
-            let VBool r' = eval regs r
+            VBool r' <- eval regs r
             setCmp $! if r' then Ceq else CNeq
             incIp
             go
@@ -164,19 +164,23 @@ run vis = go
         x -> error $ "^ Unknown instruction ^: " ++ show x
 
     where
-    eval    _    (Label lbl) = LabelPos $! findLbl vis lbl
-    eval    _   lp@LabelPos{} = lp
-    eval    _       v@VInt{} = v
-    eval    _      v@VBool{} = v
+    eval    _   (Label lbl)  = pure . LabelPos $! findLbl vis lbl
+    eval    _  lp@LabelPos{} = pure lp
+    eval    _      v@VInt{}  = pure v
+    eval    _     v@VBool{}  = pure v
     eval regs (TypedReg _ r) =
         case M.lookup r regs of
-            Nothing -> error $ "Not found: " ++ show r
-            Just v  -> v -- eval regs v
+            Nothing -> do
+                ip <- getIp <$> gett
+                error $ concat ["Not found: ", show r, " at ip ", show ip]
+            Just v -> pure v -- eval regs v
 
     eval regs (UntypedReg r) =
         case M.lookup r regs of
-            Nothing -> error $ "Not found: " ++ show r
-            Just v  -> v -- eval regs v
+            Nothing -> do
+                ip <- getIp <$> gett
+                error $ concat ["Not found: ", show r, " at ip ", show ip]
+            Just v  -> pure v -- eval regs v
 
     eval _ x = error $ show ("unknown", x)
 

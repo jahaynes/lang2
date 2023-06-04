@@ -41,6 +41,10 @@ instance MonadIO m => MonadIO (StateT s m) where
         a <- liftIO ioa
         pure (a, s)
 
+instance Monad m => MonadFail (StateT s m) where
+    fail = error
+    -- TODO use the underlying fail?
+
 gett :: Applicative m => StateT s m s
 gett = StateT $ \s -> pure (s, s)
 
