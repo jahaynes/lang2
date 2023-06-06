@@ -13,6 +13,7 @@ import Service.Service                       (pipe)
 
 import           Control.Monad.IO.Class      (liftIO)
 import           Data.Aeson
+import           Data.Functor                ((<&>))
 import           Data.IORef
 import           Data.Text                   (Text)
 import           Data.Text.Encoding          (decodeUtf8)
@@ -49,9 +50,10 @@ server ioref = setProgramState :<|> runCurrentProgramState
             Just ps ->
                 case getCodeGen1 ps of
                     Left err -> pure "err"
-                    Right ins -> do
-                        out <- liftIO $ runMachine2 ins
-                        pure $ decodeUtf8 out
+                    Right ins ->
+                        (liftIO $ runMachine2 ins) <&> \case
+                            Left err  -> decodeUtf8 err
+                            Right out -> decodeUtf8 out
 
 runController :: Int -> IO ()
 runController port = do

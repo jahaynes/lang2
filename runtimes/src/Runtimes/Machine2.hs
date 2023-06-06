@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 
 module Runtimes.Machine2 (runMachine2) where
 
@@ -5,15 +6,14 @@ import Core.Operator
 import Common.StateT
 import Phase.CodeGen.CodeGen0
 
-import           Control.Monad.IO.Class      (liftIO)
 import           Data.ByteString             (ByteString)
 import qualified Data.ByteString.Char8 as C8
 import           Data.Functor                ((<&>))
 import           Data.Map.Strict             (Map)
 import qualified Data.Map as M
-
 import           Data.Vector ((!), Vector)
 import qualified Data.Vector          as V
+import           UnliftIO.Exception
 
 data MachineState s =
     MachineState { getStack   :: [Val s]
@@ -25,12 +25,14 @@ data MachineState s =
 
 data Comparison = Ceq | CNeq
 
-runMachine2 :: [Instr ByteString] -> IO ByteString
+runMachine2 :: [Instr ByteString] -> IO (Either ByteString ByteString)
 runMachine2 is =
     let vis = V.fromList is
         ip  = findLbl vis (C8.pack "main")
     in
-    fst <$> runStateT (run vis) (initialMachine ip)
+    tryAnyDeep (fst <$> runStateT (run vis) (initialMachine ip)) <&> \case
+        Left er -> Left . C8.pack $ show er
+        Right r -> Right r
 
 initialMachine :: Ord s => Int -> MachineState s
 initialMachine ip =

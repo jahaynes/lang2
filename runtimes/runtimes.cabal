@@ -13,6 +13,7 @@ library
                     cereal,
                     containers,
                     compiler-lib,
+                    unliftio,
                     vector
   exposed-modules:  Runtimes.AbstractMachine
                     Runtimes.Machine1
