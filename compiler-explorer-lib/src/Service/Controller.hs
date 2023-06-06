@@ -33,9 +33,10 @@ type Api = "lexAndParse" :> ReqBody '[JSON] Input
 
       :<|> "run" :> Post '[JSON] Text
 
+      :<|> "example" :> Capture "closure" Text :> Get '[JSON] Text
 
 server :: IORef (Maybe ProgramState) -> Server Api
-server ioref = setProgramState :<|> runCurrentProgramState
+server ioref = setProgramState :<|> runCurrentProgramState :<|> getExample
 
     where
     setProgramState input = liftIO $ do
@@ -54,6 +55,13 @@ server ioref = setProgramState :<|> runCurrentProgramState
                         (liftIO $ runMachine2 ins) <&> \case
                             Left err  -> decodeUtf8 err
                             Right out -> decodeUtf8 out
+
+    getExample "closure" =
+        pure "f x =\n\
+             \  let xx = x * x in\n\
+             \  (\\y. y + xx)\n\
+             \\n\
+             \main = (f 1) 2"
 
 runController :: Int -> IO ()
 runController port = do

@@ -10,6 +10,22 @@ class App extends React.Component {
     return elem;
   }
 
+  selectExample(e) {
+
+    const source = document.getElementById("text")
+
+    switch (e.target.value) {
+      case "closure":
+        fetch( "http://127.0.0.1:8080/example/closure", { headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' } })
+          .then(resp => resp.json())
+          .then(out => {source.value = out})
+          .then(_ => this.lexAndParse());
+        break;
+      default:
+        break;
+    }
+  }
+
   run() {
 
     this.lexAndParse();
@@ -61,6 +77,13 @@ class App extends React.Component {
     return (
       <div className="App">
 
+        <div>
+          <select onChange={e => this.selectExample(e)}>
+            <option></option>
+            <option id="closure">closure</option>
+          </select>
+        </div>
+
         <label>Source / Codegen0 </label>
         <div>
           <textarea id='text' className='editor' spellCheck='false' rows='14' onChange={e => this.lexAndParse()}></textarea>
@@ -83,7 +106,7 @@ class App extends React.Component {
           <textarea id='uncurriedPretty' className='editor' spellCheck='false' rows='14'></textarea>
         </div>
 
-        <label>Closure Converted</label>
+        <label>Closure Converted / Examples </label>
         <div>
           <textarea id='closureConvertedPretty' className='editor' spellCheck='false' rows='14'></textarea>
         </div>
