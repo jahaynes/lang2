@@ -56,7 +56,7 @@ pop :: Monad m => StateT (MachineState s) m (Val s)
 pop = do
     ms <- gett
     case getStack ms of
-        [] -> error "Stack underflow"
+        [] -> error $ "Stack underflow at ip: " ++ show (getIp ms)
         (s:tack) -> do
             putt ms { getStack = tack }
             pure s
@@ -99,6 +99,11 @@ run vis = go
             go
 
         PopTyped _ r -> do
+            setReg r =<< pop
+            incIp
+            go
+
+        PopEnv r -> do -- Is this the whole story?
             setReg r =<< pop
             incIp
             go
