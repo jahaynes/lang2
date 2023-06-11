@@ -48,14 +48,14 @@ instantiate (Forall as t) = do
 -- is this the wrong way to find all the free type vars?
 -- (only inspects the top-level type)
 generaliseTopLevel :: (Ord s, Show s) => s
-                                      -> ExprT s
-                                      -> FunDefnT s
+                                      -> ExprT (Type s) s
+                                      -> FunDefnT (Type s) s
 generaliseTopLevel name exprT =
     let fv = S.toList $ typeVars exprT
     in FunDefnT name (Quant fv) exprT
 
 -- stick elsewhere?
-typeVars :: Ord s => ExprT s -> Set s
+typeVars :: Ord s => ExprT (Type s) s -> Set s
 typeVars e =
 
     case e of
@@ -84,7 +84,7 @@ typeVars e =
         CaseT t scrut ps ->
             typeVars' t <> typeVars scrut <> mconcat (map typeVars'' ps)
 
-typeVars'' :: Ord s => PatternT s -> Set s
+typeVars'' :: Ord s => PatternT (Type s) s -> Set s
 typeVars'' (PatternT a b) = typeVars a <> typeVars b
 
 typeVars' :: Ord s => Type s -> Set s

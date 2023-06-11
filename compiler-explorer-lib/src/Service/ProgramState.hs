@@ -3,6 +3,7 @@
 module Service.ProgramState where
 
 import Core.Module
+import Core.Types
 import Parse.LexAndParse
 import Parse.Token
 import Phase.Anf.AnfModule
@@ -24,8 +25,8 @@ data ProgramState =
                  , getPositions        :: !(Either ByteString (Vector Int))
                  , getTokens           :: !(Either ByteString (Vector Token))
                  , getModule           :: !(Either ByteString (Module ByteString))
-                 , getInferred         :: !(Either ByteString (ModuleT ByteString))
-                 , getEtaExpanded      :: !(Either ByteString (ModuleT ByteString))
+                 , getInferred         :: !(Either ByteString (ModuleT (Type ByteString) ByteString))
+                 , getEtaExpanded      :: !(Either ByteString (ModuleT (Type ByteString) ByteString))
                  , getAnfConverted     :: !(Either ByteString (AnfModule ByteString))
                  , getClosureConverted :: !(Either ByteString (AnfModule ByteString))
                  , getLambdaLifted     :: !(Either ByteString (AnfModule ByteString))

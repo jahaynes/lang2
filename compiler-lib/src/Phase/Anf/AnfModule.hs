@@ -4,6 +4,7 @@ import Common.State
 import Core.Expression
 import Core.Module
 import Core.Term
+import Core.Types
 import Phase.Anf.AnfExpression
 
 import Data.ByteString.Char8 (ByteString, pack)
@@ -13,7 +14,7 @@ data AnfModule s =
               , getFunDefAnfTs   :: [FunDefAnfT s]
               } deriving Show
 
-anfModule :: ModuleT ByteString -> AnfModule ByteString
+anfModule :: ModuleT (Type ByteString) ByteString -> AnfModule ByteString
 anfModule md =
     let funDefns  = getFunDefnTs md
         funDefns' = map anfFunDefT funDefns
@@ -23,7 +24,7 @@ data FunDefAnfT s =
     FunDefAnfT s (Quant s) (NExp s)
         deriving Show
 
-anfFunDefT :: FunDefnT ByteString -> FunDefAnfT ByteString
+anfFunDefT :: FunDefnT (Type ByteString) ByteString -> FunDefAnfT ByteString
 anfFunDefT (FunDefnT n pt expr) =
     let expr' = evalState (norm expr) (AnfState 0 genSym)
     in FunDefAnfT n pt expr'
@@ -39,10 +40,10 @@ genSym = do
     put $! AnfState (n+1) sg
     pure . pack $ "anf_" <> show n
 
-norm :: Show s => ExprT s -> State (AnfState s) (NExp s)
+norm :: Show s => ExprT (Type s) s -> State (AnfState s) (NExp s)
 norm expr = normExpr expr pure
 
-normExpr :: Show s => ExprT s
+normExpr :: Show s => ExprT (Type s) s
                    -> (NExp s -> State (AnfState s) (NExp s))
                    -> State (AnfState s) (NExp s)
 normExpr expr k =
@@ -99,11 +100,11 @@ normExpr expr k =
                 k $ CExp $ CCase t scrut' ps'
 
 -- both parts necessary?
-normPattern :: Show s => PatternT s -> State (AnfState s) (PExp s)
+normPattern :: Show s => PatternT (Type s) s -> State (AnfState s) (PExp s)
 normPattern (PatternT a b) =
     PExp <$> norm a <*> norm b
 
-normAtom :: Show s => ExprT s
+normAtom :: Show s => ExprT (Type s) s
                    -> (AExp s -> State (AnfState s) (NExp s))
                    -> State (AnfState s) (NExp s)
 normAtom e k =
@@ -168,7 +169,7 @@ normAtom e k =
         TermT t (DCons d) ->
             k $ ATerm t (DCons d)
 
-normAtoms :: Show s => [ExprT s]
+normAtoms :: Show s => [ExprT (Type s) s]
                     -> ([AExp s] -> State (AnfState s) (NExp s))
                     -> State (AnfState s) (NExp s)
 normAtoms [] k = k []

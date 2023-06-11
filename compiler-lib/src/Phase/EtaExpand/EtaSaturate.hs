@@ -8,17 +8,17 @@ import Core.Types
 import           Data.Map.Strict       (Map)
 import qualified Data.Map.Strict as M
 
-etaSaturate :: Ord s => ModuleT s
+etaSaturate :: Ord s => ModuleT (Type s) s
                      -> Map s [(s, Type s)]
-                     -> ModuleT s
+                     -> ModuleT (Type s) s
 etaSaturate md extraParams =
     md { getFunDefnTs = map saturate' $ getFunDefnTs md }
     where
     saturate' (FunDefnT t n e) = FunDefnT t n (saturateExpr extraParams e)
 
 saturateExpr :: Ord s => Map s [(s, Type s)]
-                      -> ExprT s
-                      -> ExprT s
+                      -> ExprT (Type s) s
+                      -> ExprT (Type s) s
 saturateExpr extraParams = go
 
     where

@@ -40,7 +40,7 @@ expandTwoMissingArguments =
 (->>) :: Type s -> Type s -> Type s
 (->>) = TyArr
 
-missing0 :: FunDefnT ByteString
+missing0 :: FunDefnT (Type ByteString) ByteString
 missing0 =
     FunDefnT "missing" (Quant [])
                        (LamT (typeBool ->> (typeInt ->> typeString))
@@ -50,7 +50,7 @@ missing0 =
                                    [ TermT typeBool (Var "eta_0")
                                    , TermT typeInt  (Var "eta_1") ]))
 
-missing1 :: FunDefnT ByteString
+missing1 :: FunDefnT (Type ByteString) ByteString
 missing1 =
     FunDefnT "missing" (Quant [])
                        (LamT (typeBool ->> (typeInt ->> typeString))
@@ -59,7 +59,7 @@ missing1 =
                                    (TermT (typeBool ->> (typeInt ->> typeString)) (Var "full"))
                                    [ TermT typeBool (Var "eta_0") ]))
 
-missing2 :: FunDefnT ByteString
+missing2 :: FunDefnT (Type ByteString) ByteString
 missing2 =
     FunDefnT "missing" (Quant []) (TermT (typeBool ->> (typeInt ->> typeString)) (Var "full"))
 

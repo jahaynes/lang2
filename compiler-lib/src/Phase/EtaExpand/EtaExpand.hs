@@ -21,7 +21,7 @@ data EtaState =
              , getExtraParams :: !(Map ByteString [(ByteString, Type ByteString)])
              } deriving Show
 
-etaExpand :: ModuleT ByteString -> ModuleT ByteString
+etaExpand :: ModuleT (Type ByteString) ByteString -> ModuleT (Type ByteString) ByteString
 etaExpand md =
 
     let (funDefns', st) = runState (mapM expandDefn $ getFunDefnTs md) (EtaState 0 mempty mempty)
@@ -29,8 +29,8 @@ etaExpand md =
     in etaSaturate (md { getFunDefnTs = funDefns' })
                    (getExtraParams st)
 
-expandDefn :: FunDefnT ByteString
-           -> State EtaState (FunDefnT ByteString)
+expandDefn :: FunDefnT (Type ByteString) ByteString
+           -> State EtaState (FunDefnT (Type ByteString) ByteString)
 expandDefn (FunDefnT n q e) = do
 
     e' <- expandExpr e
@@ -49,8 +49,8 @@ expandDefn (FunDefnT n q e) = do
 
     pure $ FunDefnT n q e'
 
-expandExpr :: ExprT ByteString
-           -> State EtaState (ExprT ByteString)
+expandExpr :: ExprT (Type ByteString) ByteString
+           -> State EtaState (ExprT (Type ByteString) ByteString)
 expandExpr e@(TermT t term) =
     case (t, term) of
         (TyArr{}, Var f)   -> functionCallToLambda f t
@@ -96,17 +96,17 @@ expandExpr (CaseT t scrut ps) =
             <*> mapM expandPat ps
 
 -- necessary?
-expandPat :: PatternT ByteString
-          -> State EtaState (PatternT ByteString)
+expandPat :: PatternT (Type ByteString) ByteString
+          -> State EtaState (PatternT (Type ByteString) ByteString)
 expandPat (PatternT a b) =
     PatternT <$> expandExpr a <*> expandExpr b
 
 underAppliedToLambda :: Type ByteString
-                     -> [ExprT ByteString]
+                     -> [ExprT (Type ByteString) ByteString]
                      -> State EtaState ( Type ByteString
                                        , Type ByteString
                                        , [ByteString]
-                                       , [ExprT ByteString] )
+                                       , [ExprT (Type ByteString) ByteString] )
 
 underAppliedToLambda at [] = go [] at
     where
@@ -129,7 +129,7 @@ underAppliedToLambda _ _ = error "bad underapply"
 
 functionCallToLambda :: ByteString
                      -> Type ByteString
-                     -> State EtaState (ExprT ByteString)
+                     -> State EtaState (ExprT (Type ByteString) ByteString)
 functionCallToLambda f t' = go [] t'
     where
     go acc (TyArr a b) = do

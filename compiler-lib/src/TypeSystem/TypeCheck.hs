@@ -24,7 +24,7 @@ data ModuleState s =
                 } deriving Show
 
 inferModule :: Module ByteString
-            -> Either ByteString (ModuleT ByteString)
+            -> Either ByteString (ModuleT (Type ByteString) ByteString)
 inferModule md = do
 
     let funDefnMap = M.fromList
@@ -90,7 +90,7 @@ dataDefnToType env (DataDefn typeName tvs dcons) =
 data GroupInference =
     GroupInference !Int
                    !(Map ByteString (Polytype ByteString))
-                   ![FunDefnT ByteString]
+                   ![FunDefnT (Type ByteString) ByteString]
 
 (!!!) :: (Ord k, Show k, Show v) => Map k v -> k -> v
 (!!!) m k =
@@ -159,8 +159,8 @@ fromEnvOrFresh env names =
             Just pt -> instantiate pt <&> \t -> (n, t)
 
 cleanup :: Subst ByteString
-        -> (ByteString, ExprT ByteString)
-        -> FunDefnT ByteString
+        -> (ByteString, ExprT (Type ByteString) ByteString)
+        -> FunDefnT (Type ByteString) ByteString
 cleanup subst (name, expr) =
 
     -- Substitute type metavariables for types
@@ -168,7 +168,7 @@ cleanup subst (name, expr) =
 
     in norm $ generaliseTopLevel name expr'
 
-norm :: FunDefnT ByteString -> FunDefnT ByteString
+norm :: FunDefnT (Type ByteString) ByteString -> FunDefnT (Type ByteString) ByteString
 norm (FunDefnT name (Quant qs) expr) =
     let normed = take (length qs) . map numToVar $ [0..]
         sub = M.fromList $ zip qs normed

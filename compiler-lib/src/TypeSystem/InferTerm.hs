@@ -14,7 +14,7 @@ import qualified Data.Map as M
 -- Todo Either error-handling
 inferTerm :: Map ByteString (Polytype ByteString)
           -> Term ByteString
-          -> State (GroupState ByteString) (ExprT ByteString)
+          -> State (GroupState ByteString) (ExprT (Type ByteString) ByteString)
 inferTerm env term =
     case term of
         LitBool{}   -> pure $ TermT typeBool term

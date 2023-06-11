@@ -16,13 +16,13 @@ import           Data.Text.Encoding
 import           Text.Builder          (Builder)
 import qualified Text.Builder as TB
 
-renderTypedModule :: ModuleT ByteString -> Text
+renderTypedModule :: ModuleT (Type ByteString) ByteString -> Text
 renderTypedModule = TB.run . printTypedModule
 
-printTypedModule :: ModuleT ByteString -> Builder
+printTypedModule :: ModuleT (Type ByteString) ByteString -> Builder
 printTypedModule (ModuleT _ funDefnTs) = TB.intercalate "\n\n" (map printTFunDefn funDefnTs)
 
-printTFunDefn :: FunDefnT ByteString -> Builder
+printTFunDefn :: FunDefnT (Type ByteString) ByteString -> Builder
 printTFunDefn (FunDefnT n (Quant qs) (LamT t vs body)) =
 
     let sig  = TB.intercalate " " [ bytestring n
@@ -49,7 +49,7 @@ printTFunDefn (FunDefnT n _ expr) =
     in TB.intercalate "\n" [sig, impl]
 
 printTypedExpression :: Int
-                     -> ExprT ByteString
+                     -> ExprT (Type ByteString) ByteString
                      -> Builder
 
 printTypedExpression ind aexp =
@@ -94,7 +94,7 @@ printTypedExpression ind aexp =
                                 : map (printPattern (ind+1)) patterns )
 
 printPattern :: Int
-             -> PatternT ByteString
+             -> PatternT (Type ByteString) ByteString
              -> Builder
 printPattern ind (PatternT lhs rhs) =
     mconcat [ indent ind

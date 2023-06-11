@@ -4,7 +4,6 @@ module Core.Expression where
 
 import Core.Operator (BinOp, UnOp)
 import Core.Term     (Term)
-import Core.Types    (Type)
 
 data Expr s = ETerm (Term s)
             | ELam [s] (Expr s)
@@ -20,23 +19,23 @@ data Pattern s =
     Pattern (Expr s) (Expr s)
         deriving (Eq, Functor, Ord, Show)
 
-data ExprT s = TermT       (Type s) (Term s)
-             | LamT        (Type s) [s] (ExprT s)
-             | AppT        (Type s) (ExprT s) [ExprT s]
-             | LetT        (Type s) s (ExprT s) (ExprT s)
-             | UnPrimOpT   (Type s) UnOp (ExprT s)
-             | BinPrimOpT  (Type s) BinOp (ExprT s) (ExprT s)
-             | IfThenElseT (Type s) (ExprT s) (ExprT s) (ExprT s)
-             | CaseT       (Type s) (ExprT s) [PatternT s]
-                 deriving (Eq, Show)
+data ExprT t s = TermT       t (Term s)
+               | LamT        t [s] (ExprT t s)
+               | AppT        t (ExprT t s) [ExprT t s]
+               | LetT        t s (ExprT t s) (ExprT t s)
+               | UnPrimOpT   t UnOp (ExprT t s)
+               | BinPrimOpT  t BinOp (ExprT t s) (ExprT t s)
+               | IfThenElseT t (ExprT t s) (ExprT t s) (ExprT t s)
+               | CaseT       t (ExprT t s) [PatternT t s]
+                   deriving (Eq, Show)
 
-data PatternT s =
-    PatternT (ExprT s) (ExprT s)
+data PatternT t s =
+    PatternT (ExprT t s) (ExprT t s)
         deriving (Eq, Show)
 
-mapType :: (Type s -> Type s)
-        -> ExprT s
-        -> ExprT s
+mapType :: (t -> t)
+        -> ExprT t s
+        -> ExprT t s
 mapType f expr =
     case expr of
         TermT t term           -> TermT (f t) term
@@ -48,12 +47,12 @@ mapType f expr =
         IfThenElseT t pr tr fl -> IfThenElseT (f t) (mapType f pr) (mapType f tr) (mapType f fl)
         CaseT t scrut ps       -> CaseT (f t) (mapType f scrut) (map (mapType' f) ps)
 
-mapType' :: (Type s -> Type s)
-         -> PatternT s
-         -> PatternT s
+mapType' :: (t -> t)
+         -> PatternT t s
+         -> PatternT t s
 mapType' f (PatternT a b) = PatternT (mapType f a) (mapType f b)         
 
-typeOf :: ExprT s -> Type s
+typeOf :: ExprT t s -> t
 typeOf expr =
     case expr of
       TermT t _           -> t

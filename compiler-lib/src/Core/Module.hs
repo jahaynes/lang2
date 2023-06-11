@@ -37,11 +37,11 @@ newtype Quant s =
     Quant [s]
         deriving (Eq, Show)
 
-data FunDefnT s =
-    FunDefnT s (Quant s) (ExprT s)
+data FunDefnT t s =
+    FunDefnT s (Quant s) (ExprT t s)
         deriving (Eq, Show)
 
-data ModuleT s =
+data ModuleT t s =
     ModuleT { getDataDefnTs :: [DataDefn s]
-            , getFunDefnTs  :: [FunDefnT s]
+            , getFunDefnTs  :: [FunDefnT t s]
             } deriving Show

@@ -141,7 +141,7 @@ test_simple_datatype = unitTest $ do
                     }
 
     let Right inferredModule =
-            inferModule md :: Either ByteString (ModuleT ByteString)
+            inferModule md :: Either ByteString (ModuleT (Type ByteString) ByteString)
 
     let inferredFunTypes =
             map getPolyType $ getFunDefnTs inferredModule
@@ -172,7 +172,7 @@ test_recursive_datatype = unitTest $ do
                     }
 
     let Right inferredModule =
-            inferModule md :: Either ByteString (ModuleT ByteString)
+            inferModule md :: Either ByteString (ModuleT (Type ByteString) ByteString)
 
     let inferredFunTypes =
             map getPolyType $ getFunDefnTs inferredModule
@@ -182,7 +182,7 @@ test_recursive_datatype = unitTest $ do
 unitTest :: PropertyT IO () -> Property
 unitTest = withTests 1 . property
 
-getPolyType :: FunDefnT s -> Polytype s
+getPolyType :: FunDefnT (Type s) s -> Polytype s
 getPolyType (FunDefnT _ (Quant vs) exprT) = Forall vs (typeOf exprT)
 
 (->>) :: Type s -> Type s -> Type s

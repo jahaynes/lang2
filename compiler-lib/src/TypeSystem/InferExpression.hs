@@ -18,7 +18,7 @@ import qualified Data.Map as M
 inferExpr :: Map ByteString (Polytype ByteString)
           -> Expr ByteString
           -> State (GroupState ByteString) ( [Constraint ByteString]
-                                           , ExprT ByteString )
+                                           , ExprT (Type ByteString) ByteString )
 inferExpr env expr =
 
     case expr of
@@ -98,7 +98,7 @@ inferExpr env expr =
 inferPattern :: Map ByteString (Polytype ByteString)
              -> Pattern ByteString
              -> State (GroupState ByteString) ( [Constraint ByteString]
-                                              , PatternT ByteString )
+                                              , PatternT (Type ByteString) ByteString )
 inferPattern env (Pattern a b) = do
     -- TODO: should probably enforce arity of LHS data constructions
     lhsVars <- fmap (Forall []) <$> labelLeftFreshVars a -- Guess
