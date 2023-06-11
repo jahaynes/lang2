@@ -5,6 +5,7 @@ module Pretty.TypedModule (renderTypedModule) where
 import Core.Expression
 import Core.Module
 import Core.Types
+import Pretty.Common
 import Pretty.Operator
 import Pretty.Term
 
@@ -123,6 +124,3 @@ printPattern ind (PatternT lhs rhs) =
             , printTypedExpression ind lhs
             , " -> "
             , printTypedExpression ind rhs ]
-
-bytestring :: ByteString -> Builder
-bytestring = TB.text . decodeUtf8

@@ -8,6 +8,7 @@ import Core.Term
 import Core.Types
 import Phase.Anf.AnfExpression
 import Phase.Anf.AnfModule
+import Pretty.Common
 import Pretty.Operator
 
 import           Data.ByteString       (ByteString)
@@ -29,20 +30,20 @@ printAnfFunDefn :: FunDefAnfT ByteString -> Builder
 printAnfFunDefn (FunDefAnfT n (Quant qs) expr) =
 
     let typ = printType $ typeOf expr
-        sig = byteString n <> " : " <> typ
+        sig = bytestring n <> " : " <> typ
     in case expr of
 
         AExp (ALam _ vs body) ->
-            let vs' = TB.intercalate " " $ map byteString vs
+            let vs' = TB.intercalate " " $ map bytestring vs
                 impl = evalState (printNExp body) 2
             in TB.intercalate "\n" [ sig
-                                   , TB.intercalate " " [byteString n, vs', "="]
+                                   , TB.intercalate " " [bytestring n, vs', "="]
                                    , impl ]
 
         _ ->
             let impl = evalState (printNExp expr) 2
             in TB.intercalate "\n" [ sig
-                                   , byteString n <> " ="
+                                   , bytestring n <> " ="
                                    , impl ]
 
 withIndent :: State Int Builder -> State Int Builder
@@ -54,9 +55,6 @@ noIndent sf = State $ \i -> (evalState sf 0, i)
 repl :: Int -> Text -> Builder
 repl n = TB.text . T.replicate n
 
-byteString :: ByteString -> Builder
-byteString = TB.text . decodeUtf8
-
 indent :: Builder -> State Int Builder
 indent b = get <&> \i -> repl i " " <> b
 
@@ -66,8 +64,8 @@ printType = TB.intercalate " -> " . unbuild []
     unbuild acc (TyArr a b) = unbuild (a:acc) b
     unbuild acc           t = reverse $ map prt (t:acc)
 
-    prt (TyCon c tvs) = TB.intercalate " " (byteString c : map prt tvs)
-    prt (TyVar v)     = byteString v
+    prt (TyCon c tvs) = TB.intercalate " " (bytestring c : map prt tvs)
+    prt (TyVar v)     = bytestring v
     prt t@TyArr{}     = mconcat ["(", printType t,")"]
 
 printNExp :: NExp ByteString -> State Int Builder
@@ -82,7 +80,7 @@ printNExp nexp =
             printCExp cexp
 
         NLet a b c -> do
-            a' <- indent $ "let " <> byteString a <> " = "
+            a' <- indent $ "let " <> bytestring a <> " = "
             b' <- noIndent $ printNExp b
             c' <- printNExp c
             pure $ mconcat [a', b', " in\n", c']
@@ -97,13 +95,13 @@ printAExp aexp =
 
         ALam _ vs body -> do
             body' <- printNExp body
-            let vs' = byteString $ C8.intercalate " " vs
+            let vs' = bytestring $ C8.intercalate " " vs
             pure $ mconcat ["(\\", vs', ".", body', ")"]
 
         AClo _ fvs vs body -> do
             body' <- printNExp body
-            let fvs' = byteString $ C8.intercalate " " fvs
-                vs'  = byteString $ C8.intercalate " " vs
+            let fvs' = bytestring $ C8.intercalate " " fvs
+                vs'  = bytestring $ C8.intercalate " " vs
             pure $ mconcat ["(\\", vs', " {", fvs', "}.", body', ")"]
 
         AUnPrimOp _ op a -> do
@@ -116,7 +114,7 @@ printAExp aexp =
             pure $ TB.intercalate " " [a', printBinOp op, b']
 
         AClosEnv evs -> do
-            let evs' = byteString $ C8.intercalate " " evs
+            let evs' = bytestring $ C8.intercalate " " evs
             pure $ "{env " <> evs' <> "}"
 
 printCExp :: CExp ByteString -> State Int Builder
@@ -157,6 +155,6 @@ printTerm term =
     indent $ case term of
                  LitBool b   -> if b then "True" else "False"
                  LitInt i    -> TB.decimal i
-                 LitString s -> mconcat ["\"", byteString s, "\""]
-                 Var v       -> byteString v
-                 DCons dc    -> byteString dc
+                 LitString s -> mconcat ["\"", bytestring s, "\""]
+                 Var v       -> bytestring v
+                 DCons dc    -> bytestring dc

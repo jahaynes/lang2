@@ -6,6 +6,7 @@ import Core.Module
 import Core.Types
 import Phase.Anf.AnfExpression
 import Phase.Anf.AnfModule
+import Pretty.Common
 import Pretty.Operator
 import Pretty.Term
 
@@ -141,7 +142,3 @@ printPExp :: Int
 printPExp ind (PExp a b) = mconcat [ printAnfExpression ind a
                                    , " -> "
                                    , printAnfExpression ind b ]
-
--- TODO dedupe
-bytestring :: ByteString -> Builder
-bytestring = TB.text . decodeUtf8
