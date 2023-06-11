@@ -5,6 +5,9 @@ module Core.Types where
 import           Data.ByteString       (ByteString)
 import           Text.Printf           (printf)
 
+data Untyped =
+    Untyped deriving (Eq, Ord, Show)
+
 data Type s = TyVar s
             | TyCon s [Type s]
             | TyArr (Type s) (Type s)

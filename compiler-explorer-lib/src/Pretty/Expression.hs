@@ -3,6 +3,7 @@
 module Pretty.Expression where
 
 import Core.Expression
+import Core.Types (Untyped (..))
 import Pretty.Common
 import Pretty.Operator
 import Pretty.Term
@@ -11,40 +12,41 @@ import           Data.Text    (Text)
 import           Text.Builder (Builder)
 import qualified Text.Builder as TB
 
+-- TODO - is this dupe of Pretty (ExprT) ?
 printExpr :: Expr Text -> (Grouping, Builder)
-printExpr (EApp f xs) =
+printExpr (AppT Untyped f xs) =
     let f'  = group $ printExpr f
         xs' = TB.intercalate " " $ map (group . printExpr) xs
     in (Paren, f' <> " " <> xs')
 
-printExpr (ELam vs body) =
+printExpr (LamT Untyped vs body) =
     let vs'        = TB.intercalate " " $ map TB.text vs
         (_, body') = printExpr body
     in (Paren, TB.intercalate " " ["\\" <> vs', "->", body'])
 
-printExpr (EUnPrimOp o e) =
+printExpr (UnPrimOpT Untyped o e) =
     (Paren, TB.intercalate " " [printUnOp o, group $ printExpr e])
 
-printExpr (EBinPrimOp o a b) =
+printExpr (BinPrimOpT Untyped o a b) =
     let a' = group $ printExpr a
         b' = group $ printExpr b
     in (Paren, TB.intercalate " " [a', printBinOp o, b'])
 
-printExpr (ELet a b c) =
+printExpr (LetT Untyped a b c) =
     let a' = TB.text a
         b' = group $ printExpr b
         c' = group $ printExpr c
     in (Paren, TB.intercalate " " ["let", a', "=", b', "in", c'])
 
-printExpr (IfThenElse p t f) =
+printExpr (IfThenElseT Untyped p t f) =
     let p' = group $ printExpr p
         t' = group $ printExpr t
         f' = group $ printExpr f
     in (Paren, TB.intercalate " " ["if", p', "then", t', "else", f'])
 
-printExpr (ETerm t) =
+printExpr (TermT Untyped t) =
     (Atom, printTerm t)
 
 -- TODO
-printExpr (ECase scrut ps) =
+printExpr (CaseT Untyped scrut ps) =
     (Paren, TB.string (show ("case", scrut, ps)))

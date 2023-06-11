@@ -5,6 +5,7 @@ module Common.CallGraph where
 import Core.Expression
 import Core.Module
 import Core.Term
+import Core.Types (Untyped (..))
 import Phase.Anf.AnfExpression
 import Phase.Anf.AnfModule
 
@@ -29,18 +30,18 @@ buildGraph' = CallGraph . M.unions . map go
     go (FunDefn n e) = M.singleton n (fn (S.singleton n) e)
 
         where
-        fn scope (ETerm (Var v))    = S.singleton v \\ scope
-        fn     _ (ETerm (DCons d))  = mempty -- S.singleton d \\ scope -- Guess
-        fn     _ (ETerm       _)    = mempty
-        fn scope (ELam vs body)     = fn (foldr S.insert scope vs) body
-        fn scope (EApp f xs)        = mconcat $ map (fn scope) (f:xs)
-        fn scope (ELet a b c)       = let scope' = S.insert a scope in fn scope' b <> fn scope' c
-        fn scope (EUnPrimOp _ a)    = fn scope a
-        fn scope (EBinPrimOp _ a b) = fn scope a <> fn scope b
-        fn scope (IfThenElse p t f) = mconcat $ map (fn scope) [p, t, f]
-        fn scope (ECase scrut ps)   = fn scope scrut <> mconcat (map (pt scope) ps)
+        fn scope (TermT Untyped (Var v))    = S.singleton v \\ scope
+        fn     _ (TermT Untyped (DCons d))  = mempty -- S.singleton d \\ scope -- Guess
+        fn     _ (TermT Untyped       _)    = mempty
+        fn scope (LamT Untyped vs body)     = fn (foldr S.insert scope vs) body
+        fn scope (AppT Untyped f xs)        = mconcat $ map (fn scope) (f:xs)
+        fn scope (LetT Untyped a b c)       = let scope' = S.insert a scope in fn scope' b <> fn scope' c
+        fn scope (UnPrimOpT Untyped _ a)    = fn scope a
+        fn scope (BinPrimOpT Untyped _ a b) = fn scope a <> fn scope b
+        fn scope (IfThenElseT Untyped p t f) = mconcat $ map (fn scope) [p, t, f]
+        fn scope (CaseT Untyped scrut ps)   = fn scope scrut <> mconcat (map (pt scope) ps)
 
-        pt scope (Pattern a b) = mempty -- TODO
+        pt scope (PatternT a b) = mempty -- TODO
 
 buildGraphAnf :: (Ord s, Show s) => AnfModule s -> CallGraph s
 buildGraphAnf = buildGraphAnf' . getFunDefAnfTs

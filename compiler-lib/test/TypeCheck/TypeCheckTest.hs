@@ -45,8 +45,8 @@ test_generalisations = unitTest $ do
 
     let md = Module { getDataDefns = []
                     , getTypeSigs  = []
-                    , getFunDefns  = [ FunDefn "fst" (ELam ["a","b"] (ETerm (Var "a")))
-                                     , FunDefn "snd" (ELam ["x","y"] (ETerm (Var "y"))) ]
+                    , getFunDefns  = [ FunDefn "fst" (LamT Untyped ["a","b"] (TermT Untyped (Var "a")))
+                                     , FunDefn "snd" (LamT Untyped ["x","y"] (TermT Untyped (Var "y"))) ]
                     }
 
     let r = map getPolyType . getFunDefnTs <$> inferModule md
@@ -59,11 +59,11 @@ test_top_level_recursion = unitTest $ do
 
     let fundefn =
           FunDefn "countDown"
-                  (ELam ["n"] (IfThenElse (EBinPrimOp EqA (ETerm (Var "n")) (ETerm (LitInt 0)))
-                                          (ETerm (LitString "Done"))
-                                          (EApp (ETerm (Var "countDown")) [EBinPrimOp SubI
-                                                                                      (ETerm (Var "n"))
-                                                                                      (ETerm (LitInt 1))])))
+                  (LamT Untyped ["n"] (IfThenElseT Untyped (BinPrimOpT Untyped EqA (TermT Untyped (Var "n")) (TermT Untyped (LitInt 0)))
+                                                           (TermT Untyped (LitString "Done"))
+                                                           (AppT Untyped (TermT Untyped (Var "countDown")) [BinPrimOpT Untyped SubI
+                                                                                                           (TermT Untyped (Var "n"))
+                                                                                                           (TermT Untyped (LitInt 1))])))
     let md = Module { getDataDefns = []
                     , getTypeSigs  = []
                     , getFunDefns  = [ fundefn ] }
@@ -77,14 +77,15 @@ test_nested_recursion = unitTest $ do
 
     let fundefn =
           FunDefn "summorial"
-                  (ELam ["n"]
-                        (ELet "go"
-                              (ELam ["acc","m"]
-                                    (IfThenElse (EBinPrimOp EqA (ETerm (Var "m")) (ETerm (LitInt 0)))
-                                                (ETerm (Var "acc"))
-                                                (EApp (ETerm (Var "go")) [ EBinPrimOp AddI (ETerm (Var "acc")) (ETerm (Var "m"))
-                                                                         , EBinPrimOp SubI (ETerm (Var "m")) (ETerm (LitInt 1)) ])))
-                              (EApp (ETerm (Var "go")) [ETerm (LitInt 0),ETerm (Var "n")])))
+                  (LamT Untyped ["n"]
+                        (LetT Untyped "go"
+                              (LamT Untyped ["acc","m"]
+                                    (IfThenElseT Untyped (BinPrimOpT Untyped EqA (TermT Untyped (Var "m")) (TermT Untyped (LitInt 0)))
+                                                         (TermT Untyped (Var "acc"))
+                                                         (AppT Untyped (TermT Untyped (Var "go")) [ BinPrimOpT Untyped AddI (TermT Untyped (Var "acc")) (TermT Untyped (Var "m"))
+                                                                                                  , BinPrimOpT Untyped SubI (TermT Untyped (Var "m")) (TermT Untyped (LitInt 1)) ])))
+                              (AppT Untyped (TermT Untyped (Var "go")) [ TermT Untyped (LitInt 0)
+                                                                       , TermT Untyped (Var "n")])))
 
     let md = Module { getDataDefns = []
                     , getTypeSigs  = []
@@ -99,13 +100,13 @@ test_mutual_recursion = unitTest $ do
 
     let yep =
           FunDefn "yep" $
-              ELam ["y"] $
-                  EApp (ETerm (Var "not")) [EApp (ETerm (Var "yesnt")) [ETerm (Var "y")]]
+              LamT Untyped ["y"] $
+                  AppT Untyped (TermT Untyped (Var "not")) [AppT Untyped (TermT Untyped (Var "yesnt")) [TermT Untyped (Var "y")]]
 
     let yesnt =
           FunDefn "yesnt" $
-              ELam ["n"] $
-                  EApp (ETerm (Var "not")) [EApp (ETerm (Var "yep")) [ETerm (Var "n")]]
+              LamT Untyped ["n"] $
+                  AppT Untyped (TermT Untyped (Var "not")) [AppT Untyped (TermT Untyped (Var "yep")) [TermT Untyped (Var "n")]]
 
     let md = Module { getDataDefns = []
                     , getTypeSigs  = [ TypeSig "not" (TyCon "Bool" [] ->> TyCon "Bool" []) ]
@@ -130,10 +131,10 @@ test_simple_datatype = unitTest $ do
         answer = DataDefn "Answer" ["a"] [dcYes, dcNo]
 
     -- Functions
-    let fNo  = FunDefn "no"  (EApp (ETerm $ DCons "No")
-                                   [ETerm $ LitString "no"])
-        fYes = FunDefn "yes" (EApp (ETerm $ DCons "Yes")
-                                   [ETerm $ LitInt 1])
+    let fNo  = FunDefn "no"  (AppT Untyped (TermT Untyped $ DCons "No")
+                                           [TermT Untyped $ LitString "no"])
+        fYes = FunDefn "yes" (AppT Untyped (TermT Untyped $ DCons "Yes")
+                                           [TermT Untyped $ LitInt 1])
 
     let md = Module { getDataDefns = [answer]
                     , getTypeSigs  = []
@@ -163,8 +164,8 @@ test_recursive_datatype = unitTest $ do
         list    = DataDefn "List" ["a"] [dcEmpty, dcCons]
 
     -- Functions
-    let myList  = FunDefn "myList" (EApp (ETerm $ DCons "Cons") [ ETerm $ LitInt 1
-                                                                , ETerm $ DCons "Empty"])
+    let myList  = FunDefn "myList" (AppT Untyped (TermT Untyped $ DCons "Cons") [ TermT Untyped $ LitInt 1
+                                                                                , TermT Untyped $ DCons "Empty"])
 
     let md = Module { getDataDefns = [list]
                     , getTypeSigs  = []

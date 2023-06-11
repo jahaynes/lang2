@@ -5,6 +5,7 @@ module Parse.Expression where
 import Core.Expression
 import Core.Operator
 import Core.Term
+import Core.Types (Untyped (..))
 import Parse.Parser
 import Parse.Token
 
@@ -22,7 +23,7 @@ parseBoolOr = do
     ys <- many $ do op <- boolOr
                     y  <- parseBoolAnd
                     pure (op, y)
-    pure $ foldl' (\e (o, y) -> EBinPrimOp o e y) x ys
+    pure $ foldl' (\e (o, y) -> BinPrimOpT Untyped o e y) x ys
 
     where
     boolOr :: Parser ParseState BinOp
@@ -36,7 +37,7 @@ parseBoolAnd = do
     ys <- many $ do op <- boolAnd
                     y  <- parseComp
                     pure (op, y)
-    pure $ foldl' (\e (o, y) -> EBinPrimOp o e y) x ys
+    pure $ foldl' (\e (o, y) -> BinPrimOpT Untyped o e y) x ys
 
     where
     boolAnd :: Parser ParseState BinOp
@@ -51,7 +52,7 @@ parseComp = sumExpr <|> parseSum
         x <- parseSum
         o <- compOp
         y <- parseComp
-        pure $ EBinPrimOp o x y
+        pure $ BinPrimOpT Untyped o x y
 
     compOp :: Parser ParseState BinOp
     compOp = parseSatisfy "compOp" $ \case
@@ -68,7 +69,7 @@ parseSum = do
     ys <- many $ do op <- sumOp
                     y  <- parseProduct
                     pure (op, y)
-    pure $ foldl' (\e (o, y) -> EBinPrimOp o e y) x ys
+    pure $ foldl' (\e (o, y) -> BinPrimOpT Untyped o e y) x ys
 
     where
     sumOp :: Parser ParseState BinOp
@@ -84,7 +85,7 @@ parseProduct = do
     ys <- many $ do op <- mulOp
                     y  <- parseApply
                     pure (op, y)
-    pure $ foldl' (\e (o, y) -> EBinPrimOp o e y) x ys
+    pure $ foldl' (\e (o, y) -> BinPrimOpT Untyped o e y) x ys
 
     where
     mulOp :: Parser ParseState BinOp
@@ -99,7 +100,7 @@ parseApply = parseCase <|> parseApp
     parseCase = do
         scrut    <- token TCase *> parseApply <* token TOf
         patterns <- parseWhileColumns NotLeft parsePattern
-        pure $ ECase scrut patterns
+        pure $ CaseT Untyped scrut patterns
 
         where
         parsePattern :: Parser ParseState (Pattern ByteString)
@@ -107,13 +108,13 @@ parseApply = parseCase <|> parseApp
             a <- parseApp
             _ <- token TArr
             b <- parseExpr
-            pure $ Pattern a b
+            pure $ PatternT a b
 
     parseApp = do
         (f, xs) <- parseWhileColumns1 MoreRight parseNonApply
         pure $ if null xs
                 then f
-                else EApp f xs
+                else AppT Untyped f xs
 
 parseNonApply :: Parser ParseState (Expr ByteString)
 parseNonApply = parseLet
@@ -128,17 +129,17 @@ parseNonApply = parseLet
 parseNegated :: Parser ParseState (Expr ByteString)
 parseNegated = do
     parseNegate
-    EUnPrimOp Negate <$> parseExpr
+    UnPrimOpT Untyped Negate <$> parseExpr
 
 parseShown :: Parser ParseState (Expr ByteString)
 parseShown = do
     parseShow
-    EUnPrimOp EShow <$> parseExpr
+    UnPrimOpT Untyped EShow <$> parseExpr
 
 parseErr :: Parser ParseState (Expr ByteString)
 parseErr = do
     parseError
-    EUnPrimOp Err <$> parseExpr
+    UnPrimOpT Untyped Err <$> parseExpr
 
 parseLet :: Parser ParseState (Expr ByteString)
 parseLet = do
@@ -146,21 +147,21 @@ parseLet = do
     e1     <- token TEq  *> parseExpr
     e2     <- token TIn  *> parseExpr
     pure $ case xs of
-        [] -> ELet f          e1  e2
-        _  -> ELet f (ELam xs e1) e2
+        [] -> LetT Untyped f                  e1  e2
+        _  -> LetT Untyped f (LamT Untyped xs e1) e2
 
 parseIfThenElse :: Parser ParseState (Expr ByteString)
 parseIfThenElse = do
     p <- token TIf   *> parseExpr
     t <- token TThen *> parseExpr
     f <- token TElse *> parseExpr
-    pure $ IfThenElse p t f
+    pure $ IfThenElseT Untyped p t f
 
 parseLambda :: Parser ParseState (Expr ByteString)
 parseLambda = do
     (v, vs) <- token TLambda *> parseWhileColumns1 NotLeft parseLowerStart
     body    <- token TDot    *> parseExpr
-    pure $ ELam (v:vs) body
+    pure $ LamT Untyped (v:vs) body
 
 parseParen :: Parser ParseState (Expr ByteString)
 parseParen = token TLParen *> parseExpr <* token TRParen
@@ -169,9 +170,9 @@ parseTerm :: Parser ParseState (Expr ByteString)
 parseTerm = parseDataConstructor <|> parseLiteral <|> parseVariable
 
 parseLiteral :: Parser ParseState (Expr ByteString)
-parseLiteral = ETerm <$> parseLitString
-                     <|> parseLitBool
-                     <|> parseLitInt
+parseLiteral = TermT Untyped <$> parseLitString
+                             <|> parseLitBool
+                             <|> parseLitInt
 
 parseLitString :: Parser ParseState (Term ByteString)
 parseLitString = parseSatisfy "string" f
@@ -203,11 +204,11 @@ parseLitInt = pos <|> neg
 parseVariable :: Parser ParseState (Expr ByteString)
 parseVariable = pos <|> neg
     where
-    pos = ETerm . Var <$> parseLowerStart
-    neg = EUnPrimOp Negate . ETerm . Var <$> (parseNegate *> parseLowerStart)
+    pos = TermT Untyped . Var <$> parseLowerStart
+    neg = UnPrimOpT Untyped Negate . TermT Untyped . Var <$> (parseNegate *> parseLowerStart)
 
 parseDataConstructor :: Parser ParseState (Expr ByteString)
-parseDataConstructor = ETerm . DCons <$> parseUpperStart
+parseDataConstructor = TermT Untyped . DCons <$> parseUpperStart
 
 parseSatisfy :: ByteString
              -> (Token -> Maybe a)

@@ -4,6 +4,7 @@ module Pretty.Module where
 
 import Core.Expression
 import Core.Module
+import Core.Types (Untyped (..))
 import Pretty.Expression
 
 import           Data.ByteString    (ByteString)
@@ -26,7 +27,7 @@ moduleToText md =
     in TB.run . TB.intercalate "\n\n" $ mconcat [dataDefs, funDefs]
 
 printFunDefn :: FunDefn Text -> Builder
-printFunDefn (FunDefn f (ELam vs x)) =
+printFunDefn (FunDefn f (LamT Untyped vs x)) =
     let fvs'    = TB.intercalate " " $ map TB.text (f:vs)
         (_, x') = printExpr x
     in mconcat [fvs', " = ", x']

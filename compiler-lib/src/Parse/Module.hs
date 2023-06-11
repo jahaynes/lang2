@@ -46,7 +46,7 @@ parseFunDefn = do
     pure $ FunDefn name $
         case vars of
             [] -> expr
-            _  -> ELam vars expr
+            _  -> LamT Untyped vars expr
 
 atLineStart :: Parser ParseState a -> Parser ParseState a
 atLineStart p = Parser $ \ps ->

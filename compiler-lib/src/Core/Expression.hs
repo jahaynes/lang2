@@ -4,20 +4,11 @@ module Core.Expression where
 
 import Core.Operator (BinOp, UnOp)
 import Core.Term     (Term)
+import Core.Types    (Untyped)
 
-data Expr s = ETerm (Term s)
-            | ELam [s] (Expr s)
-            | EApp (Expr s) [Expr s]
-            | ELet s (Expr s) (Expr s)
-            | EUnPrimOp UnOp (Expr s)
-            | EBinPrimOp BinOp (Expr s) (Expr s)
-            | IfThenElse (Expr s) (Expr s) (Expr s)
-            | ECase (Expr s) [Pattern s]
-                deriving (Eq, Functor, Ord, Show)
+type Expr s = ExprT Untyped s
 
-data Pattern s =
-    Pattern (Expr s) (Expr s)
-        deriving (Eq, Functor, Ord, Show)
+type Pattern s = PatternT Untyped s
 
 data ExprT t s = TermT       t (Term s)
                | LamT        t [s] (ExprT t s)
@@ -27,11 +18,11 @@ data ExprT t s = TermT       t (Term s)
                | BinPrimOpT  t BinOp (ExprT t s) (ExprT t s)
                | IfThenElseT t (ExprT t s) (ExprT t s) (ExprT t s)
                | CaseT       t (ExprT t s) [PatternT t s]
-                   deriving (Eq, Show)
+                   deriving (Eq, Functor, Ord, Show)
 
 data PatternT t s =
     PatternT (ExprT t s) (ExprT t s)
-        deriving (Eq, Show)
+        deriving (Eq, Functor, Ord, Show)
 
 mapType :: (t -> t)
         -> ExprT t s

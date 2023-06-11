@@ -5,6 +5,7 @@ module Parse.ExpressionTest where
 import           Core.Expression
 import           Core.Operator
 import           Core.Term
+import           Core.Types (Untyped (..))
 import           Parse.LexAndParse
 import           Parse.Lexer
 import           Parse.Expression
@@ -28,7 +29,7 @@ exprTests =
 test_variable_match :: Property
 test_variable_match = unitTest $
     let x = doParse parseVariable undefined [TLowerStart "abc"] undefined
-    in x === Right (ETerm (Var "abc"))
+    in x === Right (TermT Untyped (Var "abc"))
 
 test_variable_mismatch :: Property
 test_variable_mismatch = unitTest $
@@ -38,33 +39,33 @@ test_variable_mismatch = unitTest $
 test_neg_variable_match :: Property
 test_neg_variable_match = unitTest $
     let x = doParse parseVariable undefined [TNegate, TLowerStart "def"] undefined
-    in x === Right (EUnPrimOp Negate (ETerm (Var "def")))
+    in x === Right (UnPrimOpT Untyped Negate (TermT Untyped (Var "def")))
 
 test_lit_string :: Property
 test_lit_string = unitTest $
     let x = doParse parseLiteral undefined [TLitString "xy"] undefined
-    in x === Right (ETerm (LitString "xy"))
+    in x === Right (TermT Untyped (LitString "xy"))
 
 test_lit_bool :: Property
 test_lit_bool = unitTest $ do
     let x = doParse parseLiteral undefined [TLitBool True] undefined
         y = doParse parseLiteral undefined [TLitBool False] undefined
-    x === Right (ETerm (LitBool True))
-    y === Right (ETerm (LitBool False))
+    x === Right (TermT Untyped (LitBool True))
+    y === Right (TermT Untyped (LitBool False))
 
 test_lit_int :: Property
 test_lit_int = unitTest $ do
     let x = doParse parseLiteral undefined [TLitInt 4] undefined
         y = doParse parseLiteral undefined [TNegate, TLitInt 5] undefined
-    x === Right (ETerm (LitInt 4))
-    y === Right (ETerm (LitInt (-5)))
+    x === Right (TermT Untyped (LitInt 4))
+    y === Right (TermT Untyped (LitInt (-5)))
 
 test_fun_app :: Property
 test_fun_app = unitTest $ do
     let Right (tokens, Right (_, pr)) =
             lexAndParseWith parseApply "f x y"
     tokens === fmap TLowerStart ["f", "x", "y"] 
-    pr     === EApp (ETerm (Var "f")) [ETerm (Var "x"),ETerm (Var "y")]
+    pr     === AppT Untyped (TermT Untyped (Var "f")) [TermT Untyped (Var "x"),TermT Untyped (Var "y")]
 
 unitTest :: PropertyT IO () -> Property
 unitTest p = withTests 1 $ property p

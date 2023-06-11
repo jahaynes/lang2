@@ -8,6 +8,7 @@ import           Common.CallGraph
 import           Core.Expression
 import           Core.Module
 import           Core.Term
+import           Core.Types (Untyped (..))
 
 import           Data.Map (Map)
 import           Data.Set (Set)
@@ -32,8 +33,8 @@ test_build_graph_empty = unitTest $
 test_build_graph :: Property
 test_build_graph = unitTest $ do
 
-    let defn1 = FunDefn "foo" (EApp (ETerm (Var "bar")) [])
-        defn2 = FunDefn "bar" (EApp (ETerm (Var "foo")) [])
+    let defn1 = FunDefn "foo" (AppT Untyped (TermT Untyped (Var "bar")) [])
+        defn2 = FunDefn "bar" (AppT Untyped (TermT Untyped (Var "foo")) [])
 
     let CallGraph cg = buildGraph' [defn1, defn2] :: CallGraph String
 

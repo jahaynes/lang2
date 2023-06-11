@@ -5,6 +5,7 @@ module Parse.LexAndParseTest where
 import           Core.Expression
 import           Core.Module
 import           Core.Term
+import           Core.Types (Untyped (..))
 import           Parse.Expression
 import           Parse.LexAndParse
 import           Parse.Lexer
@@ -33,7 +34,7 @@ prop_simple_definition = unitTest $ do
             lexAndParseWith parseFunDefn "x = 5"
 
     tokens === [TLowerStart "x", TEq, TLitInt 5]
-    pr === FunDefn "x" (ETerm (LitInt 5))
+    pr === FunDefn "x" (TermT Untyped (LitInt 5))
 
 test_mr_more_right :: Property
 test_mr_more_right = unitTest $ do
