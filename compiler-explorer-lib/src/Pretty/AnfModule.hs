@@ -3,6 +3,7 @@
 module Pretty.AnfModule (renderAnfModule) where
 
 import Core.Module
+import Core.Types
 import Phase.Anf.AnfExpression
 import Phase.Anf.AnfModule
 import Pretty.Common
@@ -25,11 +26,7 @@ printAnfModule (AnfModule _ funDefnTs) = TB.intercalate "\n\n" (map printAnfFunD
 printAnfFunDefn :: FunDefAnfT ByteString -> Builder
 printAnfFunDefn (FunDefAnfT n (Quant qs) expr) =
 
-    let quant = case qs of
-                    [] -> ""
-                    _  -> "forall " <> TB.intercalate " " (map bytestring qs) <> ". "
-
-        sig = mconcat [bytestring n, " : ", quant, printType $ typeOf expr] in
+    let sig = printPolyType (Forall qs (typeOf expr)) in
 
     case expr of
 

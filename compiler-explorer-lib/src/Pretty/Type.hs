@@ -14,11 +14,12 @@ printPolyType (Forall [] t) = printType t
 printPolyType (Forall q  t) = mconcat ["forall ", printVars q, ". ", printType t]
 
 printType :: Type ByteString -> Builder
-printType = TB.intercalate " -> " . unbuild []
-    where
-    unbuild acc (TyArr a b) = unbuild (a:acc) b
-    unbuild acc           t = reverse $ map prt (t:acc)
+printType t =
+    case t of
+        TyArr a b -> mconcat [go a, " -> ", go b]
+        _         -> go t
 
-    prt (TyCon c tvs) = TB.intercalate " " (bytestring c: map prt tvs)
-    prt (TyVar v)     = bytestring v
-    prt t@TyArr{}     = mconcat ["(", printType t,")"]
+    where
+    go (TyArr a b)   = mconcat ["(", go a, " -> ", go b, ")"]
+    go (TyCon c tvs) = TB.intercalate " " (bytestring c: map go tvs)
+    go (TyVar v)     = bytestring v

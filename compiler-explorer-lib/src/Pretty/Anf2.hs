@@ -10,13 +10,13 @@ import Phase.Anf.AnfExpression
 import Phase.Anf.AnfModule
 import Pretty.Common
 import Pretty.Operator
+import Pretty.Type
 
 import           Data.ByteString       (ByteString)
 import qualified Data.ByteString.Char8 as C8
 import           Data.Functor          ((<&>))
 import           Data.Text             (Text)
 import qualified Data.Text as T
-import           Data.Text.Encoding
 import           Text.Builder          (Builder)
 import qualified Text.Builder as TB
 
@@ -29,7 +29,7 @@ printAnfModule (AnfModule _ funDefnTs) = TB.intercalate "\n\n" (map printAnfFunD
 printAnfFunDefn :: FunDefAnfT ByteString -> Builder
 printAnfFunDefn (FunDefAnfT n (Quant qs) expr) =
 
-    let typ = printType $ typeOf expr
+    let typ = printPolyType (Forall qs (typeOf expr))
         sig = bytestring n <> " : " <> typ
     in case expr of
 
@@ -57,16 +57,6 @@ repl n = TB.text . T.replicate n
 
 indentSt :: Builder -> State Int Builder
 indentSt b = get <&> \i -> repl i " " <> b
-
-printType :: Type ByteString -> Builder
-printType = TB.intercalate " -> " . unbuild []
-    where
-    unbuild acc (TyArr a b) = unbuild (a:acc) b
-    unbuild acc           t = reverse $ map prt (t:acc)
-
-    prt (TyCon c tvs) = TB.intercalate " " (bytestring c : map prt tvs)
-    prt (TyVar v)     = bytestring v
-    prt t@TyArr{}     = mconcat ["(", printType t,")"]
 
 printNExp :: NExp ByteString -> State Int Builder
 printNExp nexp =
