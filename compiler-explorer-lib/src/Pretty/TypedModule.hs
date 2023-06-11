@@ -8,10 +8,10 @@ import Core.Types
 import Pretty.Common
 import Pretty.Operator
 import Pretty.Term
+import Pretty.Type
 
 import           Data.ByteString       (ByteString)
 import           Data.Text             (Text)
-import qualified Data.Text as T
 import           Data.Text.Encoding
 import           Text.Builder          (Builder)
 import qualified Text.Builder as TB
@@ -23,7 +23,6 @@ printTypedModule :: ModuleT ByteString -> Builder
 printTypedModule (ModuleT _ funDefnTs) = TB.intercalate "\n\n" (map printTFunDefn funDefnTs)
 
 printTFunDefn :: FunDefnT ByteString -> Builder
-
 printTFunDefn (FunDefnT n (Quant qs) (LamT t vs body)) =
 
     let sig  = TB.intercalate " " [ bytestring n
@@ -48,28 +47,6 @@ printTFunDefn (FunDefnT n _ expr) =
                                   , printTypedExpression 1 expr ]
 
     in TB.intercalate "\n" [sig, impl]
-
-printVars :: [ByteString] -> Builder
-printVars = TB.intercalate " " . map bytestring
-
-printPolyType :: Polytype ByteString -> Builder
-printPolyType (Forall [] t) = printType t
-printPolyType (Forall q  t) = mconcat ["forall ", printVars q, ". ", printType t]
-
-
--- TODO dedupe!
-printType :: Type ByteString -> Builder
-printType = TB.intercalate " -> " . unbuild []
-    where
-    unbuild acc (TyArr a b) = unbuild (a:acc) b
-    unbuild acc           t = reverse $ map prt (t:acc)
-
-    prt (TyCon c tvs) = TB.intercalate " " (bytestring c: map prt tvs)
-    prt (TyVar v)     = bytestring v
-    prt t@TyArr{}     = mconcat ["(", printType t,")"]
-
-indent :: Int -> Builder
-indent i = TB.text $ T.replicate (2*i) " "
 
 printTypedExpression :: Int
                      -> ExprT ByteString

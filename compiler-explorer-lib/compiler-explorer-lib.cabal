@@ -27,6 +27,7 @@ library
                     Pretty.Module
                     Pretty.Operator
                     Pretty.Term
+                    Pretty.Type
                     Pretty.TypedModule
                     Service.Controller
                     Service.ProgramState

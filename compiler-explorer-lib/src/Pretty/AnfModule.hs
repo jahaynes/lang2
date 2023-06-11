@@ -3,16 +3,15 @@
 module Pretty.AnfModule (renderAnfModule) where
 
 import Core.Module
-import Core.Types
 import Phase.Anf.AnfExpression
 import Phase.Anf.AnfModule
 import Pretty.Common
 import Pretty.Operator
 import Pretty.Term
+import Pretty.Type
 
 import           Data.ByteString       (ByteString)
 import           Data.Text             (Text)
-import qualified Data.Text as T
 import           Data.Text.Encoding
 import           Text.Builder          (Builder)
 import qualified Text.Builder as TB
@@ -46,25 +45,6 @@ printAnfFunDefn (FunDefAnfT n (Quant qs) expr) =
                                           , "=\n"
                                           , printAnfExpression 1 expr ]
             in TB.intercalate "\n" [sig, impl]
-
--- TODO dedupe?
-printVars :: [ByteString] -> Builder
-printVars = TB.intercalate " " . map bytestring
-
--- TODO dedupe
-printType :: Type ByteString -> Builder
-printType = TB.intercalate " -> " . unbuild []
-    where
-    unbuild acc (TyArr a b) = unbuild (a:acc) b
-    unbuild acc           t = reverse $ map prt (t:acc)
-
-    prt (TyCon c tvs) = TB.intercalate " " (bytestring c : map prt tvs)
-    prt (TyVar v)     = bytestring v
-    prt t@TyArr{}     = mconcat ["(", printType t,")"]
-
--- TODO dedupe
-indent :: Int -> Builder
-indent i = TB.text $ T.replicate (2*i) " "
 
 printAnfExpression :: Int
                    -> NExp ByteString

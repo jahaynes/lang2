@@ -55,8 +55,8 @@ noIndent sf = State $ \i -> (evalState sf 0, i)
 repl :: Int -> Text -> Builder
 repl n = TB.text . T.replicate n
 
-indent :: Builder -> State Int Builder
-indent b = get <&> \i -> repl i " " <> b
+indentSt :: Builder -> State Int Builder
+indentSt b = get <&> \i -> repl i " " <> b
 
 printType :: Type ByteString -> Builder
 printType = TB.intercalate " -> " . unbuild []
@@ -80,7 +80,7 @@ printNExp nexp =
             printCExp cexp
 
         NLet a b c -> do
-            a' <- indent $ "let " <> bytestring a <> " = "
+            a' <- indentSt $ "let " <> bytestring a <> " = "
             b' <- noIndent $ printNExp b
             c' <- printNExp c
             pure $ mconcat [a', b', " in\n", c']
@@ -130,18 +130,18 @@ printCExp cexp =
         -- TODO improve
         CIfThenElse _ pr tr fl -> do
             pr'  <- noIndent $ printAExp pr
-            pr'' <- indent ("if " <> pr')
+            pr'' <- indentSt ("if " <> pr')
             tr'  <- noIndent $ printNExp tr
-            tr'' <- withIndent $ indent ("then " <> tr')
+            tr'' <- withIndent $ indentSt ("then " <> tr')
             fl'  <- noIndent $ printNExp fl
-            fl'' <- withIndent $ indent ("else " <> fl')
+            fl'' <- withIndent $ indentSt ("else " <> fl')
             pure $ TB.intercalate "\n" [pr'', tr'', fl'']
 
         CCase _ scrut pexps -> do
             scrut'  <- noIndent $ printAExp scrut
-            case'   <- indent $ TB.intercalate " " ["case", scrut', "of"]
+            case'   <- indentSt $ TB.intercalate " " ["case", scrut', "of"]
             pexps'  <- mapM printPExp pexps
-            pexps'' <- mapM (withIndent . indent) pexps'
+            pexps'' <- mapM (withIndent . indentSt) pexps'
             pure $ TB.intercalate "\n" (case':pexps'')
 
 printPExp :: PExp ByteString -> State Int Builder
@@ -152,9 +152,9 @@ printPExp (PExp lhs rhs) = do
 
 printTerm :: Term ByteString -> State Int Builder
 printTerm term =
-    indent $ case term of
-                 LitBool b   -> if b then "True" else "False"
-                 LitInt i    -> TB.decimal i
-                 LitString s -> mconcat ["\"", bytestring s, "\""]
-                 Var v       -> bytestring v
-                 DCons dc    -> bytestring dc
+    indentSt $ case term of
+                   LitBool b   -> if b then "True" else "False"
+                   LitInt i    -> TB.decimal i
+                   LitString s -> mconcat ["\"", bytestring s, "\""]
+                   Var v       -> bytestring v
+                   DCons dc    -> bytestring dc
