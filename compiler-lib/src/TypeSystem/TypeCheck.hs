@@ -1,3 +1,5 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module TypeSystem.TypeCheck (inferModule) where
 
 import Common.CallGraph
@@ -18,12 +20,12 @@ import           Data.Set        (Set)
 import qualified Data.Map as M
 import qualified Data.Set as S
 
-data ModuleState s =
+data ModuleState t s =
     ModuleState { getEnv     :: Map s (Polytype s)
-                , getUntyped :: [Set (FunDefn s)]
+                , getUntyped :: [Set (FunDefn t s)]
                 } deriving Show
 
-inferModule :: Module ByteString
+inferModule :: Module Untyped ByteString
             -> Either ByteString (ModuleT (Type ByteString) ByteString)
 inferModule md = do
 
@@ -99,7 +101,7 @@ data GroupInference =
         Just x  -> x
 
 inferGroup :: Map ByteString (Polytype ByteString)
-           -> Set (FunDefn ByteString)
+           -> Set (FunDefn Untyped ByteString)
            -> State (GroupState ByteString)
                     (Either ByteString GroupInference)
 

@@ -24,7 +24,7 @@ data ProgramState =
     ProgramState { getSource           :: !ByteString
                  , getPositions        :: !(Either ByteString (Vector Int))
                  , getTokens           :: !(Either ByteString (Vector Token))
-                 , getModule           :: !(Either ByteString (Module ByteString))
+                 , getModule           :: !(Either ByteString (Module Untyped ByteString))
                  , getInferred         :: !(Either ByteString (ModuleT (Type ByteString) ByteString))
                  , getEtaExpanded      :: !(Either ByteString (ModuleT (Type ByteString) ByteString))
                  , getAnfConverted     :: !(Either ByteString (AnfModule ByteString))

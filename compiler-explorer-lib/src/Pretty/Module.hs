@@ -13,21 +13,21 @@ import           Data.Text.Encoding (decodeUtf8)
 import qualified Text.Builder as TB
 import           Text.Builder       (Builder)
 
-render :: Module ByteString -> Text
+render :: Show t => Module t ByteString -> Text
 render md =
     let txtModule = fmap decodeUtf8 md
         dataDefs  = map printDataDefn $ getDataDefns txtModule
         funDefs   = map printFunDefn  $ getFunDefns txtModule
     in TB.run . TB.intercalate "\n\n" $ mconcat [dataDefs, funDefs]
 
-moduleToText :: Module ByteString -> Text
+moduleToText :: Show t => Module t ByteString -> Text
 moduleToText md =
     let dataDefs = map (TB.text . pack . show) $ getDataDefns md
         funDefs  = map (TB.text . pack . show) $ getFunDefns md
     in TB.run . TB.intercalate "\n\n" $ mconcat [dataDefs, funDefs]
 
-printFunDefn :: FunDefn Text -> Builder
-printFunDefn (FunDefn f (Lam Untyped vs x)) =
+printFunDefn :: Show t => FunDefn t Text -> Builder
+printFunDefn (FunDefn f (Lam _ vs x)) =
     let fvs'    = TB.intercalate " " $ map TB.text (f:vs)
         (_, x') = printExpr x
     in mconcat [fvs', " = ", x']

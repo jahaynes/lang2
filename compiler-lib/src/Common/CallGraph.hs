@@ -19,11 +19,12 @@ newtype CallGraph s =
     CallGraph (Map s (Set s))
         deriving (Eq, Show)
 
-buildGraph :: (Ord s, Show s) => Module s -> CallGraph s
+buildGraph :: (Ord s, Show s) => Module Untyped s -> CallGraph s
 buildGraph = buildGraph' . getFunDefns
 
 -- TODO: pass in data definitions, and check for scope below in 'go'
-buildGraph' :: (Ord s, Show s) => [FunDefn s] -> CallGraph s
+-- TODO: Does this need to be hardcoded to Untyped?
+buildGraph' :: (Ord s, Show s) => [FunDefn Untyped s] -> CallGraph s
 buildGraph' = CallGraph . M.unions . map go
 
     where
@@ -91,7 +92,7 @@ findCycles graph = S.map S.fromList $ S.unions $ map (S.fromList . go []) $ M.ke
                     in concatMap (go path') (S.toList outs)
 
 -- TODO This only removes the depended-upon definitions.  Remove the dependers too?
-planExcludingPretyped :: (Ord s, Show s) => Module s -> CallGraph s -> Either ByteString [Set s]
+planExcludingPretyped :: (Ord s, Show s) => Module t s -> CallGraph s -> Either ByteString [Set s]
 planExcludingPretyped md (CallGraph cg) = do
     let pretyped = S.fromList . map (\(TypeSig n _) -> n) $ getTypeSigs md
     createPlan $ CallGraph (fmap (\\ pretyped) cg)

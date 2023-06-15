@@ -7,10 +7,10 @@ import Core.Types
 
 -----------------------------------------------
 
-data Module s =
+data Module t s =
     Module { getDataDefns :: [DataDefn s]
            , getTypeSigs  :: [TypeSig s]
-           , getFunDefns  :: [FunDefn s]
+           , getFunDefns  :: [FunDefn t s]
            } deriving (Functor, Show)
 
 data DataDefn s =
@@ -29,8 +29,8 @@ data TypeSig s =
     TypeSig s (Type s)
         deriving (Functor, Show)
 
-data FunDefn s =
-    FunDefn s (Expr Untyped s)
+data FunDefn t s =
+    FunDefn s (Expr t s)
         deriving (Eq, Functor, Ord, Show)
 
 newtype Quant s =

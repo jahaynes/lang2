@@ -14,11 +14,12 @@ import           Data.ByteString (ByteString)
 import           Data.Vector      ((!?))
 import qualified Data.IntSet as IS
 
-data ModuleElement s = ModuleDataDefn (DataDefn s)
-                     | ModuleTypeSig (TypeSig s)
-                     | ModuleFunDefn (FunDefn s)
+-- TODO always untyped?
+data ModuleElement t s = ModuleDataDefn (DataDefn s)
+                       | ModuleTypeSig (TypeSig s)
+                       | ModuleFunDefn (FunDefn t s)
 
-parseDefns :: Parser ParseState (Module ByteString)
+parseDefns :: Parser ParseState (Module Untyped ByteString)
 parseDefns = go [] [] [] <$> many' parseDefn
 
     where
@@ -27,7 +28,7 @@ parseDefns = go [] [] [] <$> many' parseDefn
     go dds tss fds (ModuleTypeSig ts:mes)  = go dds (ts:tss) fds mes
     go dds tss fds (ModuleFunDefn fd:mes)  = go dds tss (fd:fds) mes
 
-parseDefn :: Parser ParseState (ModuleElement ByteString)
+parseDefn :: Parser ParseState (ModuleElement Untyped ByteString)
 parseDefn = assertLineStart *> (ModuleDataDefn <$> parseDataDefn)
                            <|> (ModuleTypeSig  <$> parseTypeSig)
                            <|> (ModuleFunDefn  <$> parseFunDefn)
@@ -38,7 +39,7 @@ assertLineStart = Parser $ \ps ->
         Just 0 -> Right (ps, ())
         _      -> Left "Not a line start"
 
-parseFunDefn :: Parser ParseState (FunDefn ByteString)
+parseFunDefn :: Parser ParseState (FunDefn Untyped ByteString)
 parseFunDefn = do
     (name, vars) <- parseWhileColumns1 MoreRight parseLowerStart
     token TEq
