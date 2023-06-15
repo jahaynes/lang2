@@ -30,7 +30,7 @@ data TypeSig s =
         deriving (Functor, Show)
 
 data FunDefn s =
-    FunDefn s (ExprT Untyped s)
+    FunDefn s (Expr Untyped s)
         deriving (Eq, Functor, Ord, Show)
 
 newtype Quant s =
@@ -38,7 +38,7 @@ newtype Quant s =
         deriving (Eq, Show)
 
 data FunDefnT t s =
-    FunDefnT s (Quant s) (ExprT t s)
+    FunDefnT s (Quant s) (Expr t s)
         deriving (Eq, Show)
 
 data ModuleT t s =

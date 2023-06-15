@@ -40,10 +40,10 @@ genSym = do
     put $! AnfState (n+1) sg
     pure . pack $ "anf_" <> show n
 
-norm :: Show s => ExprT (Type s) s -> State (AnfState s) (NExp s)
+norm :: Show s => Expr (Type s) s -> State (AnfState s) (NExp s)
 norm expr = normExpr expr pure
 
-normExpr :: Show s => ExprT (Type s) s
+normExpr :: Show s => Expr (Type s) s
                    -> (NExp s -> State (AnfState s) (NExp s))
                    -> State (AnfState s) (NExp s)
 normExpr expr k =
@@ -104,7 +104,7 @@ normPattern :: Show s => PatternT (Type s) s -> State (AnfState s) (PExp s)
 normPattern (PatternT a b) =
     PExp <$> norm a <*> norm b
 
-normAtom :: Show s => ExprT (Type s) s
+normAtom :: Show s => Expr (Type s) s
                    -> (AExp s -> State (AnfState s) (NExp s))
                    -> State (AnfState s) (NExp s)
 normAtom e k =
@@ -169,7 +169,7 @@ normAtom e k =
         TermT t (DCons d) ->
             k $ ATerm t (DCons d)
 
-normAtoms :: Show s => [ExprT (Type s) s]
+normAtoms :: Show s => [Expr (Type s) s]
                     -> ([AExp s] -> State (AnfState s) (NExp s))
                     -> State (AnfState s) (NExp s)
 normAtoms [] k = k []

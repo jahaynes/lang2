@@ -14,10 +14,10 @@ import           Data.ByteString.Char8 (pack)
 import           Data.List             (foldl')
 import           Data.Vector           ((!?))
 
-parseExpr :: Parser ParseState (ExprT Untyped ByteString)
+parseExpr :: Parser ParseState (Expr Untyped ByteString)
 parseExpr = parseBoolOr
 
-parseBoolOr :: Parser ParseState (ExprT Untyped ByteString)
+parseBoolOr :: Parser ParseState (Expr Untyped ByteString)
 parseBoolOr = do
     x  <- parseBoolAnd
     ys <- many $ do op <- boolOr
@@ -31,7 +31,7 @@ parseBoolOr = do
                  TOr  -> Just OrB
                  _    -> Nothing
 
-parseBoolAnd :: Parser ParseState (ExprT Untyped ByteString)
+parseBoolAnd :: Parser ParseState (Expr Untyped ByteString)
 parseBoolAnd = do
     x  <- parseComp
     ys <- many $ do op <- boolAnd
@@ -45,7 +45,7 @@ parseBoolAnd = do
                   TAnd -> Just AndB
                   _    -> Nothing
 
-parseComp :: Parser ParseState (ExprT Untyped ByteString)
+parseComp :: Parser ParseState (Expr Untyped ByteString)
 parseComp = sumExpr <|> parseSum
     where
     sumExpr = do
@@ -63,7 +63,7 @@ parseComp = sumExpr <|> parseSum
                  TLtEq -> Just LtEqI
                  _     -> Nothing
 
-parseSum :: Parser ParseState (ExprT Untyped ByteString)
+parseSum :: Parser ParseState (Expr Untyped ByteString)
 parseSum = do
     x  <- parseProduct
     ys <- many $ do op <- sumOp
@@ -79,7 +79,7 @@ parseSum = do
                 TMinus    -> Just SubI
                 _         -> Nothing
 
-parseProduct :: Parser ParseState (ExprT Untyped ByteString)
+parseProduct :: Parser ParseState (Expr Untyped ByteString)
 parseProduct = do
     x  <- parseApply
     ys <- many $ do op <- mulOp
@@ -94,7 +94,7 @@ parseProduct = do
                 TDiv -> Just DivI
                 _    -> Nothing
 
-parseApply :: Parser ParseState (ExprT Untyped ByteString)
+parseApply :: Parser ParseState (Expr Untyped ByteString)
 parseApply = parseCase <|> parseApp
     where
     parseCase = do
@@ -116,7 +116,7 @@ parseApply = parseCase <|> parseApp
                 then f
                 else AppT Untyped f xs
 
-parseNonApply :: Parser ParseState (ExprT Untyped ByteString)
+parseNonApply :: Parser ParseState (Expr Untyped ByteString)
 parseNonApply = parseLet
             <|> parseIfThenElse
             <|> parseLambda
@@ -126,22 +126,22 @@ parseNonApply = parseLet
             <|> parseErr
             <|> parseParen
 
-parseNegated :: Parser ParseState (ExprT Untyped ByteString)
+parseNegated :: Parser ParseState (Expr Untyped ByteString)
 parseNegated = do
     parseNegate
     UnPrimOpT Untyped Negate <$> parseExpr
 
-parseShown :: Parser ParseState (ExprT Untyped ByteString)
+parseShown :: Parser ParseState (Expr Untyped ByteString)
 parseShown = do
     parseShow
     UnPrimOpT Untyped EShow <$> parseExpr
 
-parseErr :: Parser ParseState (ExprT Untyped ByteString)
+parseErr :: Parser ParseState (Expr Untyped ByteString)
 parseErr = do
     parseError
     UnPrimOpT Untyped Err <$> parseExpr
 
-parseLet :: Parser ParseState (ExprT Untyped ByteString)
+parseLet :: Parser ParseState (Expr Untyped ByteString)
 parseLet = do
     (f,xs) <- token TLet *> parseWhileColumns1 MoreRight parseLowerStart
     e1     <- token TEq  *> parseExpr
@@ -150,26 +150,26 @@ parseLet = do
         [] -> LetT Untyped f                  e1  e2
         _  -> LetT Untyped f (LamT Untyped xs e1) e2
 
-parseIfThenElse :: Parser ParseState (ExprT Untyped ByteString)
+parseIfThenElse :: Parser ParseState (Expr Untyped ByteString)
 parseIfThenElse = do
     p <- token TIf   *> parseExpr
     t <- token TThen *> parseExpr
     f <- token TElse *> parseExpr
     pure $ IfThenElseT Untyped p t f
 
-parseLambda :: Parser ParseState (ExprT Untyped ByteString)
+parseLambda :: Parser ParseState (Expr Untyped ByteString)
 parseLambda = do
     (v, vs) <- token TLambda *> parseWhileColumns1 NotLeft parseLowerStart
     body    <- token TDot    *> parseExpr
     pure $ LamT Untyped (v:vs) body
 
-parseParen :: Parser ParseState (ExprT Untyped ByteString)
+parseParen :: Parser ParseState (Expr Untyped ByteString)
 parseParen = token TLParen *> parseExpr <* token TRParen
 
-parseTerm :: Parser ParseState (ExprT Untyped ByteString)
+parseTerm :: Parser ParseState (Expr Untyped ByteString)
 parseTerm = parseDataConstructor <|> parseLiteral <|> parseVariable
 
-parseLiteral :: Parser ParseState (ExprT Untyped ByteString)
+parseLiteral :: Parser ParseState (Expr Untyped ByteString)
 parseLiteral = TermT Untyped <$> parseLitString
                              <|> parseLitBool
                              <|> parseLitInt
@@ -201,13 +201,13 @@ parseLitInt = pos <|> neg
     isInt (TLitInt i) = Just (LitInt i)
     isInt           _ = Nothing
 
-parseVariable :: Parser ParseState (ExprT Untyped ByteString)
+parseVariable :: Parser ParseState (Expr Untyped ByteString)
 parseVariable = pos <|> neg
     where
     pos = TermT Untyped . Var <$> parseLowerStart
     neg = UnPrimOpT Untyped Negate . TermT Untyped . Var <$> (parseNegate *> parseLowerStart)
 
-parseDataConstructor :: Parser ParseState (ExprT Untyped ByteString)
+parseDataConstructor :: Parser ParseState (Expr Untyped ByteString)
 parseDataConstructor = TermT Untyped . DCons <$> parseUpperStart
 
 parseSatisfy :: ByteString

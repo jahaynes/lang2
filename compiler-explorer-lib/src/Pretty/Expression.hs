@@ -12,8 +12,8 @@ import           Data.Text    (Text)
 import           Text.Builder (Builder)
 import qualified Text.Builder as TB
 
--- TODO - is this dupe of Pretty (ExprT) ?
-printExpr :: ExprT Untyped Text -> (Grouping, Builder)
+-- TODO - is this dupe?
+printExpr :: Expr Untyped Text -> (Grouping, Builder)
 printExpr (AppT Untyped f xs) =
     let f'  = group $ printExpr f
         xs' = TB.intercalate " " $ map (group . printExpr) xs

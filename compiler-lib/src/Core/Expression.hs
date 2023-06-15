@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveFunctor #-}
 
-module Core.Expression ( ExprT (..)
+module Core.Expression ( Expr (..)
                        , PatternT (..)
                        , mapType
                        , typeOf
@@ -9,23 +9,23 @@ module Core.Expression ( ExprT (..)
 import Core.Operator (BinOp, UnOp)
 import Core.Term     (Term)
 
-data ExprT t s = TermT       t (Term s)
-               | LamT        t [s] (ExprT t s)
-               | AppT        t (ExprT t s) [ExprT t s]
-               | LetT        t s (ExprT t s) (ExprT t s)
-               | UnPrimOpT   t UnOp (ExprT t s)
-               | BinPrimOpT  t BinOp (ExprT t s) (ExprT t s)
-               | IfThenElseT t (ExprT t s) (ExprT t s) (ExprT t s)
-               | CaseT       t (ExprT t s) [PatternT t s]
+data Expr t s = TermT       t (Term s)
+               | LamT        t [s] (Expr t s)
+               | AppT        t (Expr t s) [Expr t s]
+               | LetT        t s (Expr t s) (Expr t s)
+               | UnPrimOpT   t UnOp (Expr t s)
+               | BinPrimOpT  t BinOp (Expr t s) (Expr t s)
+               | IfThenElseT t (Expr t s) (Expr t s) (Expr t s)
+               | CaseT       t (Expr t s) [PatternT t s]
                    deriving (Eq, Functor, Ord, Show)
 
 data PatternT t s =
-    PatternT (ExprT t s) (ExprT t s)
+    PatternT (Expr t s) (Expr t s)
         deriving (Eq, Functor, Ord, Show)
 
 mapType :: (t -> t)
-        -> ExprT t s
-        -> ExprT t s
+        -> Expr t s
+        -> Expr t s
 mapType f expr =
     case expr of
         TermT t term           -> TermT (f t) term
@@ -40,7 +40,7 @@ mapType f expr =
     where
     mapType' (PatternT a b) = PatternT (mapType f a) (mapType f b)
 
-typeOf :: ExprT t s -> t
+typeOf :: Expr t s -> t
 typeOf expr =
     case expr of
       TermT t _           -> t

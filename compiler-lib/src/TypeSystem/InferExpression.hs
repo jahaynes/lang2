@@ -16,9 +16,9 @@ import           Data.Map        (Map)
 import qualified Data.Map as M
 
 inferExpr :: Map ByteString (Polytype ByteString)
-          -> ExprT Untyped ByteString
+          -> Expr Untyped ByteString
           -> State (GroupState ByteString) ( [Constraint ByteString]
-                                           , ExprT (Type ByteString) ByteString )
+                                           , Expr (Type ByteString) ByteString )
 inferExpr env expr =
 
     case expr of
@@ -114,7 +114,7 @@ m1 <!> m2 = M.unionWith same m1 m2
              | otherwise = error $ "intersection!: " ++ show (a, b)
 
 
-labelLeftFreshVars :: ExprT Untyped ByteString
+labelLeftFreshVars :: Expr Untyped ByteString
                    -> State (GroupState ByteString) (Map ByteString (Type ByteString))
 labelLeftFreshVars a =
 
@@ -141,7 +141,7 @@ labelLeftFreshVars a =
             M.singleton v <$> freshTVar
 
 -- TODO dedupe?
-varsFrom :: Show s => [ExprT Untyped s] -> [s]
+varsFrom :: Show s => [Expr Untyped s] -> [s]
 varsFrom = go []
     where
     go acc                 [] = acc

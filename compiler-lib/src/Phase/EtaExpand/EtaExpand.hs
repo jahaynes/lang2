@@ -49,8 +49,8 @@ expandDefn (FunDefnT n q e) = do
 
     pure $ FunDefnT n q e'
 
-expandExpr :: ExprT (Type ByteString) ByteString
-           -> State EtaState (ExprT (Type ByteString) ByteString)
+expandExpr :: Expr (Type ByteString) ByteString
+           -> State EtaState (Expr (Type ByteString) ByteString)
 expandExpr e@(TermT t term) =
     case (t, term) of
         (TyArr{}, Var f)   -> functionCallToLambda f t
@@ -102,11 +102,11 @@ expandPat (PatternT a b) =
     PatternT <$> expandExpr a <*> expandExpr b
 
 underAppliedToLambda :: Type ByteString
-                     -> [ExprT (Type ByteString) ByteString]
+                     -> [Expr (Type ByteString) ByteString]
                      -> State EtaState ( Type ByteString
                                        , Type ByteString
                                        , [ByteString]
-                                       , [ExprT (Type ByteString) ByteString] )
+                                       , [Expr (Type ByteString) ByteString] )
 
 underAppliedToLambda at [] = go [] at
     where
@@ -129,7 +129,7 @@ underAppliedToLambda _ _ = error "bad underapply"
 
 functionCallToLambda :: ByteString
                      -> Type ByteString
-                     -> State EtaState (ExprT (Type ByteString) ByteString)
+                     -> State EtaState (Expr (Type ByteString) ByteString)
 functionCallToLambda f t' = go [] t'
     where
     go acc (TyArr a b) = do

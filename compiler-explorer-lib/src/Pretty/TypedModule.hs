@@ -49,7 +49,7 @@ printTFunDefn (FunDefnT n _ expr) =
     in TB.intercalate "\n" [sig, impl]
 
 printTypedExpression :: Int
-                     -> ExprT (Type ByteString) ByteString
+                     -> Expr (Type ByteString) ByteString
                      -> Builder
 
 printTypedExpression ind aexp =

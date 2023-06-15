@@ -17,8 +17,8 @@ etaSaturate md extraParams =
     saturate' (FunDefnT t n e) = FunDefnT t n (saturateExpr extraParams e)
 
 saturateExpr :: Ord s => Map s [(s, Type s)]
-                      -> ExprT (Type s) s
-                      -> ExprT (Type s) s
+                      -> Expr (Type s) s
+                      -> Expr (Type s) s
 saturateExpr extraParams = go
 
     where

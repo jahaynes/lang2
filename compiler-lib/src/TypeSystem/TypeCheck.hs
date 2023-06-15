@@ -159,7 +159,7 @@ fromEnvOrFresh env names =
             Just pt -> instantiate pt <&> \t -> (n, t)
 
 cleanup :: Subst ByteString
-        -> (ByteString, ExprT (Type ByteString) ByteString)
+        -> (ByteString, Expr (Type ByteString) ByteString)
         -> FunDefnT (Type ByteString) ByteString
 cleanup subst (name, expr) =
 
