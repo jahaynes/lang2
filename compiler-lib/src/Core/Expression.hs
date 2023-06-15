@@ -1,14 +1,13 @@
 {-# LANGUAGE DeriveFunctor #-}
 
-module Core.Expression where
+module Core.Expression ( ExprT (..)
+                       , PatternT (..)
+                       , mapType
+                       , typeOf
+                       ) where
 
 import Core.Operator (BinOp, UnOp)
 import Core.Term     (Term)
-import Core.Types    (Untyped)
-
-type Expr s = ExprT Untyped s
-
-type Pattern s = PatternT Untyped s
 
 data ExprT t s = TermT       t (Term s)
                | LamT        t [s] (ExprT t s)
@@ -36,12 +35,10 @@ mapType f expr =
         UnPrimOpT t o a        -> UnPrimOpT (f t) o (mapType f a)
         BinPrimOpT t o a b     -> BinPrimOpT (f t) o (mapType f a) (mapType f b)
         IfThenElseT t pr tr fl -> IfThenElseT (f t) (mapType f pr) (mapType f tr) (mapType f fl)
-        CaseT t scrut ps       -> CaseT (f t) (mapType f scrut) (map (mapType' f) ps)
+        CaseT t scrut ps       -> CaseT (f t) (mapType f scrut) (map mapType' ps)
 
-mapType' :: (t -> t)
-         -> PatternT t s
-         -> PatternT t s
-mapType' f (PatternT a b) = PatternT (mapType f a) (mapType f b)         
+    where
+    mapType' (PatternT a b) = PatternT (mapType f a) (mapType f b)
 
 typeOf :: ExprT t s -> t
 typeOf expr =

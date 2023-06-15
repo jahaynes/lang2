@@ -13,7 +13,7 @@ import           Text.Builder (Builder)
 import qualified Text.Builder as TB
 
 -- TODO - is this dupe of Pretty (ExprT) ?
-printExpr :: Expr Text -> (Grouping, Builder)
+printExpr :: ExprT Untyped Text -> (Grouping, Builder)
 printExpr (AppT Untyped f xs) =
     let f'  = group $ printExpr f
         xs' = TB.intercalate " " $ map (group . printExpr) xs
