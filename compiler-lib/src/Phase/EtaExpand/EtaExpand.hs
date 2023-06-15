@@ -36,7 +36,7 @@ expandDefn (FunDefnT n q e) = do
     e' <- expandExpr e
 
     case (e, e') of
-        (LamT _ vs _, LamT _ vs' _) ->
+        (Lam _ vs _, Lam _ vs' _) ->
             case vs' \\ vs of
                 [] -> pure ()
                 vd ->
@@ -51,7 +51,7 @@ expandDefn (FunDefnT n q e) = do
 
 expandExpr :: Expr (Type ByteString) ByteString
            -> State EtaState (Expr (Type ByteString) ByteString)
-expandExpr e@(TermT t term) =
+expandExpr e@(Term t term) =
     case (t, term) of
         (TyArr{}, Var f)   -> functionCallToLambda f t
         (TyArr{}, DCons _) -> error "Not implemented: eta expansion of data constructors"
@@ -59,47 +59,47 @@ expandExpr e@(TermT t term) =
         _                  -> pure e
 
 -- TODO lam?
-expandExpr (LamT t vs body) =
+expandExpr (Lam t vs body) =
     expandExpr body <&> \case
-        LamT _ ivs ib -> LamT t (vs++ivs) ib -- Merge the two lambdas
-        body'         -> LamT t vs body'
+        Lam _ ivs ib -> Lam t (vs++ivs) ib -- Merge the two lambdas
+        body'         -> Lam t vs body'
 
 -- An app whose type is an arrow is under applied
 -- what does this mean when intending to return a lambda?
-expandExpr e@(AppT t f xs) =
+expandExpr e@(App t f xs) =
     case t of
         TyArr{} -> do
             let tf = typeOf f
             (at, t', vs, args) <- underAppliedToLambda tf xs
-            pure $ LamT t' vs (AppT at f (xs ++ args))
+            pure $ Lam t' vs (App at f (xs ++ args))
         _       -> pure e
 
-expandExpr (LetT t a b c) =
+expandExpr (Let t a b c) =
     -- The outer type *should* still be the same
-    LetT t a <$> expandExpr b
+    Let t a <$> expandExpr b
              <*> expandExpr c
 
-expandExpr (UnPrimOpT t o a) =
-    UnPrimOpT t o <$> expandExpr a
+expandExpr (UnPrimOp t o a) =
+    UnPrimOp t o <$> expandExpr a
 
-expandExpr (BinPrimOpT t o a b) =
-    BinPrimOpT t o <$> expandExpr a
+expandExpr (BinPrimOp t o a b) =
+    BinPrimOp t o <$> expandExpr a
                    <*> expandExpr b
 
-expandExpr (IfThenElseT t pr tr fl) =
-    IfThenElseT t <$> expandExpr pr
+expandExpr (IfThenElse t pr tr fl) =
+    IfThenElse t <$> expandExpr pr
                   <*> expandExpr tr
                   <*> expandExpr fl
 
-expandExpr (CaseT t scrut ps) =
-    CaseT t <$> expandExpr scrut
+expandExpr (Case t scrut ps) =
+    Case t <$> expandExpr scrut
             <*> mapM expandPat ps
 
 -- necessary?
-expandPat :: PatternT (Type ByteString) ByteString
-          -> State EtaState (PatternT (Type ByteString) ByteString)
-expandPat (PatternT a b) =
-    PatternT <$> expandExpr a <*> expandExpr b
+expandPat :: Pattern (Type ByteString) ByteString
+          -> State EtaState (Pattern (Type ByteString) ByteString)
+expandPat (Pattern a b) =
+    Pattern <$> expandExpr a <*> expandExpr b
 
 underAppliedToLambda :: Type ByteString
                      -> [Expr (Type ByteString) ByteString]
@@ -116,7 +116,7 @@ underAppliedToLambda at [] = go [] at
     go acc t = do
         let acc' = reverse acc
             vs   = map fst acc'
-            args = map (\(v, vt) -> TermT vt (Var v)) acc'
+            args = map (\(v, vt) -> Term vt (Var v)) acc'
         pure (t, at, vs, args)
 
 underAppliedToLambda (TyArr a b) (x:xs) =
@@ -137,12 +137,12 @@ functionCallToLambda f t' = go [] t'
         go ((v, a):acc) b
     go acc t =
         let acc' = reverse acc
-            args = map (\(v,vt) -> TermT vt (Var v)) acc'
+            args = map (\(v,vt) -> Term vt (Var v)) acc'
             vs   = map fst acc'
-            body = AppT t
-                        (TermT t' $ Var f)
+            body = App t
+                        (Term t' $ Var f)
                         args
-        in pure $ LamT t' vs body
+        in pure $ Lam t' vs body
 
 genTypedSym :: Type ByteString -> State EtaState ByteString
 genTypedSym t = do

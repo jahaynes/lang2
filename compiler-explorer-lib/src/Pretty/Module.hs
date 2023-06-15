@@ -27,7 +27,7 @@ moduleToText md =
     in TB.run . TB.intercalate "\n\n" $ mconcat [dataDefs, funDefs]
 
 printFunDefn :: FunDefn Text -> Builder
-printFunDefn (FunDefn f (LamT Untyped vs x)) =
+printFunDefn (FunDefn f (Lam Untyped vs x)) =
     let fvs'    = TB.intercalate " " $ map TB.text (f:vs)
         (_, x') = printExpr x
     in mconcat [fvs', " = ", x']

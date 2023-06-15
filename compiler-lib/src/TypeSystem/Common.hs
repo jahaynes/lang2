@@ -60,32 +60,32 @@ typeVars e =
 
     case e of
 
-        TermT t _ ->
+        Term t _ ->
             typeVars' t
 
-        LamT t _ b ->
+        Lam t _ b ->
             typeVars' t <> typeVars b
 
-        AppT t f xs ->
+        App t f xs ->
             typeVars' t <> typeVars f <> mconcat (map typeVars xs)
 
-        LetT t _ b c ->
+        Let t _ b c ->
             typeVars' t <> typeVars b <> typeVars c
 
-        UnPrimOpT t _ a ->
+        UnPrimOp t _ a ->
             typeVars' t <> typeVars a
 
-        BinPrimOpT t _ a b  ->
+        BinPrimOp t _ a b  ->
             typeVars' t <> typeVars a <> typeVars b
 
-        IfThenElseT t pr tr fl ->
+        IfThenElse t pr tr fl ->
             typeVars' t <> mconcat (map typeVars [pr, tr, fl])
 
-        CaseT t scrut ps ->
+        Case t scrut ps ->
             typeVars' t <> typeVars scrut <> mconcat (map typeVars'' ps)
 
-typeVars'' :: Ord s => PatternT (Type s) s -> Set s
-typeVars'' (PatternT a b) = typeVars a <> typeVars b
+typeVars'' :: Ord s => Pattern (Type s) s -> Set s
+typeVars'' (Pattern a b) = typeVars a <> typeVars b
 
 typeVars' :: Ord s => Type s -> Set s
 typeVars'   TyCon{}   = mempty

@@ -36,17 +36,17 @@ test_primitives = unitTest $ do
                                         , LitBool True
                                         , LitString "str" ]
 
-    r === [ TermT (TyCon "Int" [])    (LitInt 33)
-          , TermT (TyCon "Bool" [])   (LitBool True)
-          , TermT (TyCon "String" []) (LitString "str") ]
+    r === [ Term (TyCon "Int" [])    (LitInt 33)
+          , Term (TyCon "Bool" [])   (LitBool True)
+          , Term (TyCon "String" []) (LitString "str") ]
 
 test_generalisations :: Property
 test_generalisations = unitTest $ do
 
     let md = Module { getDataDefns = []
                     , getTypeSigs  = []
-                    , getFunDefns  = [ FunDefn "fst" (LamT Untyped ["a","b"] (TermT Untyped (Var "a")))
-                                     , FunDefn "snd" (LamT Untyped ["x","y"] (TermT Untyped (Var "y"))) ]
+                    , getFunDefns  = [ FunDefn "fst" (Lam Untyped ["a","b"] (Term Untyped (Var "a")))
+                                     , FunDefn "snd" (Lam Untyped ["x","y"] (Term Untyped (Var "y"))) ]
                     }
 
     let r = map getPolyType . getFunDefnTs <$> inferModule md
@@ -59,11 +59,11 @@ test_top_level_recursion = unitTest $ do
 
     let fundefn =
           FunDefn "countDown"
-                  (LamT Untyped ["n"] (IfThenElseT Untyped (BinPrimOpT Untyped EqA (TermT Untyped (Var "n")) (TermT Untyped (LitInt 0)))
-                                                           (TermT Untyped (LitString "Done"))
-                                                           (AppT Untyped (TermT Untyped (Var "countDown")) [BinPrimOpT Untyped SubI
-                                                                                                           (TermT Untyped (Var "n"))
-                                                                                                           (TermT Untyped (LitInt 1))])))
+                  (Lam Untyped ["n"] (IfThenElse Untyped (BinPrimOp Untyped EqA (Term Untyped (Var "n")) (Term Untyped (LitInt 0)))
+                                                           (Term Untyped (LitString "Done"))
+                                                           (App Untyped (Term Untyped (Var "countDown")) [BinPrimOp Untyped SubI
+                                                                                                           (Term Untyped (Var "n"))
+                                                                                                           (Term Untyped (LitInt 1))])))
     let md = Module { getDataDefns = []
                     , getTypeSigs  = []
                     , getFunDefns  = [ fundefn ] }
@@ -77,15 +77,15 @@ test_nested_recursion = unitTest $ do
 
     let fundefn =
           FunDefn "summorial"
-                  (LamT Untyped ["n"]
-                        (LetT Untyped "go"
-                              (LamT Untyped ["acc","m"]
-                                    (IfThenElseT Untyped (BinPrimOpT Untyped EqA (TermT Untyped (Var "m")) (TermT Untyped (LitInt 0)))
-                                                         (TermT Untyped (Var "acc"))
-                                                         (AppT Untyped (TermT Untyped (Var "go")) [ BinPrimOpT Untyped AddI (TermT Untyped (Var "acc")) (TermT Untyped (Var "m"))
-                                                                                                  , BinPrimOpT Untyped SubI (TermT Untyped (Var "m")) (TermT Untyped (LitInt 1)) ])))
-                              (AppT Untyped (TermT Untyped (Var "go")) [ TermT Untyped (LitInt 0)
-                                                                       , TermT Untyped (Var "n")])))
+                  (Lam Untyped ["n"]
+                        (Let Untyped "go"
+                              (Lam Untyped ["acc","m"]
+                                    (IfThenElse Untyped (BinPrimOp Untyped EqA (Term Untyped (Var "m")) (Term Untyped (LitInt 0)))
+                                                         (Term Untyped (Var "acc"))
+                                                         (App Untyped (Term Untyped (Var "go")) [ BinPrimOp Untyped AddI (Term Untyped (Var "acc")) (Term Untyped (Var "m"))
+                                                                                                  , BinPrimOp Untyped SubI (Term Untyped (Var "m")) (Term Untyped (LitInt 1)) ])))
+                              (App Untyped (Term Untyped (Var "go")) [ Term Untyped (LitInt 0)
+                                                                       , Term Untyped (Var "n")])))
 
     let md = Module { getDataDefns = []
                     , getTypeSigs  = []
@@ -100,13 +100,13 @@ test_mutual_recursion = unitTest $ do
 
     let yep =
           FunDefn "yep" $
-              LamT Untyped ["y"] $
-                  AppT Untyped (TermT Untyped (Var "not")) [AppT Untyped (TermT Untyped (Var "yesnt")) [TermT Untyped (Var "y")]]
+              Lam Untyped ["y"] $
+                  App Untyped (Term Untyped (Var "not")) [App Untyped (Term Untyped (Var "yesnt")) [Term Untyped (Var "y")]]
 
     let yesnt =
           FunDefn "yesnt" $
-              LamT Untyped ["n"] $
-                  AppT Untyped (TermT Untyped (Var "not")) [AppT Untyped (TermT Untyped (Var "yep")) [TermT Untyped (Var "n")]]
+              Lam Untyped ["n"] $
+                  App Untyped (Term Untyped (Var "not")) [App Untyped (Term Untyped (Var "yep")) [Term Untyped (Var "n")]]
 
     let md = Module { getDataDefns = []
                     , getTypeSigs  = [ TypeSig "not" (TyCon "Bool" [] ->> TyCon "Bool" []) ]
@@ -131,10 +131,10 @@ test_simple_datatype = unitTest $ do
         answer = DataDefn "Answer" ["a"] [dcYes, dcNo]
 
     -- Functions
-    let fNo  = FunDefn "no"  (AppT Untyped (TermT Untyped $ DCons "No")
-                                           [TermT Untyped $ LitString "no"])
-        fYes = FunDefn "yes" (AppT Untyped (TermT Untyped $ DCons "Yes")
-                                           [TermT Untyped $ LitInt 1])
+    let fNo  = FunDefn "no"  (App Untyped (Term Untyped $ DCons "No")
+                                           [Term Untyped $ LitString "no"])
+        fYes = FunDefn "yes" (App Untyped (Term Untyped $ DCons "Yes")
+                                           [Term Untyped $ LitInt 1])
 
     let md = Module { getDataDefns = [answer]
                     , getTypeSigs  = []
@@ -164,8 +164,8 @@ test_recursive_datatype = unitTest $ do
         list    = DataDefn "List" ["a"] [dcEmpty, dcCons]
 
     -- Functions
-    let myList  = FunDefn "myList" (AppT Untyped (TermT Untyped $ DCons "Cons") [ TermT Untyped $ LitInt 1
-                                                                                , TermT Untyped $ DCons "Empty"])
+    let myList  = FunDefn "myList" (App Untyped (Term Untyped $ DCons "Cons") [ Term Untyped $ LitInt 1
+                                                                                , Term Untyped $ DCons "Empty"])
 
     let md = Module { getDataDefns = [list]
                     , getTypeSigs  = []
@@ -184,7 +184,7 @@ unitTest :: PropertyT IO () -> Property
 unitTest = withTests 1 . property
 
 getPolyType :: FunDefnT (Type s) s -> Polytype s
-getPolyType (FunDefnT _ (Quant vs) exprT) = Forall vs (typeOf exprT)
+getPolyType (FunDefnT _ (Quant vs) expr) = Forall vs (typeOf expr)
 
 (->>) :: Type s -> Type s -> Type s
 (->>) = TyArr

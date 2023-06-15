@@ -17,14 +17,14 @@ inferTerm :: Map ByteString (Polytype ByteString)
           -> State (GroupState ByteString) (Expr (Type ByteString) ByteString)
 inferTerm env term =
     case term of
-        LitBool{}   -> pure $ TermT typeBool term
-        LitInt{}    -> pure $ TermT typeInt term
-        LitString{} -> pure $ TermT typeString term
+        LitBool{}   -> pure $ Term typeBool term
+        LitInt{}    -> pure $ Term typeInt term
+        LitString{} -> pure $ Term typeString term
         DCons d     ->
             case M.lookup d env of
                 Nothing -> error $ "unbound data cons: " ++ show d
-                Just p -> instantiate p <&> \t -> TermT t term
+                Just p -> instantiate p <&> \t -> Term t term
         Var v       ->
             case M.lookup v env of
                 Nothing -> error $ "unbound var: " ++ show v
-                Just p  -> instantiate p <&> \t -> TermT t term
+                Just p  -> instantiate p <&> \t -> Term t term

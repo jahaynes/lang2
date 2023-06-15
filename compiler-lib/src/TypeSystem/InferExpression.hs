@@ -23,27 +23,27 @@ inferExpr env expr =
 
     case expr of
 
-        TermT Untyped t ->
+        Term Untyped t ->
             inferTerm env t <&> \t' -> ([], t')
 
-        LamT Untyped vs e -> do
+        Lam Untyped vs e -> do
             tvs <- replicateM (length vs) freshTVar
             let env' = M.fromList $ zip vs (Forall [] <$> tvs)
             (cs, e') <- inferExpr (env <!> env') e
             let ty = foldr TyArr (typeOf e') tvs
             pure ( cs
-                 , LamT ty vs e' )
+                 , Lam ty vs e' )
 
-        AppT Untyped f xs -> do
+        App Untyped f xs -> do
             (c1, f')  <-                 inferExpr env  f
             (cs, xs') <- unzip <$> mapM (inferExpr env) xs
             tv        <- freshTVar
             let ts = map typeOf xs'
             let t1 = typeOf f'
             pure ( c1 ++ concat cs ++ [Constraint t1 (foldr TyArr tv ts)]
-                 , AppT tv f' xs' )
+                 , App tv f' xs' )
 
-        LetT Untyped a b c -> do
+        Let Untyped a b c -> do
             tv <- freshTVar
             ta <- freshTVar
             let env' = M.insert a (Forall [] ta) env
@@ -52,39 +52,39 @@ inferExpr env expr =
             pure ( Constraint ta (typeOf b')
                  : Constraint tv (typeOf c')
                  : csb ++ csc
-                 , LetT tv a b' c' )
+                 , Let tv a b' c' )
 
-        UnPrimOpT Untyped op e -> do
+        UnPrimOp Untyped op e -> do
             (c, e') <- inferExpr env e
             tv      <- freshTVar
             tOp     <- unOp op
             pure ( c ++ [Constraint (typeOf e' `TyArr` tv) tOp]
-                 , UnPrimOpT tv op e' )
+                 , UnPrimOp tv op e' )
 
-        BinPrimOpT Untyped op e1 e2 -> do
+        BinPrimOp Untyped op e1 e2 -> do
             (c1, e1') <- inferExpr env e1
             (c2, e2') <- inferExpr env e2
             tv        <- freshTVar
             tOp       <- binOp op
             pure ( c1 ++ c2 ++ [Constraint (typeOf e1' `TyArr` (typeOf e2' `TyArr` tv)) tOp]
-                 , BinPrimOpT tv op e1' e2' )
+                 , BinPrimOp tv op e1' e2' )
 
-        IfThenElseT Untyped p tr fl -> do
+        IfThenElse Untyped p tr fl -> do
             (c1, p')  <- inferExpr env p
             (c2, tr') <- inferExpr env tr
             (c3, fl') <- inferExpr env fl
             pure ( c1 ++ c2 ++ c3 ++ [ Constraint (typeOf p') typeBool
                                      , Constraint (typeOf tr') (typeOf fl')]
-                 , IfThenElseT (typeOf tr') p' tr' fl' )
+                 , IfThenElse (typeOf tr') p' tr' fl' )
 
-        CaseT Untyped scrut ps -> do
+        Case Untyped scrut ps -> do
 
             tv           <- freshTVar
             (cs, scrut') <- inferExpr env scrut
             (pcs, ps')   <- unzip <$> mapM (inferPattern env) ps
 
             -- get left and right hand types
-            let (lts, rts) = unzip $ map (\(PatternT a b) -> (typeOf a, typeOf b)) ps'
+            let (lts, rts) = unzip $ map (\(Pattern a b) -> (typeOf a, typeOf b)) ps'
 
             -- the left-side of each pattern must match the scrutinee
             let lhs = map (Constraint (typeOf scrut')) lts
@@ -93,19 +93,19 @@ inferExpr env expr =
             let rhs = map (Constraint tv) rts
 
             pure ( cs ++ concat pcs ++ lhs ++ rhs
-                 , CaseT tv scrut' ps')
+                 , Case tv scrut' ps')
 
 inferPattern :: Map ByteString (Polytype ByteString)
-             -> PatternT Untyped ByteString
+             -> Pattern Untyped ByteString
              -> State (GroupState ByteString) ( [Constraint ByteString]
-                                              , PatternT (Type ByteString) ByteString )
-inferPattern env (PatternT a b) = do
+                                              , Pattern (Type ByteString) ByteString )
+inferPattern env (Pattern a b) = do
     -- TODO: should probably enforce arity of LHS data constructions
     lhsVars <- fmap (Forall []) <$> labelLeftFreshVars a -- Guess
     (acs, a') <- inferExpr (env <!> lhsVars) a
     (bcs, b') <- inferExpr (env <!> lhsVars) b
     pure ( acs <> bcs
-         , PatternT a' b')
+         , Pattern a' b')
 
 (<!>) :: (Ord k, Show v, Eq v) => Map k v -> Map k v -> Map k v
 m1 <!> m2 = M.unionWith same m1 m2
@@ -120,24 +120,24 @@ labelLeftFreshVars a =
 
     case a of
 
-        AppT Untyped dc xs -> do
+        App Untyped dc xs -> do
             fdc <- labelLeftFreshVars dc
             fxs <- mapM labelLeftFreshVars xs
             pure $ mconcat (fdc:fxs)
 
-        TermT Untyped DCons{} ->
+        Term Untyped DCons{} ->
             pure mempty
 
-        TermT Untyped LitBool{} ->
+        Term Untyped LitBool{} ->
             pure mempty
 
-        TermT Untyped LitInt{} ->
+        Term Untyped LitInt{} ->
             pure mempty
 
-        TermT Untyped LitString{} ->
+        Term Untyped LitString{} ->
             pure mempty
 
-        TermT Untyped (Var v) ->
+        Term Untyped (Var v) ->
             M.singleton v <$> freshTVar
 
 -- TODO dedupe?
@@ -145,4 +145,4 @@ varsFrom :: Show s => [Expr Untyped s] -> [s]
 varsFrom = go []
     where
     go acc                 [] = acc
-    go acc (TermT Untyped (Var v):xs) = go (v:acc) xs
+    go acc (Term Untyped (Var v):xs) = go (v:acc) xs

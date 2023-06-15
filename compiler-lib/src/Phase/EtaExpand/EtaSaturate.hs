@@ -22,13 +22,13 @@ saturateExpr :: Ord s => Map s [(s, Type s)]
 saturateExpr extraParams = go
 
     where
-    go (TermT t term) =
-        TermT t term
+    go (Term t term) =
+        Term t term
 
-    go (LamT t vs body) =
-        LamT t vs (go body)
+    go (Lam t vs body) =
+        Lam t vs (go body)
 
-    go (AppT t f@(TermT _ (Var fv)) xs) = do
+    go (App t f@(Term _ (Var fv)) xs) = do
 
         let f'  = go f
             xs' = map go xs
@@ -36,12 +36,12 @@ saturateExpr extraParams = go
         case M.lookup fv extraParams of
 
             Nothing ->
-                AppT t f' xs'
+                App t f' xs'
 
             Just eps -> do
 
                 -- Append the extra (typed) arguments to the apply
-                let xs'' = xs' ++ map (\(v, vt) -> TermT vt (Var v)) eps
+                let xs'' = xs' ++ map (\(v, vt) -> Term vt (Var v)) eps
 
                 -- The extra variables for the fresh enclosing lambda
                 let vs = map fst eps
@@ -50,25 +50,25 @@ saturateExpr extraParams = go
                 -- TODO untested
                 let t' = foldr (TyArr . snd) t eps
 
-                LamT t' vs (AppT t f' xs'')
+                Lam t' vs (App t f' xs'')
 
-    go (AppT t f xs) =
-        AppT t (go f) (map go xs)
+    go (App t f xs) =
+        App t (go f) (map go xs)
 
-    go (LetT t a b c) =
-        LetT t a (go b) (go c)
+    go (Let t a b c) =
+        Let t a (go b) (go c)
 
-    go (UnPrimOpT t op e1) =
-        UnPrimOpT t op (go e1)
+    go (UnPrimOp t op e1) =
+        UnPrimOp t op (go e1)
 
-    go (BinPrimOpT t op e1 e2) =
-        BinPrimOpT t op (go e1) (go e2)
+    go (BinPrimOp t op e1 e2) =
+        BinPrimOp t op (go e1) (go e2)
 
-    go (IfThenElseT t pr tr fl) =
-        IfThenElseT t (go pr) (go tr) (go fl)
+    go (IfThenElse t pr tr fl) =
+        IfThenElse t (go pr) (go tr) (go fl)
 
-    go (CaseT t scrut ps) =
-        CaseT t (go scrut) (map goPat ps)
+    go (Case t scrut ps) =
+        Case t (go scrut) (map goPat ps)
 
-    goPat (PatternT a b) =
-        PatternT (go a) (go b)
+    goPat (Pattern a b) =
+        Pattern (go a) (go b)

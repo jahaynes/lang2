@@ -43,25 +43,25 @@ expandTwoMissingArguments =
 missing0 :: FunDefnT (Type ByteString) ByteString
 missing0 =
     FunDefnT "missing" (Quant [])
-                       (LamT (typeBool ->> (typeInt ->> typeString))
+                       (Lam (typeBool ->> (typeInt ->> typeString))
                              ["eta_0", "eta_1"]
-                             (AppT typeString
-                                   (TermT (typeBool ->> (typeInt ->> typeString)) (Var "full"))
-                                   [ TermT typeBool (Var "eta_0")
-                                   , TermT typeInt  (Var "eta_1") ]))
+                             (App typeString
+                                   (Term (typeBool ->> (typeInt ->> typeString)) (Var "full"))
+                                   [ Term typeBool (Var "eta_0")
+                                   , Term typeInt  (Var "eta_1") ]))
 
 missing1 :: FunDefnT (Type ByteString) ByteString
 missing1 =
     FunDefnT "missing" (Quant [])
-                       (LamT (typeBool ->> (typeInt ->> typeString))
+                       (Lam (typeBool ->> (typeInt ->> typeString))
                              ["eta_0"]
-                             (AppT (typeInt ->> typeString)
-                                   (TermT (typeBool ->> (typeInt ->> typeString)) (Var "full"))
-                                   [ TermT typeBool (Var "eta_0") ]))
+                             (App (typeInt ->> typeString)
+                                   (Term (typeBool ->> (typeInt ->> typeString)) (Var "full"))
+                                   [ Term typeBool (Var "eta_0") ]))
 
 missing2 :: FunDefnT (Type ByteString) ByteString
 missing2 =
-    FunDefnT "missing" (Quant []) (TermT (typeBool ->> (typeInt ->> typeString)) (Var "full"))
+    FunDefnT "missing" (Quant []) (Term (typeBool ->> (typeInt ->> typeString)) (Var "full"))
 
 unitTest :: PropertyT IO () -> Property
 unitTest = withTests 1 . property

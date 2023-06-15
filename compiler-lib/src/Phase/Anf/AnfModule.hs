@@ -50,58 +50,58 @@ normExpr expr k =
 
     case expr of
 
-        AppT t f xs ->
+        App t f xs ->
             normAtom f $ \f' ->
                 normAtoms xs $ \xs' ->
                     k $ CExp $ CApp t f' xs'
 
-        LamT t vs body -> do
+        Lam t vs body -> do
             body' <- norm body
             k $ AExp (ALam t vs body')
 
-        LetT _ a b c ->
+        Let _ a b c ->
             normExpr b $ \b' ->
                 NLet a b' <$> normExpr c k
 
-        IfThenElseT t pr tr fl ->
+        IfThenElse t pr tr fl ->
             normAtom pr $ \pr' -> do
                 tr' <- norm tr
                 fl' <- norm fl
                 k $ CExp $ CIfThenElse t pr' tr' fl'
 
-        UnPrimOpT t op a ->
+        UnPrimOp t op a ->
             normAtom a $ \a' ->
                 k $ AExp $ AUnPrimOp t op a'
 
-        BinPrimOpT t op a b ->
+        BinPrimOp t op a b ->
             normAtom a $ \a' ->
                 normAtom b $ \b' ->
                     k $ AExp $ ABinPrimOp t op a' b'
 
-        TermT t (LitBool i) ->
+        Term t (LitBool i) ->
             k $ AExp $ ATerm t $ LitBool i
 
-        TermT t (LitInt i) ->
+        Term t (LitInt i) ->
             k $ AExp $ ATerm t $ LitInt i
 
-        TermT t (LitString s) ->
+        Term t (LitString s) ->
             k $ AExp $ ATerm t (LitString s)
 
-        TermT t (Var v) ->
+        Term t (Var v) ->
             k $ AExp $ ATerm t $ Var v
 
-        TermT t (DCons d) ->
+        Term t (DCons d) ->
             k $ AExp $ ATerm t $ DCons d
 
         -- Probably the same way as IfThenElse !
-        CaseT t scrut ps ->
+        Case t scrut ps ->
             normAtom scrut $ \scrut' -> do
                 ps' <- mapM normPattern ps
                 k $ CExp $ CCase t scrut' ps'
 
 -- both parts necessary?
-normPattern :: Show s => PatternT (Type s) s -> State (AnfState s) (PExp s)
-normPattern (PatternT a b) =
+normPattern :: Show s => Pattern (Type s) s -> State (AnfState s) (PExp s)
+normPattern (Pattern a b) =
     PExp <$> norm a <*> norm b
 
 normAtom :: Show s => Expr (Type s) s
@@ -112,7 +112,7 @@ normAtom e k =
     case e of
 
         -- Assumes v == lam == lam'
-        LamT t vs body ->
+        Lam t vs body ->
             normExpr body $ \body' -> do
                 v    <- symGen =<< get
                 rest <- k $ ATerm t $ Var v
@@ -121,7 +121,7 @@ normAtom e k =
                             rest
 
         -- assumes v == app == app'
-        AppT t f xs ->
+        App t f xs ->
             normAtom f $ \f' ->
                 normAtoms xs $ \xs' -> do
                     v    <- symGen =<< get
@@ -130,12 +130,12 @@ normAtom e k =
                                 (CExp $ CApp t f' xs')
                                 rest
 
-        LetT _ a b c ->
+        Let _ a b c ->
             normExpr b $ \b' ->
                 NLet a b' <$> normAtom c k
 
         -- assumes v == ite == ite'
-        IfThenElseT t pr tr fl ->
+        IfThenElse t pr tr fl ->
             normAtom pr $ \pr' -> do
                 v    <- symGen =<< get
                 tr'  <- norm tr
@@ -145,28 +145,28 @@ normAtom e k =
                             (CExp $ CIfThenElse t pr' tr' fl')
                             rest
 
-        UnPrimOpT t op a ->
+        UnPrimOp t op a ->
             normAtom a $ \a' ->
                 k $ AUnPrimOp t op a'
 
-        BinPrimOpT t op a b ->
+        BinPrimOp t op a b ->
             normAtom a $ \a' ->
                 normAtom b $ \b' ->
                     k $ ABinPrimOp t op a' b'
 
-        TermT t (LitBool i) ->
+        Term t (LitBool i) ->
             k $ ATerm t (LitBool i)
 
-        TermT t (LitInt i) ->
+        Term t (LitInt i) ->
             k $ ATerm t (LitInt i)
 
-        TermT t (LitString s) ->
+        Term t (LitString s) ->
             k $ ATerm t (LitString s)
 
-        TermT t (Var v) ->
+        Term t (Var v) ->
             k $ ATerm t (Var v)
 
-        TermT t (DCons d) ->
+        Term t (DCons d) ->
             k $ ATerm t (DCons d)
 
 normAtoms :: Show s => [Expr (Type s) s]

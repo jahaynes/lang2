@@ -23,7 +23,7 @@ printTypedModule :: ModuleT (Type ByteString) ByteString -> Builder
 printTypedModule (ModuleT _ funDefnTs) = TB.intercalate "\n\n" (map printTFunDefn funDefnTs)
 
 printTFunDefn :: FunDefnT (Type ByteString) ByteString -> Builder
-printTFunDefn (FunDefnT n (Quant qs) (LamT t vs body)) =
+printTFunDefn (FunDefnT n (Quant qs) (Lam t vs body)) =
 
     let sig  = TB.intercalate " " [ bytestring n
                                   , ":"
@@ -56,47 +56,47 @@ printTypedExpression ind aexp =
 
     case aexp of
 
-        (TermT t term) ->
+        (Term t term) ->
             TB.intercalate " " [ "(" <> printTerm (decodeUtf8 <$> term)
                                , ":"
                                , printType t <> ")"]
 
-        (LamT _ vs body) ->
+        (Lam _ vs body) ->
             let body' = printTypedExpression ind body
             in
             mconcat ["(\\", printVars vs, ". ", body', ")"]
 
-        (AppT t f xs) ->
+        (App t f xs) ->
             let f'  = printTypedExpression ind f
                 xs' = map (printTypedExpression ind) xs
             in mconcat ["(", TB.intercalate " " (f':xs'), " : ", printType t, ")"]
 
-        (LetT _ a b c) ->
+        (Let _ a b c) ->
             let a' = mconcat ["(", bytestring a, " : ", printType (typeOf b), ")"]
             in TB.intercalate "\n" [ indent ind <> "let " <> a' <> " = " <> printTypedExpression ind b <> " in"
                                    , indent ind <> printTypedExpression ind c ]
 
-        (UnPrimOpT _ op a) ->
+        (UnPrimOp _ op a) ->
             TB.intercalate " " [ printUnOp op
                                , printTypedExpression ind a ]
-        (BinPrimOpT _ op a b) ->
+        (BinPrimOp _ op a b) ->
             TB.intercalate " " [ printTypedExpression ind a
                                , printBinOp op
                                , printTypedExpression ind b ]
 
-        (IfThenElseT _ pr tr fl) ->
+        (IfThenElse _ pr tr fl) ->
             TB.intercalate "\n" [ indent  ind    <> "if "   <> printTypedExpression  ind    pr
                                 , indent (ind+2) <> "then " <> printTypedExpression (ind+2) tr
                                 , indent (ind+2) <> "else " <> printTypedExpression (ind+2) fl ]
 
-        (CaseT _ scrut patterns) ->
+        (Case _ scrut patterns) ->
             TB.intercalate "\n" ( indent ind <> "case " <> printTypedExpression ind scrut <> " of"
                                 : map (printPattern (ind+1)) patterns )
 
 printPattern :: Int
-             -> PatternT (Type ByteString) ByteString
+             -> Pattern (Type ByteString) ByteString
              -> Builder
-printPattern ind (PatternT lhs rhs) =
+printPattern ind (Pattern lhs rhs) =
     mconcat [ indent ind
             , printTypedExpression ind lhs
             , " -> "
