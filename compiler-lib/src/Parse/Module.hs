@@ -14,10 +14,10 @@ import           Data.ByteString (ByteString)
 import           Data.Vector      ((!?))
 import qualified Data.IntSet as IS
 
--- TODO always untyped?
+-- TODO always untyped? probably
 data ModuleElement t s = ModuleDataDefn (DataDefn s)
                        | ModuleTypeSig (TypeSig s)
-                       | ModuleFunDefn (FunDefn t s)
+                       | ModuleFunDefn (FunDefnT t s)
 
 parseDefns :: Parser ParseState (Module Untyped ByteString)
 parseDefns = go [] [] [] <$> many' parseDefn
@@ -39,12 +39,12 @@ assertLineStart = Parser $ \ps ->
         Just 0 -> Right (ps, ())
         _      -> Left "Not a line start"
 
-parseFunDefn :: Parser ParseState (FunDefn Untyped ByteString)
+parseFunDefn :: Parser ParseState (FunDefnT Untyped ByteString)
 parseFunDefn = do
     (name, vars) <- parseWhileColumns1 MoreRight parseLowerStart
     token TEq
     expr <- parseExpr
-    pure $ FunDefn name $
+    pure $ FunDefnT name (Quant []) $
         case vars of
             [] -> expr
             _  -> Lam Untyped vars expr

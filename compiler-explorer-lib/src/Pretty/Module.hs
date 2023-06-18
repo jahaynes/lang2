@@ -4,7 +4,6 @@ module Pretty.Module where
 
 import Core.Expression
 import Core.Module
-import Core.Types (Untyped (..))
 import Pretty.Expression
 
 import           Data.ByteString    (ByteString)
@@ -26,13 +25,13 @@ moduleToText md =
         funDefs  = map (TB.text . pack . show) $ getFunDefns md
     in TB.run . TB.intercalate "\n\n" $ mconcat [dataDefs, funDefs]
 
-printFunDefn :: Show t => FunDefn t Text -> Builder
-printFunDefn (FunDefn f (Lam _ vs x)) =
+printFunDefn :: Show t => FunDefnT t Text -> Builder
+printFunDefn (FunDefnT f _ (Lam _ vs x)) = -- TODO quant
     let fvs'    = TB.intercalate " " $ map TB.text (f:vs)
         (_, x') = printExpr x
     in mconcat [fvs', " = ", x']
 
-printFunDefn (FunDefn f x) =
+printFunDefn (FunDefnT f _ x) = -- TODO quant
     let f'      = TB.text f
         (_, x') = printExpr x
     in mconcat [f', " = ", x']

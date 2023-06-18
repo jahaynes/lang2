@@ -24,23 +24,23 @@ buildGraph = buildGraph' . getFunDefns
 
 -- TODO: pass in data definitions, and check for scope below in 'go'
 -- TODO: Does this need to be hardcoded to Untyped?
-buildGraph' :: (Ord s, Show s) => [FunDefn Untyped s] -> CallGraph s
+buildGraph' :: (Ord s, Show s) => [FunDefnT Untyped s] -> CallGraph s
 buildGraph' = CallGraph . M.unions . map go
 
     where
-    go (FunDefn n e) = M.singleton n (fn (S.singleton n) e)
+    go (FunDefnT n _ e) = M.singleton n (fn (S.singleton n) e)
 
         where
-        fn scope (Term Untyped (Var v))    = S.singleton v \\ scope
-        fn     _ (Term Untyped (DCons d))  = mempty -- S.singleton d \\ scope -- Guess
-        fn     _ (Term Untyped       _)    = mempty
-        fn scope (Lam Untyped vs body)     = fn (foldr S.insert scope vs) body
-        fn scope (App Untyped f xs)        = mconcat $ map (fn scope) (f:xs)
-        fn scope (Let Untyped a b c)       = let scope' = S.insert a scope in fn scope' b <> fn scope' c
-        fn scope (UnPrimOp Untyped _ a)    = fn scope a
-        fn scope (BinPrimOp Untyped _ a b) = fn scope a <> fn scope b
+        fn scope (Term Untyped (Var v))     = S.singleton v \\ scope
+        fn     _ (Term Untyped (DCons d))   = mempty -- S.singleton d \\ scope -- Guess
+        fn     _ (Term Untyped       _)     = mempty
+        fn scope (Lam Untyped vs body)      = fn (foldr S.insert scope vs) body
+        fn scope (App Untyped f xs)         = mconcat $ map (fn scope) (f:xs)
+        fn scope (Let Untyped a b c)        = let scope' = S.insert a scope in fn scope' b <> fn scope' c
+        fn scope (UnPrimOp Untyped _ a)     = fn scope a
+        fn scope (BinPrimOp Untyped _ a b)  = fn scope a <> fn scope b
         fn scope (IfThenElse Untyped p t f) = mconcat $ map (fn scope) [p, t, f]
-        fn scope (Case Untyped scrut ps)   = fn scope scrut <> mconcat (map (pt scope) ps)
+        fn scope (Case Untyped scrut ps)    = fn scope scrut <> mconcat (map (pt scope) ps)
 
         pt scope (Pattern a b) = mempty -- TODO
 

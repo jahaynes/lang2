@@ -22,7 +22,7 @@ import qualified Data.Set as S
 
 data ModuleState t s =
     ModuleState { getEnv     :: Map s (Polytype s)
-                , getUntyped :: [Set (FunDefn t s)]
+                , getUntyped :: [Set (FunDefnT t s)]
                 } deriving Show
 
 inferModule :: Module Untyped ByteString
@@ -30,13 +30,13 @@ inferModule :: Module Untyped ByteString
 inferModule md = do
 
     let funDefnMap = M.fromList
-                   . map (\(FunDefn n e) -> (n, e))
+                   . map (\(FunDefnT n _ e) -> (n, e))
                    $ getFunDefns md
 
     typeCheckPlan <- planExcludingPretyped md (buildGraph md)
 
     let untypedFunDefs =
-            S.map (\n -> FunDefn n (funDefnMap !!! n)) <$> typeCheckPlan
+            S.map (\n -> FunDefnT n (Quant []) (funDefnMap !!! n)) <$> typeCheckPlan
 
     let typeSigs = M.fromList
                  . map (\(TypeSig n t) -> (n, Forall [pack "TODO"] t))
@@ -101,13 +101,13 @@ data GroupInference =
         Just x  -> x
 
 inferGroup :: Map ByteString (Polytype ByteString)
-           -> Set (FunDefn Untyped ByteString)
+           -> Set (FunDefnT Untyped ByteString)
            -> State (GroupState ByteString)
                     (Either ByteString GroupInference)
 
 inferGroup env untyped = do
 
-    let namesAndExprs = map (\(FunDefn n e) -> (n, e)) $ S.toList untyped
+    let namesAndExprs = map (\(FunDefnT n _ e) -> (n, e)) $ S.toList untyped
 
     -- TODO merge the following 2 steps (why instantiate to immediately generalise)
 
