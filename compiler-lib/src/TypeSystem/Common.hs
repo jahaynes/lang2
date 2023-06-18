@@ -49,10 +49,10 @@ instantiate (Forall as t) = do
 -- (only inspects the top-level type)
 generaliseTopLevel :: (Ord s, Show s) => s
                                       -> Expr (Type s) s
-                                      -> FunDefnT (Type s) s
+                                      -> FunDefn (Type s) s
 generaliseTopLevel name expr =
     let fv = S.toList $ typeVars expr
-    in FunDefnT name (Quant fv) expr
+    in FunDefn name (Quant fv) expr
 
 -- stick elsewhere?
 typeVars :: Ord s => Expr (Type s) s -> Set s

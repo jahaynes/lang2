@@ -16,14 +16,14 @@ import           Data.Text.Encoding
 import           Text.Builder          (Builder)
 import qualified Text.Builder as TB
 
-renderTypedModule :: ModuleT (Type ByteString) ByteString -> Text
+renderTypedModule :: Module (Type ByteString) ByteString -> Text
 renderTypedModule = TB.run . printTypedModule
 
-printTypedModule :: ModuleT (Type ByteString) ByteString -> Builder
-printTypedModule (ModuleT _ funDefnTs) = TB.intercalate "\n\n" (map printTFunDefn funDefnTs)
+printTypedModule :: Module (Type ByteString) ByteString -> Builder
+printTypedModule (Module _ _ funDefns) = TB.intercalate "\n\n" (map printFunDefn funDefns)
 
-printTFunDefn :: FunDefnT (Type ByteString) ByteString -> Builder
-printTFunDefn (FunDefnT n (Quant qs) (Lam t vs body)) =
+printFunDefn :: FunDefn (Type ByteString) ByteString -> Builder
+printFunDefn (FunDefn n (Quant qs) (Lam t vs body)) =
 
     let sig  = TB.intercalate " " [ bytestring n
                                   , ":"
@@ -36,7 +36,7 @@ printTFunDefn (FunDefnT n (Quant qs) (Lam t vs body)) =
     in TB.intercalate "\n" [sig, impl <> printTypedExpression 1 body]
 
  -- TODO quantified?
-printTFunDefn (FunDefnT n _ expr) =
+printFunDefn (FunDefn n _ expr) =
 
     let sig = TB.intercalate " " [ bytestring n
                                  , ":"

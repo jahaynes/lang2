@@ -17,7 +17,7 @@ import qualified Data.IntSet as IS
 -- TODO always untyped? probably
 data ModuleElement t s = ModuleDataDefn (DataDefn s)
                        | ModuleTypeSig (TypeSig s)
-                       | ModuleFunDefn (FunDefnT t s)
+                       | ModuleFunDefn (FunDefn t s)
 
 parseDefns :: Parser ParseState (Module Untyped ByteString)
 parseDefns = go [] [] [] <$> many' parseDefn
@@ -39,12 +39,12 @@ assertLineStart = Parser $ \ps ->
         Just 0 -> Right (ps, ())
         _      -> Left "Not a line start"
 
-parseFunDefn :: Parser ParseState (FunDefnT Untyped ByteString)
+parseFunDefn :: Parser ParseState (FunDefn Untyped ByteString)
 parseFunDefn = do
     (name, vars) <- parseWhileColumns1 MoreRight parseLowerStart
     token TEq
     expr <- parseExpr
-    pure $ FunDefnT name (Quant []) $
+    pure $ FunDefn name (Quant []) $
         case vars of
             [] -> expr
             _  -> Lam Untyped vars expr

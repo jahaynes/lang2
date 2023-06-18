@@ -22,38 +22,42 @@ import qualified Data.Set as S
 
 data ModuleState t s =
     ModuleState { getEnv     :: Map s (Polytype s)
-                , getUntyped :: [Set (FunDefnT t s)]
+                , getUntyped :: [Set (FunDefn t s)]
                 } deriving Show
 
 inferModule :: Module Untyped ByteString
-            -> Either ByteString (ModuleT (Type ByteString) ByteString)
+            -> Either ByteString (Module (Type ByteString) ByteString)
 inferModule md = do
 
     let funDefnMap = M.fromList
-                   . map (\(FunDefnT n _ e) -> (n, e))
+                   . map (\(FunDefn n _ e) -> (n, e))
                    $ getFunDefns md
 
     typeCheckPlan <- planExcludingPretyped md (buildGraph md)
 
     let untypedFunDefs =
-            S.map (\n -> FunDefnT n (Quant []) (funDefnMap !!! n)) <$> typeCheckPlan
+            S.map (\n -> FunDefn n (Quant []) (funDefnMap !!! n)) <$> typeCheckPlan
 
-    let typeSigs = M.fromList
-                 . map (\(TypeSig n t) -> (n, Forall [pack "TODO"] t))
-                 $ getTypeSigs md
+    let typeSigs = getTypeSigs md
+
+    let typeSigs' = M.fromList
+                  . map (\(TypeSig n t) -> (n, Forall [pack "TODO"] t))
+                  $ typeSigs
+
+    -- TODO, either return the inferred typesigs or warn if they don't match the provided ones
 
     let dataConstructors =
             foldl' dataDefnToType mempty (getDataDefns md)
 
     let env =
-            typeSigs <!> dataConstructors
+            typeSigs' <!> dataConstructors
 
     -- TODO data definitions could accompany typeSigs here
     case foldl' go (Right $ GroupInference 0 env []) untypedFunDefs of
         Left ex -> Left ex
         Right (GroupInference _ _ defs') ->
             let dataDefns = getDataDefns md
-            in Right (ModuleT dataDefns defs')
+            in Right (Module dataDefns typeSigs defs')
 
     where
     go eGroupInference un =
@@ -92,7 +96,7 @@ dataDefnToType env (DataDefn typeName tvs dcons) =
 data GroupInference =
     GroupInference !Int
                    !(Map ByteString (Polytype ByteString))
-                   ![FunDefnT (Type ByteString) ByteString]
+                   ![FunDefn (Type ByteString) ByteString]
 
 (!!!) :: (Ord k, Show k, Show v) => Map k v -> k -> v
 (!!!) m k =
@@ -101,13 +105,13 @@ data GroupInference =
         Just x  -> x
 
 inferGroup :: Map ByteString (Polytype ByteString)
-           -> Set (FunDefnT Untyped ByteString)
+           -> Set (FunDefn Untyped ByteString)
            -> State (GroupState ByteString)
                     (Either ByteString GroupInference)
 
 inferGroup env untyped = do
 
-    let namesAndExprs = map (\(FunDefnT n _ e) -> (n, e)) $ S.toList untyped
+    let namesAndExprs = map (\(FunDefn n _ e) -> (n, e)) $ S.toList untyped
 
     -- TODO merge the following 2 steps (why instantiate to immediately generalise)
 
@@ -138,16 +142,16 @@ inferGroup env untyped = do
         Right sub -> do
 
             -- Define them as functions
-            let funDefnTs = map (cleanup sub) inferredTypedDefs
+            let funDefns = map (cleanup sub) inferredTypedDefs
 
             -- Put the newly-inferred types into the enviromment
             let env'' = M.fromList
-                      . map (\(FunDefnT n (Quant vs) expr) -> (n, Forall vs (typeOf expr)))
-                      $ funDefnTs
+                      . map (\(FunDefn n (Quant vs) expr) -> (n, Forall vs (typeOf expr)))
+                      $ funDefns
 
             n' <- getVarNum <$> get
 
-            pure . Right $ GroupInference n' env'' funDefnTs
+            pure . Right $ GroupInference n' env'' funDefns
 
 fromEnvOrFresh :: Show s => Map ByteString (Polytype ByteString)
                -> [ByteString]
@@ -162,7 +166,7 @@ fromEnvOrFresh env names =
 
 cleanup :: Subst ByteString
         -> (ByteString, Expr (Type ByteString) ByteString)
-        -> FunDefnT (Type ByteString) ByteString
+        -> FunDefn (Type ByteString) ByteString
 cleanup subst (name, expr) =
 
     -- Substitute type metavariables for types
@@ -170,11 +174,12 @@ cleanup subst (name, expr) =
 
     in norm $ generaliseTopLevel name expr'
 
-norm :: FunDefnT (Type ByteString) ByteString -> FunDefnT (Type ByteString) ByteString
-norm (FunDefnT name (Quant qs) expr) =
+norm :: FunDefn (Type ByteString) ByteString
+     -> FunDefn (Type ByteString) ByteString
+norm (FunDefn name (Quant qs) expr) =
     let normed = take (length qs) . map numToVar $ [0..]
         sub = M.fromList $ zip qs normed
-    in FunDefnT name (Quant normed) (mapType (go sub) expr)
+    in FunDefn name (Quant normed) (mapType (go sub) expr)
     where
     go sub (TyCon tc ts) = TyCon tc (map (go sub) ts)
     go sub (TyVar v)     = TyVar (sub !!! v)

@@ -14,18 +14,18 @@ data AnfModule s =
               , getFunDefAnfTs   :: [FunDefAnfT s]
               } deriving Show
 
-anfModule :: ModuleT (Type ByteString) ByteString -> AnfModule ByteString
+anfModule :: Module (Type ByteString) ByteString -> AnfModule ByteString
 anfModule md =
-    let funDefns  = getFunDefnTs md
+    let funDefns  = getFunDefns md
         funDefns' = map anfFunDefT funDefns
-    in AnfModule (getDataDefnTs md) funDefns'
+    in AnfModule (getDataDefns md) funDefns'
 
 data FunDefAnfT s =
     FunDefAnfT s (Quant s) (NExp s)
         deriving Show
 
-anfFunDefT :: FunDefnT (Type ByteString) ByteString -> FunDefAnfT ByteString
-anfFunDefT (FunDefnT n pt expr) =
+anfFunDefT :: FunDefn (Type ByteString) ByteString -> FunDefAnfT ByteString
+anfFunDefT (FunDefn n pt expr) =
     let expr' = evalState (norm expr) (AnfState 0 genSym)
     in FunDefAnfT n pt expr'
 

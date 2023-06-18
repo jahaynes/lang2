@@ -21,17 +21,19 @@ data EtaState =
              , getExtraParams :: !(Map ByteString [(ByteString, Type ByteString)])
              } deriving Show
 
-etaExpand :: ModuleT (Type ByteString) ByteString -> ModuleT (Type ByteString) ByteString
+-- TODO can just be t?
+etaExpand :: Module (Type ByteString) ByteString
+          -> Module (Type ByteString) ByteString
 etaExpand md =
 
-    let (funDefns', st) = runState (mapM expandDefn $ getFunDefnTs md) (EtaState 0 mempty mempty)
+    let (funDefns', st) = runState (mapM expandDefn $ getFunDefns md) (EtaState 0 mempty mempty)
 
-    in etaSaturate (md { getFunDefnTs = funDefns' })
+    in etaSaturate (md { getFunDefns = funDefns' })
                    (getExtraParams st)
 
-expandDefn :: FunDefnT (Type ByteString) ByteString
-           -> State EtaState (FunDefnT (Type ByteString) ByteString)
-expandDefn (FunDefnT n q e) = do
+expandDefn :: FunDefn (Type ByteString) ByteString
+           -> State EtaState (FunDefn (Type ByteString) ByteString)
+expandDefn (FunDefn n q e) = do
 
     e' <- expandExpr e
 
@@ -47,7 +49,7 @@ expandDefn (FunDefnT n q e) = do
                         in st { getExtraParams = M.insert n tvd (getExtraParams st) }
         _ -> pure ()
 
-    pure $ FunDefnT n q e'
+    pure $ FunDefn n q e'
 
 expandExpr :: Expr (Type ByteString) ByteString
            -> State EtaState (Expr (Type ByteString) ByteString)

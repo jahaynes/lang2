@@ -24,11 +24,11 @@ buildGraph = buildGraph' . getFunDefns
 
 -- TODO: pass in data definitions, and check for scope below in 'go'
 -- TODO: Does this need to be hardcoded to Untyped?
-buildGraph' :: (Ord s, Show s) => [FunDefnT Untyped s] -> CallGraph s
+buildGraph' :: (Ord s, Show s) => [FunDefn Untyped s] -> CallGraph s
 buildGraph' = CallGraph . M.unions . map go
 
     where
-    go (FunDefnT n _ e) = M.singleton n (fn (S.singleton n) e)
+    go (FunDefn n _ e) = M.singleton n (fn (S.singleton n) e)
 
         where
         fn scope (Term Untyped (Var v))     = S.singleton v \\ scope
