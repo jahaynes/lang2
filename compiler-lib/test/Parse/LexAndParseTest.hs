@@ -34,7 +34,7 @@ prop_simple_definition = unitTest $ do
             lexAndParseWith parseFunDefn "x = 5"
 
     tokens === [TLowerStart "x", TEq, TLitInt 5]
-    pr === FunDefn "x" (Term Untyped (LitInt 5))
+    pr === FunDefn "x" (Quant []) (Term Untyped (LitInt 5))
 
 test_mr_more_right :: Property
 test_mr_more_right = unitTest $ do

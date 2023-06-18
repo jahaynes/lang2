@@ -29,8 +29,8 @@ data TypeSig s =
     TypeSig s (Type s)
         deriving (Functor, Show)
 
-newtype Quant s =
-    Quant [s]
+data Quant s = Quant ![s]
+             | Unquant
         deriving (Eq, Ord, Show, Functor)
 
 data FunDefn t s =

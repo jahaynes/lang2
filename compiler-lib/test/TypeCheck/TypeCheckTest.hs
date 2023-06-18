@@ -45,11 +45,11 @@ test_generalisations = unitTest $ do
 
     let md = Module { getDataDefns = []
                     , getTypeSigs  = []
-                    , getFunDefns  = [ FunDefn "fst" (Lam Untyped ["a","b"] (Term Untyped (Var "a")))
-                                     , FunDefn "snd" (Lam Untyped ["x","y"] (Term Untyped (Var "y"))) ]
+                    , getFunDefns  = [ FunDefn "fst" Unquant (Lam Untyped ["a","b"] (Term Untyped (Var "a")))
+                                     , FunDefn "snd" Unquant (Lam Untyped ["x","y"] (Term Untyped (Var "y"))) ]
                     }
 
-    let r = map getPolyType . getFunDefnTs <$> inferModule md
+    let r = map getPolyType . getFunDefns <$> inferModule md
 
     r === Right [ Forall ["a0", "b0"] (TyVar "a0" ->> (TyVar "b0" ->> TyVar "a0"))
                 , Forall ["a0", "b0"] (TyVar "a0" ->> (TyVar "b0" ->> TyVar "b0")) ]
@@ -58,7 +58,7 @@ test_top_level_recursion :: Property
 test_top_level_recursion = unitTest $ do
 
     let fundefn =
-          FunDefn "countDown"
+          FunDefn "countDown" Unquant
                   (Lam Untyped ["n"] (IfThenElse Untyped (BinPrimOp Untyped EqA (Term Untyped (Var "n")) (Term Untyped (LitInt 0)))
                                                            (Term Untyped (LitString "Done"))
                                                            (App Untyped (Term Untyped (Var "countDown")) [BinPrimOp Untyped SubI
@@ -68,7 +68,7 @@ test_top_level_recursion = unitTest $ do
                     , getTypeSigs  = []
                     , getFunDefns  = [ fundefn ] }
 
-    let r = map getPolyType . getFunDefnTs <$> inferModule md
+    let r = map getPolyType . getFunDefns <$> inferModule md
 
     r === Right [Forall [] (TyCon "Int" [] ->> TyCon "String" [])]
 
@@ -76,7 +76,7 @@ test_nested_recursion :: Property
 test_nested_recursion = unitTest $ do
 
     let fundefn =
-          FunDefn "summorial"
+          FunDefn "summorial" Unquant
                   (Lam Untyped ["n"]
                         (Let Untyped "go"
                               (Lam Untyped ["acc","m"]
@@ -91,7 +91,7 @@ test_nested_recursion = unitTest $ do
                     , getTypeSigs  = []
                     , getFunDefns  = [ fundefn ] }
 
-    let r = map getPolyType . getFunDefnTs <$> inferModule md
+    let r = map getPolyType . getFunDefns <$> inferModule md
 
     r === Right [Forall [] (TyCon "Int" [] ->> TyCon "Int" [])]
 
@@ -99,12 +99,12 @@ test_mutual_recursion :: Property
 test_mutual_recursion = unitTest $ do
 
     let yep =
-          FunDefn "yep" $
+          FunDefn "yep" Unquant $
               Lam Untyped ["y"] $
                   App Untyped (Term Untyped (Var "not")) [App Untyped (Term Untyped (Var "yesnt")) [Term Untyped (Var "y")]]
 
     let yesnt =
-          FunDefn "yesnt" $
+          FunDefn "yesnt" Unquant $
               Lam Untyped ["n"] $
                   App Untyped (Term Untyped (Var "not")) [App Untyped (Term Untyped (Var "yep")) [Term Untyped (Var "n")]]
 
@@ -112,7 +112,7 @@ test_mutual_recursion = unitTest $ do
                     , getTypeSigs  = [ TypeSig "not" (TyCon "Bool" [] ->> TyCon "Bool" []) ]
                     , getFunDefns  = [ yep, yesnt ] }
 
-    let r = map getPolyType . getFunDefnTs <$> inferModule md
+    let r = map getPolyType . getFunDefns <$> inferModule md
 
     r === Right [ Forall ["a0"] (TyVar "a0" ->> TyCon "Bool" [])
                 , Forall ["a0"] (TyVar "a0" ->> TyCon "Bool" []) ]
@@ -131,10 +131,10 @@ test_simple_datatype = unitTest $ do
         answer = DataDefn "Answer" ["a"] [dcYes, dcNo]
 
     -- Functions
-    let fNo  = FunDefn "no"  (App Untyped (Term Untyped $ DCons "No")
-                                           [Term Untyped $ LitString "no"])
-        fYes = FunDefn "yes" (App Untyped (Term Untyped $ DCons "Yes")
-                                           [Term Untyped $ LitInt 1])
+    let fNo  = FunDefn "no"  Unquant (App Untyped (Term Untyped $ DCons "No")
+                                                  [Term Untyped $ LitString "no"])
+        fYes = FunDefn "yes" Unquant (App Untyped (Term Untyped $ DCons "Yes")
+                                                  [Term Untyped $ LitInt 1])
 
     let md = Module { getDataDefns = [answer]
                     , getTypeSigs  = []
@@ -142,10 +142,10 @@ test_simple_datatype = unitTest $ do
                     }
 
     let Right inferredModule =
-            inferModule md :: Either ByteString (ModuleT (Type ByteString) ByteString)
+            inferModule md :: Either ByteString (Module (Type ByteString) ByteString)
 
     let inferredFunTypes =
-            map getPolyType $ getFunDefnTs inferredModule
+            map getPolyType $ getFunDefns inferredModule
 
     inferredFunTypes === [ Forall [] (TyCon "Answer" [TyCon "String" []])
                          , Forall [] (TyCon "Answer" [TyCon "Int" []])
@@ -164,8 +164,8 @@ test_recursive_datatype = unitTest $ do
         list    = DataDefn "List" ["a"] [dcEmpty, dcCons]
 
     -- Functions
-    let myList  = FunDefn "myList" (App Untyped (Term Untyped $ DCons "Cons") [ Term Untyped $ LitInt 1
-                                                                                , Term Untyped $ DCons "Empty"])
+    let myList  = FunDefn "myList" Unquant (App Untyped (Term Untyped $ DCons "Cons") [ Term Untyped $ LitInt 1
+                                                                                      , Term Untyped $ DCons "Empty"])
 
     let md = Module { getDataDefns = [list]
                     , getTypeSigs  = []
@@ -173,18 +173,18 @@ test_recursive_datatype = unitTest $ do
                     }
 
     let Right inferredModule =
-            inferModule md :: Either ByteString (ModuleT (Type ByteString) ByteString)
+            inferModule md :: Either ByteString (Module (Type ByteString) ByteString)
 
     let inferredFunTypes =
-            map getPolyType $ getFunDefnTs inferredModule
+            map getPolyType $ getFunDefns inferredModule
 
     inferredFunTypes === [Forall [] (TyCon "List" [TyCon "Int" []])]
 
 unitTest :: PropertyT IO () -> Property
 unitTest = withTests 1 . property
 
-getPolyType :: FunDefnT (Type s) s -> Polytype s
-getPolyType (FunDefnT _ (Quant vs) expr) = Forall vs (typeOf expr)
+getPolyType :: FunDefn (Type s) s -> Polytype s
+getPolyType (FunDefn _ (Quant vs) expr) = Forall vs (typeOf expr)
 
 (->>) :: Type s -> Type s -> Type s
 (->>) = TyArr

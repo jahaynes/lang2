@@ -33,14 +33,13 @@ test_build_graph_empty = unitTest $
 test_build_graph :: Property
 test_build_graph = unitTest $ do
 
-    let defn1 = FunDefn "foo" (App Untyped (Term Untyped (Var "bar")) [])
-        defn2 = FunDefn "bar" (App Untyped (Term Untyped (Var "foo")) [])
+    let defn1 = FunDefn "foo" Unquant (App Untyped (Term Untyped (Var "bar")) [])
+        defn2 = FunDefn "bar" Unquant (App Untyped (Term Untyped (Var "foo")) [])
 
     let CallGraph cg = buildGraph' [defn1, defn2] :: CallGraph String
 
     cg === [ ("bar", ["foo"])
            , ("foo", ["bar"]) ]
-
 
 test_empty_cycles :: Property
 test_empty_cycles = unitTest $
