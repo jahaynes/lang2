@@ -1,5 +1,3 @@
-import './App.css';
-
 import React from 'react';
 
 class App extends React.Component {
@@ -74,6 +72,9 @@ class App extends React.Component {
   }
 
   render() {
+
+    const numRows = 12;
+
     return (
       <div className="App">
 
@@ -86,8 +87,8 @@ class App extends React.Component {
 
         <label>Source / Codegen0 </label>
         <div>
-          <textarea id='text' className='editor' spellCheck='false' rows='14' onChange={e => this.lexAndParse()}></textarea>
-          <textarea id='codeGen0' className='editor' spellCheck='false' rows='14'></textarea>
+          <textarea id='text' className='editor' spellCheck='false' rows={numRows} onChange={e => this.lexAndParse()}></textarea>
+          <textarea id='codeGen0' className='editor' spellCheck='false' rows={numRows}></textarea>
         </div>
 
         <div>
@@ -96,39 +97,39 @@ class App extends React.Component {
           <button id='stop' onClick={e => alert('stop')}>Stop All</button>
         </div>
         <div>
-          <textarea id='codeGen1' className='editor' spellCheck='false' rows='14'></textarea>
-          <textarea id='output' className='editor' spellCheck='false' rows='14'></textarea>
+          <textarea id='codeGen1' className='editor' spellCheck='false' rows={numRows}></textarea>
+          <textarea id='output' className='editor' spellCheck='false' rows={numRows}></textarea>
         </div>
 
         <label>Lambda Lifted / Uncurried</label>
         <div>
-          <textarea id='lambdaLiftedPretty' className='editor' spellCheck='false' rows='14'></textarea>
-          <textarea id='uncurriedPretty' className='editor' spellCheck='false' rows='14'></textarea>
+          <textarea id='lambdaLiftedPretty' className='editor' spellCheck='false' rows={numRows}></textarea>
+          <textarea id='uncurriedPretty' className='editor' spellCheck='false' rows={numRows}></textarea>
         </div>
 
         <label>Closure Converted / Examples </label>
         <div>
-          <textarea id='closureConvertedPretty' className='editor' spellCheck='false' rows='14'></textarea>
+          <textarea id='closureConvertedPretty' className='editor' spellCheck='false' rows={numRows}></textarea>
         </div>
 
         <label>Anf Converted</label>
         <div>
-          <textarea id='anfPretty' className='editor' spellCheck='false' rows='14'></textarea>
+          <textarea id='anfPretty' className='editor' spellCheck='false' rows={numRows}></textarea>
         </div>
 
         <label>Eta Expanded</label>
         <div>
-          <textarea id='etaExpanded' className='editor' spellCheck='false' rows='14'></textarea>
+          <textarea id='etaExpanded' className='editor' spellCheck='false' rows={numRows}></textarea>
         </div>
 
         <label>Type Inference / Pretty</label>
         <div>
-          <textarea id='inferredPretty' className='editor' spellCheck='false' rows='14'></textarea>
+          <textarea id='inferredPretty' className='editor' spellCheck='false' rows={numRows}></textarea>
         </div>
 
         <label>Tokens / Definitions</label>
         <div>
-          <textarea id='prettyDefns' className='editor' spellCheck='false' rows='14'></textarea>
+          <textarea id='prettyDefns' className='editor' spellCheck='false' rows={numRows}></textarea>
         </div>
       </div>
     );
