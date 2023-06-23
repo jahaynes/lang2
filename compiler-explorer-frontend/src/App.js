@@ -47,8 +47,7 @@ class App extends React.Component {
     const closureConvertedPretty = this.getAndClearElement("closureConvertedPretty")
     const lambdaLiftedPretty     = this.getAndClearElement("lambdaLiftedPretty")
     const uncurriedPretty        = this.getAndClearElement("uncurriedPretty")
-    const codeGen0               = this.getAndClearElement("codeGen0")
-    const codeGen1               = this.getAndClearElement("codeGen1")
+    const codeGenA               = this.getAndClearElement("codeGenA")
 
     const req = { getInput: source.value }
 
@@ -66,8 +65,7 @@ class App extends React.Component {
         closureConvertedPretty.value = ts.closureConvertedPretty;
         lambdaLiftedPretty.value     = ts.lambdaLiftedPretty;
         uncurriedPretty.value        = ts.uncurriedPretty;
-        codeGen0.value               = ts.codeGen0;
-        codeGen1.value               = ts.codeGen1; })
+        codeGenA.value               = ts.codeGenA; })
       .catch(exception => console.log(exception));
   }
 
@@ -85,19 +83,18 @@ class App extends React.Component {
           </select>
         </div>
 
-        <label>Source / Codegen0 </label>
+        <label>Source / CodegenA </label>
         <div>
           <textarea id='text' className='editor' spellCheck='false' rows={numRows} onChange={e => this.lexAndParse()}></textarea>
-          <textarea id='codeGen0' className='editor' spellCheck='false' rows={numRows}></textarea>
+          <textarea id='codeGenA' className='editor' spellCheck='false' rows={numRows}></textarea>
         </div>
 
         <div>
-          <label>Codegen1 / Output</label>
+          <label>Output</label>
           <button id='exec' onClick={e => this.run()}>Run</button>
           <button id='stop' onClick={e => alert('stop')}>Stop All</button>
         </div>
         <div>
-          <textarea id='codeGen1' className='editor' spellCheck='false' rows={numRows}></textarea>
           <textarea id='output' className='editor' spellCheck='false' rows={numRows}></textarea>
         </div>
 

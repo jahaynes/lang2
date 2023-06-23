@@ -7,16 +7,13 @@
 module Service.Controller (runController) where
 
 import Common.State
-import Runtimes.Machine2                     (runMachine2)
 import Service.ProgramState
 import Service.Service                       (pipe)
 
 import           Control.Monad.IO.Class      (liftIO)
 import           Data.Aeson
-import           Data.Functor                ((<&>))
 import           Data.IORef
 import           Data.Text                   (Text)
-import           Data.Text.Encoding          (decodeUtf8)
 import           GHC.Generics                (Generic)
 import           Network.Wai.Handler.Warp    (run)
 import           Network.Wai.Middleware.Cors (CorsResourcePolicy (..), cors)
@@ -46,15 +43,7 @@ server ioref = setProgramState :<|> runCurrentProgramState :<|> getExample
         pure programState
 
     runCurrentProgramState =
-        liftIO (readIORef ioref) >>= \case
-            Nothing -> pure "<Not run>"
-            Just ps ->
-                case getCodeGen1 ps of
-                    Left err -> pure "err"
-                    Right ins ->
-                        (liftIO $ runMachine2 ins) <&> \case
-                            Left err  -> decodeUtf8 err
-                            Right out -> decodeUtf8 out
+        pure "Not implemented"
 
     getExample "closure" =
         pure "f x =\n\
@@ -62,6 +51,9 @@ server ioref = setProgramState :<|> runCurrentProgramState :<|> getExample
              \  (\\y. y + xx)\n\
              \\n\
              \main = (f 1) 2"
+
+    getExample _ =
+        pure "unknown example"
 
 runController :: Int -> IO ()
 runController port = do

@@ -7,8 +7,7 @@ import Core.Types
 import Parse.LexAndParse
 import Parse.Token
 import Phase.Anf.AnfModule
-import Phase.CodeGen.CodeGen0
-import Phase.CodeGen.CodeGen1
+import Phase.CodeGen.CodeGenA
 import Pretty.Anf2
 import Pretty.Module
 
@@ -31,8 +30,7 @@ data ProgramState =
                  , getClosureConverted :: !(Either ByteString (AnfModule ByteString))
                  , getLambdaLifted     :: !(Either ByteString (AnfModule ByteString))
                  , getUncurried        :: !(Either ByteString (AnfModule ByteString))
-                 , getCodeGen0         :: !(Either ByteString [SubRoutine ByteString])
-                 , getCodeGen1         :: !(Either ByteString [Instr ByteString])
+                 , getCodeGenA         :: !(Either ByteString [AInstr ByteString])
                  , getOutput           :: !ByteString
                  }
 
@@ -54,8 +52,7 @@ instance ToJSON ProgramState where
             txtLambdaLiftedPretty     = either decodeUtf8 renderAnfModule (getLambdaLifted ps)
             txtUncurried              = either decodeUtf8 (\(AnfModule _ anfdefs) -> pack . unlines . map show $ anfdefs) (getUncurried ps)
             txtUncurriedPretty        = either decodeUtf8 renderAnfModule (getUncurried ps)
-            txtCodeGen0               = decodeUtf8 $ either id renderCodeGen0 (getCodeGen0 ps)
-            txtCodeGen1               = decodeUtf8 $ either id renderCodeGen1 (getCodeGen1 ps)
+            txtCodeGenA               = decodeUtf8 $ either id renderCodeGenA (getCodeGenA ps)
             txtOutput                 = decodeUtf8 $ getOutput ps
 
         object [ "tokens"                 .= String txtTokens
@@ -72,12 +69,11 @@ instance ToJSON ProgramState where
                , "lambdaLiftedPretty"     .= String txtLambdaLiftedPretty
                , "uncurried"              .= String txtUncurried
                , "uncurriedPretty"        .= String txtUncurriedPretty
-               , "codeGen0"               .= String txtCodeGen0
-               , "codeGen1"               .= String txtCodeGen1
+               , "codeGenA"               .= String txtCodeGenA
                , "output"                 .= String txtOutput
                ]
 
 fromSource :: Text -> ProgramState
-fromSource txt = ProgramState (encodeUtf8 txt) na na na na na na na na na na na ""
+fromSource txt = ProgramState (encodeUtf8 txt) na na na na na na na na na na ""
     where
     na = Left "Not Available"
