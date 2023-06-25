@@ -34,7 +34,7 @@ data AInstr s = ANoOp
               | ABinOp SVal BinOp SVal SVal -- dest / op / arg1 / arg2
 
              -- Compound Data
-              | Allocate Allocable
+              | Allocate SVal (Allocable s)
 
              -- Control Flow
               | Push s (Type s) SVal -- debugname / type / idunno?
@@ -44,8 +44,9 @@ data AInstr s = ANoOp
 
                   deriving Show
 
-data Allocable =
-    Allocable {- Perhaps String, DataCons, Closure -}
+{- Perhaps String, DataCons, Closure -}
+data Allocable s =
+    ADataCons (Type s) s
         deriving Show
 
 data SVal = VirtRegPrim !Int
@@ -63,6 +64,8 @@ renderCodeGenA = C8.tail . C8.unlines . map go
 
     go (AMov dst src) = "  " <> go' dst <> " <- " <> go' src
     go (ABinOp dst op a b) = "  " <> go' dst <> " <- " <> go'' op <> " " <> go' a <> " " <> go' b
+
+    go (Allocate dst (ADataCons t dc)) = "  " <> go' dst <> " <- alloc " <> go'' t <> "." <> dc
 
     go (Push dbgName t val) = "  push " <> go' val <> " :: " <> go'' t <> " // '" <> dbgName <> "'"
     go (Pop  dbgName t val) = "  " <> go' val <> " <- pop :: " <> go'' t <> " // '" <> dbgName <> "'" 
@@ -178,6 +181,18 @@ codeGenApp :: Type ByteString
            -> AExp ByteString
            -> [AExp ByteString]
            -> Cg (SVal, [AInstr ByteString])
+
+codeGenApp t (ATerm _ (DCons dc)) xs = do
+
+    (_, _) <- unzip <$> mapM codeGenAexp xs
+
+    rr <- freshRegisterFor t
+
+    -- do more
+    let instrs = [Allocate rr (ADataCons t dc)]
+
+    pure (unkn, instrs)
+
 codeGenApp t (ATerm _ (Var v)) xs = do
 
     -- Get the args ready to be pushed
