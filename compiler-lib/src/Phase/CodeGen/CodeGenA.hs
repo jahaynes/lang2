@@ -10,6 +10,7 @@ import Core.Term               (Term (..))
 import Core.Types
 import Phase.Anf.AnfExpression (AExp (..), CExp (..), NExp (..), typeOf, typeOfAExp)
 import Phase.Anf.AnfModule     (AnfModule (..), FunDefAnfT (..))
+import Phase.CodeGen.TypesA
 
 import           Data.ByteString             (ByteString)
 import qualified Data.ByteString.Char8 as C8
@@ -25,40 +26,10 @@ data Gen s =
         , varRegisters :: !(Map s SVal) 
         }
 
-             -- Simple
-data AInstr s = ANoOp
-              | ALabel s
-              | AComment s
-
-              | AMov SVal SVal -- to / from
-              | ABinOp SVal BinOp SVal SVal -- dest / op / arg1 / arg2
-
-             -- Compound Data
-              | Allocate SVal (Allocable s)
-
-             -- Control Flow
-              | Push s (Type s) SVal -- debugname / type / idunno?
-              | Pop  s (Type s) SVal -- debugname / type / val
-              | Call s
-              | Ret SVal
-
-                  deriving Show
-
-{- Perhaps String, DataCons, Closure -}
-data Allocable s =
-    ADataCons (Type s) s
-        deriving Show
-
-data SVal = VirtRegPrim !Int
-          | VirtRegPtr !Int
-          | RLitInt !Integer
-             deriving Show
-
 renderCodeGenA :: [AInstr ByteString]
                -> ByteString
 renderCodeGenA = C8.tail . C8.unlines . map go
     where
-    go ANoOp        = "  noop"
     go (ALabel s)   = "\n" <> s <> ":"
     go (AComment s) = "  // " <> s
 
@@ -172,6 +143,7 @@ pushesReverseOrder = go []
         where
         describe (ABinPrimOp _ AddI _ _) = "+"
         describe (ATerm _ (Var v)) = v
+        describe (ATerm _ (LitInt i)) = C8.pack (show i)
 
 codeGenCexp :: CExp ByteString
             -> Cg (SVal, [AInstr ByteString])

@@ -7,13 +7,16 @@
 module Service.Controller (runController) where
 
 import Common.State
+import Runtimes.MachineA
 import Service.ProgramState
 import Service.Service                       (pipe)
 
 import           Control.Monad.IO.Class      (liftIO)
 import           Data.Aeson
+import           Data.Functor                ((<&>))
 import           Data.IORef
 import           Data.Text                   (Text)
+import           Data.Text.Encoding          (decodeUtf8)
 import           GHC.Generics                (Generic)
 import           Network.Wai.Handler.Warp    (run)
 import           Network.Wai.Middleware.Cors (CorsResourcePolicy (..), cors)
@@ -42,8 +45,14 @@ server ioref = setProgramState :<|> runCurrentProgramState :<|> getExample
         writeIORef ioref (Just programState)
         pure programState
 
-    runCurrentProgramState =
-        pure "Not implemented"
+    runCurrentProgramState :: Handler Text
+    runCurrentProgramState = liftIO $
+        readIORef ioref <&> \case
+            Nothing -> "No stored program!"
+            Just ps -> decodeUtf8 $
+                case getCodeGenA ps of
+                    Left e -> e
+                    Right instrs -> runMachineA instrs
 
     getExample "closure" =
         pure "f x =\n\
