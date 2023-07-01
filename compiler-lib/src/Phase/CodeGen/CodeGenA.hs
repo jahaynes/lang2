@@ -148,6 +148,7 @@ pushesReverseOrder = go []
 codeGenCexp :: CExp ByteString
             -> Cg (SVal, [AInstr ByteString])
 codeGenCexp (CApp t f xs) = codeGenApp t f xs
+codeGenCexp cexp = left $ "codeGenCexp: " <> C8.pack (show cexp)
 
 codeGenApp :: Type ByteString
            -> AExp ByteString
