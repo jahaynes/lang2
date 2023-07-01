@@ -35,6 +35,7 @@ renderCodeGenA = C8.tail . C8.unlines . map go
 
     go (AMov dst src) = "  " <> go' dst <> " <- " <> go' src
     go (ABinOp dst op a b) = "  " <> go' dst <> " <- " <> go'' op <> " " <> go' a <> " " <> go' b
+    go (ACmp a) = "  cmp " <> go' a
 
     go (Allocate dst (ADataCons t dc)) = "  " <> go' dst <> " <- alloc " <> go'' t <> "." <> dc
 
@@ -42,10 +43,13 @@ renderCodeGenA = C8.tail . C8.unlines . map go
     go (Pop  dbgName t val) = "  " <> go' val <> " <- pop :: " <> go'' t <> " // '" <> dbgName <> "'" 
     go (Call f)   = "  call " <> f
     go (Ret r)    = "  ret " <> go' r
+    go (J lbl)    = "  j " <> lbl
+    go (Jne lbl)  = "  jne " <> lbl
     go x          = "  renderCodeGenA.go: " <> C8.pack (show x)
 
     go' (VirtRegPrim n) = "vr_"  <> C8.pack (show n)
     go' (VirtRegPtr n)  = "vrp_" <> C8.pack (show n)
+    go' (RLitBool b)    = C8.pack (show b)
     go' (RLitInt i)     = C8.pack (show i)
 
     go'' t = C8.pack (show t)
@@ -142,12 +146,15 @@ pushesReverseOrder = go []
     go acc ((aexp, val):xs) = go (Push (describe aexp) (typeOfAExp aexp) val:acc) xs
         where
         describe (ABinPrimOp _ AddI _ _) = "+"
+        describe (ABinPrimOp _ SubI _ _) = "-"
         describe (ATerm _ (Var v)) = v
         describe (ATerm _ (LitInt i)) = C8.pack (show i)
+        describe x = "Not described: " <> C8.pack (show x)
 
 codeGenCexp :: CExp ByteString
             -> Cg (SVal, [AInstr ByteString])
 codeGenCexp (CApp t f xs) = codeGenApp t f xs
+codeGenCexp (CIfThenElse t pr tr fl) = codeGenIfThenElse t pr tr fl
 codeGenCexp cexp = left $ "codeGenCexp: " <> C8.pack (show cexp)
 
 codeGenApp :: Type ByteString
@@ -181,13 +188,36 @@ codeGenApp t (ATerm _ (Var v)) xs = do
 
     pure (rr, instrs)
 
+codeGenIfThenElse t pr tr fl = do
+    rr                          <- freshRegisterFor t
+    (if_, then_, else_, endif_) <- freshBranchLabels
+    (prReg, prInstrs)           <- codeGenAexp pr
+    (trReg, trInstrs)           <- codeGenNexp tr
+    (flReg, flInstrs)           <- codeGenNexp fl
+
+    let instrs = concat [ [ALabel if_]
+                        , prInstrs
+                        , [ ACmp prReg
+                          , Jne else_ ]
+                        , [ALabel then_]
+                        , trInstrs
+                        , [ AMov rr trReg
+                          , J endif_ ]
+                        , [ALabel else_]
+                        , flInstrs
+                        , [ AMov rr flReg
+                          , ALabel endif_] ]
+
+    pure (rr, instrs)
+
 codeGenTerm :: Term ByteString
             -> Cg (SVal, [AInstr ByteString])
-codeGenTerm (LitInt i) = pure (RLitInt i, [])
+codeGenTerm (LitBool b) = pure (RLitBool b, [])
+codeGenTerm (LitInt i)  = pure (RLitInt i, [])
 codeGenTerm (Var v) =
     getRegister v >>= \case
-        Nothing -> left $ "Unregistered: " <> v
         Just r  -> pure (r, [])
+        Nothing -> left $ "Unregistered: " <> v -- pure (unkn, []).  Unapplied functions can get snagged here
 codeGenTerm term = left $ "codeGenTerm: " <> C8.pack (show term)
 
 getRegister :: ByteString -> Cg (Maybe SVal)
@@ -196,14 +226,28 @@ getRegister v = lift $ do
     pure $ M.lookup v vr
 
 freshRegisterFor :: Type ByteString -> Cg SVal
-freshRegisterFor t = do
+freshRegisterFor t =
+    freshNum <&> \rc ->
+        case t of
+            TyCon "Int"  [] -> VirtRegPrim rc
+            TyCon "Bool" [] -> VirtRegPrim rc
+            _               -> VirtRegPtr rc
+
+freshBranchLabels :: Cg (ByteString, ByteString, ByteString, ByteString)
+freshBranchLabels =
+    freshNum <&> \n ->
+        let n' = C8.pack (show n)
+        in ( "if_" <> n'
+           , "then_" <> n'
+           , "else_" <> n'
+           , "endif_" <> n' )
+
+freshNum :: Cg Int
+freshNum = do
     gen <- lift get
     let rc = regCount gen
     lift $ put gen { regCount = rc + 1 }
-    pure $ case t of
-        TyCon "Int"  [] -> VirtRegPrim rc
-        TyCon "Bool" [] -> VirtRegPrim rc
-        _               -> VirtRegPtr rc
+    pure rc
 
 unkn :: SVal
 unkn = VirtRegPtr 99

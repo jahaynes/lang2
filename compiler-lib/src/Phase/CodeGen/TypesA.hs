@@ -9,6 +9,7 @@ data AInstr s = ALabel s
 
               | AMov SVal SVal -- to / from
               | ABinOp SVal BinOp SVal SVal -- dest / op / arg1 / arg2
+              | ACmp SVal -- Compare its value to 'True'.  Result is directly set in machine.
 
              -- Compound Data
               | Allocate SVal (Allocable s)
@@ -18,6 +19,8 @@ data AInstr s = ALabel s
               | Pop  s (Type s) SVal -- debugname / type / val
               | Call s
               | Ret SVal
+              | J s
+              | Jne s
 
                   deriving (Eq, Show)
 
@@ -28,5 +31,6 @@ data Allocable s =
 
 data SVal = VirtRegPrim !Int
           | VirtRegPtr !Int
+          | RLitBool !Bool
           | RLitInt !Integer
              deriving (Eq, Ord, Show)

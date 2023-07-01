@@ -61,6 +61,16 @@ server ioref = setProgramState :<|> runCurrentProgramState :<|> getExample
              \\n\
              \main = (f 1) 2"
 
+    getExample "summorial" =
+        pure "summorial m =\n\
+             \   let go acc n =\n\
+             \       if n == 0\n\
+             \       then acc\n\
+             \       else go (acc + n) (n - 1) in\n\
+             \   go 0 m\n\
+             \\n\
+             \main = summorial 10"
+
     getExample _ =
         pure "unknown example"
 
@@ -75,7 +85,7 @@ runController port = do
 
 corsPolicy :: CorsResourcePolicy
 corsPolicy =
-    CorsResourcePolicy { corsOrigins        = Just (["http://127.0.0.1:3000", "http://localhost:3000"], False)
+    CorsResourcePolicy { corsOrigins        = Just (["http://10.0.0.1:3000", "http://127.0.0.1:3000", "http://localhost:3000"], False)
                        , corsMethods        = []
                        , corsRequestHeaders = ["Content-Type"]
                        , corsExposedHeaders = Nothing

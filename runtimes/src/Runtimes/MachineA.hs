@@ -20,6 +20,7 @@ data AState s =
            , _ip        :: !Int
            , _ipStack   :: ![Int]
            , _registers :: !(Map SVal SVal)
+           , _cmp       :: !Bool
            }
 
 type Ma a =
@@ -33,6 +34,7 @@ runMachineA instrs = do
                        , _ip        = 0
                        , _ipStack   = []
                        , _registers = mempty
+                       , _cmp       = True
                        }
 
     case evalState (runEitherT run) state of
@@ -61,13 +63,18 @@ run = do
             modifyIp (+1)
             step
 
+        ACmp a -> do
+            cmp a
+            modifyIp (+1)
+            step
+
         Push _ _ val -> do
             push val
             modifyIp (+1)
             step
 
         Pop _ _ dst -> do
-            writeReg dst =<< pop
+            move dst =<< pop
             modifyIp (+1)
             step
 
@@ -80,7 +87,7 @@ run = do
         Ret val -> do
             push val
             popIp >>= \case
-                Nothing -> do
+                Nothing ->
                     pop >>= \case
                         i@VirtRegPrim{} -> do
                             x <- readReg i
@@ -89,6 +96,16 @@ run = do
                 Just ip -> do
                     setIp ip
                     step
+
+        J lbl -> do
+            j lbl
+            step
+
+        Jne lbl -> do
+            jne lbl
+            step
+
+        inst -> left $ "Unkn instr: " <> pack (show inst)
 
 resolveLabel :: ByteString -> Ma Int
 resolveLabel lbl =
@@ -106,19 +123,22 @@ setIp ip = lift . modify' $ \ps -> ps { _ip = ip }
 getIp :: Ma Int
 getIp = _ip <$> lift get
 
--- "write reg reg" ?
 move :: SVal -> SVal -> Ma ()
-move dst src = writeReg dst =<< readReg src
+move dst@VirtRegPrim{} src = writeReg =<< evalOnce src
 
--- "write immediate" ?
-writeReg :: SVal -> SVal -> Ma ()
-writeReg dst@VirtRegPrim{} src = lift . modify' $ \ps -> ps { _registers = M.insert dst src (_registers ps) }
+    where
+    writeReg :: SVal -> Ma ()
+    writeReg src' = lift . modify' $ \ps -> ps { _registers = M.insert dst src' (_registers ps) }
 
 readReg :: SVal -> Ma SVal
 readReg reg = do
-    registers <- _registers <$> lift get
-    case M.lookup reg registers of
-        Nothing -> left "No such reg"
+    ps <- lift get
+    case M.lookup reg (_registers ps) of
+        Nothing -> do
+            let ip = _ip ps
+                p  = _program ps
+                i  = I.lookup ip p
+            left $ "No such reg: " <> pack (show reg) <> " at ip " <> pack (show ip) <> ": " <> pack (show i)
         Just v  -> pure v
 
 pushIp :: Int -> Ma ()
@@ -133,25 +153,36 @@ popIp = do
             lift . modify' $ \ps -> ps { _ipStack = pStack }
             pure $ Just i
 
+evalOnce :: SVal -> Ma SVal
+evalOnce v@VirtRegPrim{} = readReg v
+evalOnce v@RLitBool{}    = pure v
+evalOnce v@RLitInt{}     = pure v
+
 binOp :: SVal -> BinOp -> SVal -> SVal -> Ma ()
 binOp dst op a b = do
 
-    regs <- _registers <$> lift get
+    va <- evalOnce a >>= \case
+            RLitInt va -> pure va
+            _          -> left "Not an RLitInt"
 
-    va <- case M.lookup a regs of
-              Nothing -> left "no such reg"
-              Just (RLitInt va) -> pure va
-
-    vb <- case M.lookup b regs of
-              Nothing -> left "no such reg"
-              Just (RLitInt vb) -> pure vb
+    vb <- evalOnce b >>= \case
+            RLitInt vb -> pure vb
+            _          -> left "Not an RLitInt"
 
     vc <- case op of
-              MulI -> pure . RLitInt $! va * vb
-              AddI -> pure . RLitInt $! va + vb
-              _    -> left "unknown op"
+              MulI -> pure . RLitInt  $! va  * vb
+              AddI -> pure . RLitInt  $! va  + vb
+              SubI -> pure . RLitInt  $! va  - vb
+              EqA  -> pure . RLitBool $! va == vb   -- probably means the above can be not just an int
+              _    -> left $ "unknown op: " <> pack (show op)
 
-    writeReg dst vc
+    move dst vc
+
+cmp :: SVal -> Ma ()
+cmp val =
+    evalOnce val >>= \case
+        RLitBool b -> lift . modify' $ \ps -> ps { _cmp = b }
+        x          -> left $ "Not a comparable: " <> pack (show x)
 
 push :: SVal -> Ma ()
 push val@RLitInt{}     = lift $ modify' $ \ps -> ps { _stack = val : _stack ps }
@@ -166,6 +197,20 @@ pop = do
         (s:tack) -> lift $ do
             modify' $ \ps -> ps { _stack = tack }
             pure s
+
+j :: ByteString -> Ma ()
+j lbl = do
+    cmp' <- _cmp <$> lift get
+    if cmp'
+        then setIp =<< resolveLabel lbl
+        else modifyIp (+1)
+
+jne :: ByteString -> Ma ()
+jne lbl = do
+    cmp' <- _cmp <$> lift get
+    if cmp'
+        then modifyIp (+1)
+        else setIp =<< resolveLabel lbl
 
 getInstr :: Ma (AInstr ByteString)
 getInstr = do
