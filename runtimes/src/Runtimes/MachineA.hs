@@ -129,6 +129,7 @@ move dst@VirtRegPrim{} src = writeReg =<< evalOnce src
     where
     writeReg :: SVal -> Ma ()
     writeReg src' = lift . modify' $ \ps -> ps { _registers = M.insert dst src' (_registers ps) }
+move a b = left . pack . show $ ("move", a, b)
 
 readReg :: SVal -> Ma SVal
 readReg reg = do
