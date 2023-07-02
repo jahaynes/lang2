@@ -103,9 +103,9 @@ printAExp aexp =
             b' <- noIndent $ printAExp b
             pure $ TB.intercalate " " [a', printBinOp op, b']
 
-        AClosEnv evs -> do
-            let evs' = bytestring $ C8.intercalate " " evs
-            pure $ "{env " <> evs' <> "}"
+        --AClosEnv evs -> do
+        --    let evs' = bytestring $ C8.intercalate " " evs
+        --    pure $ "{env " <> evs' <> "}"
 
 printCExp :: CExp ByteString -> State Int Builder
 printCExp cexp =
@@ -116,6 +116,9 @@ printCExp cexp =
             f'  <- printAExp f
             xs' <- mapM (noIndent . printAExp) xs
             pure $ TB.intercalate " " (f':xs')
+
+        CAppClo _ f cloEnv xs ->
+            pure "cappclo"
 
         -- TODO improve
         CIfThenElse _ pr tr fl -> do

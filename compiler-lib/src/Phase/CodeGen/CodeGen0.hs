@@ -230,12 +230,6 @@ process' deps = goNexp
                 --lift . modify' $ \gs -> gs { regMap = regMap1 }
                 pure (instrs, rBody)
 
-            AClosEnv evs -> do
-                fr <- genFresh deps FrReg
-                pure ( comment deps "allocate an env"
-                     : comment deps ("copy each param from " <> C8.pack (show evs) <> " in")
-                     : [], UntypedReg fr )
-
     goCexp cexp =
 
         case cexp of

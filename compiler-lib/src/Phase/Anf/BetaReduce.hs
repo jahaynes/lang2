@@ -33,7 +33,6 @@ betaReduce a b c = fst $ runState (goNExp c) (Hygiene mempty)
         pure $ AClo t fvs vs body'
     goAExp (AUnPrimOp t op x) = AUnPrimOp t op <$> goAExp x
     goAExp (ABinPrimOp t op x y) = ABinPrimOp t op <$> goAExp x <*> goAExp y
-    goAExp AClosEnv{} = error "idk?"
 
     goCExp (CApp t f xs) = CApp t <$> goAExp f <*> mapM goAExp xs
     goCExp (CIfThenElse t pr tr fl) = CIfThenElse t <$> goAExp pr

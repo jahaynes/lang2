@@ -48,22 +48,18 @@ closureConvertDefn genName topLevelScope (FunDefAnfT n q fun) = do
                     AClo _ fvs _ _ -> do
                         v <- genName
                         let t = typeOfAExp aexp'
-                        let app = CExp $ CApp t aexp' [AClosEnv fvs]
+                        let app = CExp $ CAppClo t aexp' (AClosEnv fvs) [] -- always empty?
                         pure $ NLet v app (AExp $ ATerm t (Var v))
                     _ -> pure $ AExp aexp'
 
-            -- Includes a in the scope to allow recursion
-            -- TODO: should the withScope be this broad? probably
             NLet a (AExp (ALam t vs body)) c -> withScope' a $ do
                 aexp' <- cclam (Just a) t vs body
                 case aexp' of
                     AClo _ fvs _ _ ->
-                        NLet a (CExp $ CApp t aexp' [AClosEnv fvs]) <$> go c
+                        NLet a (CExp $ CAppClo t aexp' (AClosEnv fvs) []) <$> go c
                     _  ->
-                        NLet a (AExp aexp')                         <$> go c
+                        NLet a (AExp aexp')                               <$> go c
 
-            -- Includes a in the scope to allow recursion
-            -- TODO: should the withScope be this broad? probably
             NLet a b c ->
                 withScope' a $
                     NLet a <$> go b
@@ -101,9 +97,6 @@ closureConvertDefn genName topLevelScope (FunDefAnfT n q fun) = do
                     cclam Nothing t vs body
 
                 AClo{} ->
-                    error "Doesn't exist yet"
-
-                AClosEnv{} ->
                     error "Doesn't exist yet"
 
                 AUnPrimOp t o a ->

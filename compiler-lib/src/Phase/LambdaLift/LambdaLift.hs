@@ -91,9 +91,6 @@ lambdaLiftDefn nameGen (FunDefAnfT t n fun) =
                 ABinPrimOp t o <$> lla a
                                <*> lla b
 
-            AClosEnv{} ->
-                pure aexp
-
     llc cexp =
 
         case cexp of
@@ -101,6 +98,11 @@ lambdaLiftDefn nameGen (FunDefAnfT t n fun) =
             CApp t f xs ->
                 CApp t <$> lla f
                        <*> mapM lla xs
+
+            CAppClo t f cloEnv xs ->
+                CAppClo t <$> lla f
+                          <*> pure cloEnv
+                          <*> mapM lla xs
 
             CIfThenElse t pr tr fl ->
                 CIfThenElse t <$> lla pr

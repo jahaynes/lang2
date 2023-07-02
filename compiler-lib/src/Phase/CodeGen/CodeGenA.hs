@@ -89,7 +89,7 @@ codeGenAexp (ABinPrimOp t op a b) = do
                         , [ABinOp dest op areg breg] ]
     pure (dest, instrs)
 
-codeGenAexp aexp = left $ "aexp: " <> C8.pack (show aexp)
+codeGenAexp aexp = pure (unkn, []) -- left $ "aexp: " <> C8.pack (show aexp)
 
 codegenLam :: Type ByteString
            -> [ByteString]
@@ -154,6 +154,7 @@ pushesReverseOrder = go []
 codeGenCexp :: CExp ByteString
             -> Cg (SVal, [AInstr ByteString])
 codeGenCexp (CApp t f xs) = codeGenApp t f xs
+codeGenCexp (CAppClo t f cloEnv xs) = codeGenAppClo t f cloEnv xs
 codeGenCexp (CIfThenElse t pr tr fl) = codeGenIfThenElse t pr tr fl
 codeGenCexp cexp = left $ "codeGenCexp: " <> C8.pack (show cexp)
 
@@ -187,6 +188,10 @@ codeGenApp t (ATerm _ (Var v)) xs = do
                           , Pop ("ret from " <> v) t rr ] ]
 
     pure (rr, instrs)
+
+-- TODO
+codeGenAppClo t f cloEnv xs = do
+    pure (unkn, [ALabel "..codeGenAppClo.."])
 
 codeGenIfThenElse t pr tr fl = do
     rr                          <- freshRegisterFor t
