@@ -16,6 +16,7 @@ library
   exposed-modules:  Common.CallGraph
                     Common.EitherT
                     Common.State
+                    Common.ReaderT
                     Common.StateT
                     Common.Trans
                     Common.Writer
