@@ -7,6 +7,7 @@ import Core.Module
 import Core.Term
 import Phase.Anf.AnfExpression
 import Phase.Anf.AnfModule
+import Phase.Anf.BetaReduce
 import Phase.LambdaLift.Alpha
 
 import           Data.ByteString.Char8 (ByteString, pack)
@@ -57,12 +58,14 @@ lambdaLiftDefn nameGen (FunDefAnfT t n fun) =
             NLet a (AExp b@ALam{}) c -> do
                 b' <- liftLambdaOrClosure (Just a) b
                 c' <- ll c
-                pure $ NLet a (AExp b') c'
+                -- I hope beta reductio is sound here...
+                pure $ betaReduce a b' c'
 
             NLet a (AExp b@AClo{}) c -> do
                 b' <- liftLambdaOrClosure (Just a) b
                 c' <- ll c
-                pure $ NLet a (AExp b') c'
+                -- I hope beta reductio is sound here...
+                pure $ betaReduce a b' c'
 
             NLet a b c ->
                 NLet a <$> ll b
