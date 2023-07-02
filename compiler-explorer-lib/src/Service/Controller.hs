@@ -71,6 +71,13 @@ server ioref = setProgramState :<|> runCurrentProgramState :<|> getExample
              \\n\
              \main = summorial 10"
 
+    getExample "pair" =
+        pure "Pair a b = MkPair a b\n\
+             \\n\
+             \main =\n\
+             \  let x = MkPair 1 2 in\n\
+             \  0"
+
     getExample _ =
         pure "unknown example"
 

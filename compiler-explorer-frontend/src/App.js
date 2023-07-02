@@ -9,24 +9,13 @@ class App extends React.Component {
   }
 
   selectExample(e) {
-
     const source = document.getElementById("text")
-
-    switch (e.target.value) {
-      case "closure":
-        fetch( "http://127.0.0.1:8080/example/closure", { headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' } })
-          .then(resp => resp.json())
-          .then(out => {source.value = out})
-          .then(_ => this.lexAndParse());
-        break;
-      case "summorial":
-        fetch( "http://127.0.0.1:8080/example/summorial", { headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' } })
-          .then(resp => resp.json())
-          .then(out => {source.value = out})
-          .then(_ => this.lexAndParse());
-        break;
-      default:
-        break;
+    const example = e.target.value;
+    if (example) {
+      fetch("http://127.0.0.1:8080/example/" + example, { headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' } })
+        .then(resp => resp.json())
+        .then(out => { source.value = out })
+        .then(_ => this.lexAndParse());
     }
   }
 
@@ -87,6 +76,7 @@ class App extends React.Component {
             <option></option>
             <option id="closure">closure</option>
             <option id="summorial">summorial</option>
+            <option id="pair">pair</option>
           </select>
         </div>
 
