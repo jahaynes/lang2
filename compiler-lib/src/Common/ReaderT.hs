@@ -2,41 +2,33 @@ module Common.ReaderT where
 
 import Common.Trans
 
-import Data.Functor ((<&>))
+newtype ReaderT r m a =
+    ReaderT { runReaderT :: r -> m a }
 
-newtype ReaderT s m a =
-    ReaderT { runReaderT :: s -> m (a, s) }
+instance Functor m => Functor (ReaderT r m) where
 
-instance Functor m => Functor (ReaderT s m) where
+    fmap f (ReaderT run) =
+        ReaderT $ fmap f . run
 
-    fmap f (ReaderT rs) = ReaderT $ \s ->
-        rs s <&> \(a, s') -> (f a, s')
+instance Applicative m => Applicative (ReaderT r m) where
 
-instance Monad m => Applicative (ReaderT s m) where
+    pure x = ReaderT $ \_ ->
+        pure x
 
-    pure x = ReaderT $ \s -> pure (x, s)
+    ReaderT runF <*> ReaderT runX = ReaderT $ \r ->
+        runF r <*> runX r
 
-    ReaderT rf <*> ReaderT rx = ReaderT $ \s -> do
-        (f, s' ) <- rf s
-        (x, s'') <- rx s'
-        pure (f x, s'')
-
-instance Monad m => Monad (ReaderT s m) where
+instance Monad m => Monad (ReaderT r m) where
 
     return = pure
 
-    ReaderT rma >>= mf = ReaderT $ \s -> do
-        (a, s') <- rma s
-        runReaderT (mf a) s'
+    ma >>= b = ReaderT $ \r -> do
+        a <- runReaderT ma r
+        runReaderT (b a) r
 
-instance Trans (ReaderT s) where
+instance Trans (ReaderT r) where
 
-    lift ma = ReaderT $ \s -> do
-        a <- ma
-        pure (a, s)
+    lift m = ReaderT $ \_ -> m
 
-ask :: Applicative m => ReaderT s m s
-ask = ReaderT $ \s -> pure (s, s)
-
-evalReaderT :: Functor m => ReaderT s m a -> s -> m a
-evalReaderT reader env = fst <$> runReaderT reader env
+ask :: Applicative m => ReaderT r m r
+ask = ReaderT pure

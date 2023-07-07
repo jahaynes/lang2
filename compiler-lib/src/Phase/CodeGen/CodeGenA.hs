@@ -2,7 +2,8 @@
 
 module Phase.CodeGen.CodeGenA (AInstr, codeGenModuleA, renderCodeGenA) where
 
-import Common.EitherT (EitherT (..), left)
+import Common.EitherT          (EitherT (..), left)
+import Common.ReaderT          (ReaderT (..), ask)
 import Common.State
 import Common.Trans
 import Core.Operator
@@ -19,7 +20,11 @@ import           Data.Map      (Map)
 import qualified Data.Map as M
 
 type Cg a =
-    EitherT ByteString (State (Gen ByteString)) a
+    EitherT ByteString (
+        ReaderT Env (
+            State (Gen ByteString))) a
+
+data Env = Env
 
 data Gen s =
     Gen { regCount     :: !Int
@@ -58,7 +63,7 @@ codeGenModuleA :: AnfModule ByteString
                -> Either ByteString [AInstr ByteString]
 codeGenModuleA modu = 
     let xs = concat <$> mapM codeGenFunDefn (getFunDefAnfTs modu)
-    in evalState (runEitherT xs) (Gen 0 mempty)
+    in evalState (runReaderT (runEitherT xs) Env) (Gen 0 mempty)
 
 codeGenFunDefn :: FunDefAnfT ByteString
                -> Cg [AInstr ByteString]
@@ -227,7 +232,7 @@ codeGenTerm term = left $ "codeGenTerm: " <> C8.pack (show term)
 
 getRegister :: ByteString -> Cg (Maybe SVal)
 getRegister v = lift $ do
-    vr <- varRegisters <$> get
+    vr <- varRegisters <$> lift get
     pure $ M.lookup v vr
 
 freshRegisterFor :: Type ByteString -> Cg SVal
@@ -249,19 +254,19 @@ freshBranchLabels =
 
 freshNum :: Cg Int
 freshNum = do
-    gen <- lift get
+    gen <- lift $ lift get
     let rc = regCount gen
-    lift $ put gen { regCount = rc + 1 }
+    lift . lift $ put gen { regCount = rc + 1 }
     pure rc
 
 unkn :: SVal
 unkn = VirtRegPtr 99
 
 register :: ByteString -> SVal -> Cg ()
-register var reg = lift . modify' $ \gen -> gen { varRegisters = M.insert var reg (varRegisters gen) }
+register var reg = lift . lift . modify' $ \gen -> gen { varRegisters = M.insert var reg (varRegisters gen) }
 
 saveRegisterMap :: Cg (Map ByteString SVal)
-saveRegisterMap = lift (varRegisters <$> get)
+saveRegisterMap = lift $ lift (varRegisters <$> get)
 
 restoreRegisterMap :: Map ByteString SVal -> Cg ()
-restoreRegisterMap regMap = lift . modify' $ \gen -> gen { varRegisters = regMap }
+restoreRegisterMap regMap = lift . lift . modify' $ \gen -> gen { varRegisters = regMap }
