@@ -38,7 +38,6 @@ library
                     Phase.CodeGen.SizeInfo
                     Phase.CodeGen.TagInfo
                     Phase.CodeGen.TypesA
-                    Phase.CodeGen.Val
                     Phase.ClosureConvert.ClosureConvert
                     Phase.ClosureConvert.FreeVars
                     Phase.EtaExpand.EtaExpand

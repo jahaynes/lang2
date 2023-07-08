@@ -1,23 +1,33 @@
 module Phase.CodeGen.SizeInfo where
 
-import Phase.CodeGen.Val
+import Core.Module
+import Core.Term
+import Core.Types
 
-class Sized a where
-    getSize :: a -> Int
+import           Data.Map (Map)
+import qualified Data.Map as M
 
-newtype SizedVal s =
-    SizedVal (Val s)
+-- How many bytes is needed to allocate the object
+newtype AllocSz =
+    AllocSz Int
 
--- Assumes 64 bits
-instance Show s => Sized (SizedVal s) where
-    getSize (SizedVal v) =
-        case v of
-            TypedReg{}        -> 8 -- this is the size of JUST THE REGISTER. good?
-            TypedRegPtr{}     -> 8 -- this is the size of JUST THE REGISTER. good?
-            VDConsNameTyped{} -> 8
-            VInt{}            -> 8
-            VBool{}           -> 8
-            VTag{}            -> 8
-            VDConsTyped _type _name _tag xs -> 8 + sum (map (getSize . SizedVal) xs)
+-- How many bytes is needed to store the object
+-- This will either be a pointer or a primitive,
+-- so always 8 for now
+newtype StoreSz =
+    StoreSz Int
 
-            _            -> error $ "unknown size for: " ++ show v
+calculateDataConsSizes :: [DataDefn s] -> Map (s, Type s) AllocSz
+calculateDataConsSizes _dataDefns = error "calculateDataConsSizes"
+
+-- 'Default' because primitives will be unpacked
+-- and objects will be behind pointers
+-- unless some unpacking is implemented in future
+getDefaultStoreSize :: Term s -> Type s -> StoreSz
+getDefaultStoreSize _term _type = error "getDefaultStoreSize"
+
+getAllocationSzBytes :: Term s -> Type s -> Maybe StoreSz
+getAllocationSzBytes _term _type = error "getAllocationSzBytes"
+
+getPointerSzBytes :: Int
+getPointerSzBytes = 8
