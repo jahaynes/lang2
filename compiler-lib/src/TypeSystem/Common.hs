@@ -1,4 +1,11 @@
-module TypeSystem.Common where
+module TypeSystem.Common ( GroupState (..)
+                         , Subst (..)
+                         , freshTVar
+                         , generaliseTopLevel
+                         , instantiate
+                         , numToVar
+                         , substituteType
+                         ) where
 
 import Common.State
 import Core.Expression
@@ -88,6 +95,6 @@ typeVars'' :: Ord s => Pattern (Type s) s -> Set s
 typeVars'' (Pattern a b) = typeVars a <> typeVars b
 
 typeVars' :: Ord s => Type s -> Set s
-typeVars'   TyCon{}   = mempty
-typeVars' (TyVar v)   = S.singleton v
-typeVars' (TyArr a b) = typeVars' a <> typeVars' b
+typeVars' (TyCon _ ts) = mconcat $ map typeVars' ts
+typeVars' (TyVar v)    = S.singleton v
+typeVars' (TyArr a b)  = typeVars' a <> typeVars' b
