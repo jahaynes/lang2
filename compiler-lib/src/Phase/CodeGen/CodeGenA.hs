@@ -15,6 +15,7 @@ import Phase.CodeGen.TypesA
 
 import           Data.ByteString             (ByteString)
 import qualified Data.ByteString.Char8 as C8
+import           Data.Char     (isSpace)
 import           Data.Functor  ((<&>))
 import           Data.Map      (Map)
 import qualified Data.Map as M
@@ -33,7 +34,7 @@ data Gen s =
 
 renderCodeGenA :: [AInstr ByteString]
                -> ByteString
-renderCodeGenA = C8.tail . C8.unlines . map go
+renderCodeGenA = C8.dropWhile isSpace . C8.unlines . map go
     where
     go (ALabel s)   = "\n" <> s <> ":"
     go (AComment s) = "  // " <> s
