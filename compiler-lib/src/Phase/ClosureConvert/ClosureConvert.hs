@@ -83,8 +83,9 @@ closureConvertDefn genName topLevelScope (FunDefAnfT n q fun) = do
                     CCase t <$> cca scrut
                             <*> mapM ccp ps
 
+        -- Assume no work needed LHS
         ccp (PExp a b) =
-            PExp <$> go a <*> go b
+            PExp a <$> go b
 
         cca aexp =
 

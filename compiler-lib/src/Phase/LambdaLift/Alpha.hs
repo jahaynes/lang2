@@ -42,6 +42,8 @@ alphaAExp subst aexp =
             te
 
         ALam t vs ex ->
+            -- TODO. vs should probably mask out the subst here
+            -- See FreeVars.hs
             ALam t vs (alphaNExp subst ex)
 
         AUnPrimOp t op ex ->
@@ -71,4 +73,6 @@ alphaCExp subst cexp =
 -- subst both sides?
 alphaPExp :: Ord s => Map s s -> PExp s -> PExp s
 alphaPExp subst (PExp a b) =
-    PExp (alphaNExp subst a) (alphaNExp subst b)
+    -- TODO lhs should probably mask out the subst
+    -- see FreeVars.hs
+    PExp a (alphaNExp subst b)

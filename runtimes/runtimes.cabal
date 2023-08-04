@@ -11,8 +11,20 @@ library
   build-depends:    base,
                     bytestring,
                     containers,
-                    compiler-lib
+                    compiler-lib,
+                    vector
   exposed-modules:  Runtimes.MachineA
   ghc-options:      -Wall -O2
   hs-source-dirs:   src
   default-language: Haskell2010
+
+test-suite test-runtimes
+    build-depends:    bytestring,
+                      runtimes
+    ghc-options:      -Wall -O2
+    other-modules:    Runtimes.MachineATest
+    type:             exitcode-stdio-1.0
+    main-is:          Tests.hs
+    build-depends:    base, containers, hedgehog, vector
+    hs-source-dirs:   test
+    default-language: Haskell2010

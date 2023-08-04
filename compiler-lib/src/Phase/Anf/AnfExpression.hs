@@ -28,8 +28,12 @@ newtype AClosEnv s =
     AClosEnv [s]
         deriving (Functor, Show)
 
+data PPat s = PVar s                     -- just vars for now
+            | PApp s (Type s) [Term s]   -- fully applied dcons
+                deriving (Functor, Show)
+
 data PExp s =
-    PExp (NExp s) (NExp s) -- Maybe these can be less general?
+    PExp (PPat s) (NExp s)
         deriving (Functor, Show)
 
 typeOf :: NExp s -> Type s

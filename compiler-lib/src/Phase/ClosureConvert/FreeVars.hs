@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 module Phase.ClosureConvert.FreeVars (Scope (..), getFreeVars, withScope) where
 
 import Common.State
@@ -73,23 +75,16 @@ cexpFreeVars cexp =
 
 pexpFreeVars :: (Show s, Ord s) => PExp s -> State (Scope s) (Set s)
 pexpFreeVars (PExp a b) =
-    withScope (scopeFromPattern a) $
-        nexpFreeVars b
-    where
-    scopeFromPattern lhs =
-        case lhs of
-            AExp aexp -> scopeFromAexp aexp
-            CExp cexp -> scopeFromCexp cexp
-        where
-        scopeFromAexp aexp =
-            case aexp of
-                ATerm _ (LitInt {}) -> mempty
-                ATerm _ (Var v)     -> [v]
-                ATerm _ (DCons {})  -> mempty
+    withScope (scopeFromPattern a)
+              (nexpFreeVars b)
 
-        scopeFromCexp cexp =
-            case cexp of
-                CApp _ (ATerm _ DCons{}) args -> concatMap scopeFromAexp args
+    where
+    scopeFromPattern (PApp _ _dc terms) = concatMap scopeFromTerm terms
+
+    scopeFromTerm = \case
+        LitBool{} -> mempty
+        LitInt{}  -> mempty
+        (Var v)   -> [v]
 
 termFreeVars :: Ord s => Term s -> State (Scope s) (Set s)
 termFreeVars t =

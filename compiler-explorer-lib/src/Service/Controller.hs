@@ -75,8 +75,11 @@ server ioref = setProgramState :<|> runCurrentProgramState :<|> getExample
         pure "Pair a b = MkPair a b\n\
              \\n\
              \main =\n\
-             \  let x = MkPair 1 2 in\n\
-             \  0"
+             \  let snd pair =\n\
+             \    case pair of\n\
+             \      MkPair a b -> b\n\
+             \  in\n\
+             \  snd (MkPair 1 2)"
 
     getExample _ =
         pure "unknown example"

@@ -60,7 +60,7 @@ betaReduce a b c = fst $ runState (goNExp c) (Hygiene mempty)
                        then ATerm t (Var v)
                        else b
         | otherwise = pure $ ATerm t (Var v)
-    goTerm _ DCons{} = error "goTerm DCons"
+    goTerm t d@DCons{} = pure $ ATerm t d
 
 mask :: Ord s => [s] -> State (Hygiene s) ()
 mask as = modify' $ \h -> h { getMasked = foldr S.insert (getMasked h) as }

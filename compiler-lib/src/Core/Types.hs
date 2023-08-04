@@ -11,7 +11,7 @@ data Untyped =
 data Type s = TyVar s
             | TyCon s [Type s]
             | TyArr (Type s) (Type s)
-                deriving (Eq, Functor)
+                deriving (Eq, Ord, Functor)
 
 instance Show s => Show (Type s) where
     show (TyVar v) = show v
