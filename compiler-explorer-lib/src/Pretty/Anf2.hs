@@ -139,9 +139,14 @@ printCExp cexp =
 
 printPExp :: PExp ByteString -> State Int Builder
 printPExp (PExp lhs rhs) = do
-    lhs' <- noIndent $ printNExp lhs
+    lhs' <- noIndent $ printPPat lhs
     rhs' <- noIndent $ printNExp rhs
     pure $ TB.intercalate " " [lhs', "->", rhs']
+
+printPPat (PVar v) = pure $ bytestring v
+printPPat (PApp dc _ ts) = do
+    ts' <- mapM printTerm ts
+    pure $ TB.intercalate " " (bytestring dc:ts')
 
 printTerm :: Term ByteString -> State Int Builder
 printTerm term =

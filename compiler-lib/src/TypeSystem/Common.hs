@@ -46,7 +46,7 @@ substituteType (Subst s)     t@(TyVar a) = M.findWithDefault t a s
 substituteType         s (t1 `TyArr` t2) = substituteType s t1 `TyArr` substituteType s t2
 
 instantiate :: Show s => Polytype ByteString
-            -> State (GroupState s) (Type ByteString)
+                      -> State (GroupState s) (Type ByteString)
 instantiate (Forall as t) = do
     as' <- mapM (const freshTVar) as
     let s = Subst $ M.fromList $ zip as as'

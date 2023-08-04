@@ -7,9 +7,6 @@ newtype EitherT l m r = EitherT { runEitherT :: m (Either l r) }
 left :: Monad m => l -> EitherT l m a
 left = EitherT . pure . Left
 
-t :: Applicative m => Either l r -> EitherT l m r
-t = EitherT . pure
-
 instance Functor m => Functor (EitherT l m) where
 
     fmap f (EitherT ret) = EitherT (fmap (fmap f) ret)

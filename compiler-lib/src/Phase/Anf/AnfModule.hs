@@ -100,9 +100,22 @@ normExpr expr k =
                 k $ CExp $ CCase t scrut' ps'
 
 -- both parts necessary?
+-- assume lhs is already normed for now
 normPattern :: Show s => Pattern (Type s) s -> State (AnfState s) (PExp s)
 normPattern (Pattern a b) =
-    PExp <$> norm a <*> norm b
+    PExp <$> normLhs a <*> norm b
+
+normLhs :: Show s => Expr (Type s) s -> State (AnfState s) (PPat s)
+normLhs (App t dc ts) = pure $ PApp (expectDCons dc) t (map expectVar ts)
+    where
+
+    -- expectDCons :: Expr (Type s) s -> s
+    expectDCons (Term _ (DCons dc)) = dc
+
+    -- expectVar :: Expr (Type s) s -> Term s
+    expectVar (Term _ v@Var{}) = v
+
+normLhs a = error $ "normLhs: " ++ show a
 
 normAtom :: Show s => Expr (Type s) s
                    -> (AExp s -> State (AnfState s) (NExp s))

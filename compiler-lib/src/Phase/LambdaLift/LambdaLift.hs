@@ -112,8 +112,9 @@ lambdaLiftDefn nameGen (FunDefAnfT t n fun) =
             CCase t scrut ps ->
                 CCase t <$> lla scrut <*> mapM llp ps
 
+    -- assume no work necessary here
     llp (PExp a b) =
-        PExp <$> ll a <*> ll b
+        PExp a <$> ll b
 
     -- Handles let-bound and anonymous lambdas/closures
     -- renaming recursive calls if necessary

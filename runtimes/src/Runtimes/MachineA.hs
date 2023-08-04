@@ -1,6 +1,8 @@
-{-# LANGUAGE LambdaCase, OverloadedStrings #-}
+{-# LANGUAGE LambdaCase, OverloadedStrings, ScopedTypeVariables #-}
 
-module Runtimes.MachineA (runMachineA) where
+module Runtimes.MachineA ( bytesToInt
+                         , intToBytes
+                         , runMachineA ) where
 
 import Common.EitherT
 import Common.State
@@ -8,20 +10,27 @@ import Common.Trans
 import Core.Operator
 import Phase.CodeGen.TypesA
 
+import           Data.Bits (shiftL, shiftR)
 import           Data.ByteString.Char8 (ByteString, pack)
+import qualified Data.ByteString.Char8 as C8
 import           Data.IntMap (IntMap)
 import qualified Data.IntMap as I
 import           Data.Map (Map)
 import qualified Data.Map as M
+import           Data.Vector.Unboxed ((!), Vector)
+import qualified Data.Vector.Unboxed as V
+import           Data.Word (Word8)
 
 data AState s =
     AState { _program   :: !(IntMap (AInstr s))
            , _stack     :: ![SVal]
+           , _store     :: !(Map SVal (Vector Word8))
+           , _nextStore :: !Int
            , _ip        :: !Int
            , _ipStack   :: ![Int]
            , _registers :: !(Map SVal SVal)
            , _cmp       :: !Bool
-           }
+           } deriving Show
 
 type Ma a =
     EitherT ByteString (State (AState ByteString)) a
@@ -31,15 +40,19 @@ runMachineA instrs = do
 
     let state = AState { _program   = I.fromList (zip [0..] instrs)
                        , _stack     = []
+                       , _store     = mempty
+                       , _nextStore = 0
                        , _ip        = 0
                        , _ipStack   = []
                        , _registers = mempty
                        , _cmp       = True
                        }
 
-    case evalState (runEitherT run) state of
+    let (eResult, state') = runState (runEitherT run) state
+
+    case eResult of
         Left l  -> l
-        Right r -> r
+        Right r -> C8.unlines [r, "", pack $ show state']
 
 run :: Ma ByteString
 run = do
@@ -58,12 +71,50 @@ run = do
             modifyIp (+1)
             step
 
+        AMovToPtrOff p@VirtRegPtr{} off sval -> do
+
+            p'     <- readReg p
+            sval'  <- evalOnce sval
+            sval'' <- intFromSval sval'
+
+            -- warn cast
+            let sval''' = intToBytes $ fromIntegral sval''
+            let offs   = V.iterateN (V.length sval''') (+1) off
+            let updates = V.zip offs sval'''
+
+            lift . modify' $ \state -> do
+                let store    = _store state
+                let Just mem = M.lookup p' store
+                let mem'     = V.update mem updates
+                let store'   = M.insert p' mem' store
+                state { _store = store'
+                      , _ip    = _ip state + 1 }
+            step
+
+        -- destreg / offbytes / arg1
+        -- Read one word, I guess?
+        AMovFromPtrOff dst@VirtRegPrim{} off src@VirtRegPtr{} ->
+
+            readReg src >>= \case
+
+                RMemAddress readAddr -> do
+                    state <- lift get
+                    case M.lookup (RMemAddress readAddr) (_store state) of
+                        Nothing -> left "Read unwritten memory"
+                        Just mem -> do
+                            let oneWord = bytesToInt . V.take 8 . V.drop off $ mem
+                            writeReg dst (RLitInt $ fromIntegral oneWord)
+                            modifyIp (+1)
+                            step
+
+                _ -> left "AMovFromPtrOff: not an address"
+
         ABinOp dst op a b -> do
             binOp dst op a b
             modifyIp (+1)
             step
 
-        ACmp a -> do
+        ACmpB a -> do
             cmp a
             modifyIp (+1)
             step
@@ -91,8 +142,8 @@ run = do
                     pop >>= \case
                         i@VirtRegPrim{} -> do
                             x <- readReg i
-                            left . pack . show $ x
-                        RLitInt i     -> left . pack $ show i
+                            pure . pack . show $ x -- is this a good exit
+                        RLitInt i     -> pure . pack $ show i -- is this a good exit?
                 Just ip -> do
                     setIp ip
                     step
@@ -101,11 +152,61 @@ run = do
             j lbl
             step
 
+        Je lbl -> do
+            je lbl
+            step
+
         Jne lbl -> do
             jne lbl
             step
 
+        AComment{} -> do
+            modifyIp (+1)
+            step
+
+        Allocate dst@VirtRegPtr{} sz -> do
+
+            state <- lift get
+
+            let nextStore = _nextStore state
+
+            -- allocate space
+            let mem = V.replicate sz (0 :: Word8)
+            let store = _store state
+            let store' = M.insert (RMemAddress nextStore) mem store
+
+            -- Point to the heap
+            lift $ put state { _store     = store'
+                             , _nextStore = nextStore + sz
+                             , _ip        = _ip state + 1 }
+
+            move dst (RMemAddress nextStore)
+
+            step
+
+        AErr err ->
+            left err
+
         inst -> left $ "Unkn instr: " <> pack (show inst)
+
+--warn cast
+intFromSval :: SVal -> Ma Int
+intFromSval (RLitInt i) = pure $ fromIntegral i
+intFromSval _ = left "intFromSval"
+
+-- TODO test negatives, or only use Word64s
+intToBytes :: Int -> Vector Word8
+intToBytes i = go [] 0
+    where
+    go acc 64 = V.fromListN 8 (reverse acc)
+    go acc n  = go (fromIntegral (shiftR i n) : acc) (n+8)
+
+-- TODO test negatives, or only use Word64s
+bytesToInt :: Vector Word8 -> Int
+bytesToInt bs = go 0 0
+    where
+    go acc 8 = acc
+    go acc n = go (acc + ((fromIntegral (bs ! n)) `shiftL` (n*8))) (n+1)
 
 resolveLabel :: ByteString -> Ma Int
 resolveLabel lbl =
@@ -124,12 +225,13 @@ getIp :: Ma Int
 getIp = _ip <$> lift get
 
 move :: SVal -> SVal -> Ma ()
-move dst@VirtRegPrim{} src = writeReg =<< evalOnce src
-
-    where
-    writeReg :: SVal -> Ma ()
-    writeReg src' = lift . modify' $ \ps -> ps { _registers = M.insert dst src' (_registers ps) }
+move dst@VirtRegPrim{} src               = writeReg dst =<< evalOnce src
+move dst@VirtRegPtr{}  src@VirtRegPtr{}  = writeReg dst src -- guess.  both ptrs, shouldn't need eval?
+move dst@VirtRegPtr{}  src@RMemAddress{} = writeReg dst src
 move a b = left . pack . show $ ("move", a, b)
+
+writeReg :: SVal -> SVal -> Ma ()
+writeReg dst src = lift . modify' $ \ps -> ps { _registers = M.insert dst src (_registers ps) }
 
 readReg :: SVal -> Ma SVal
 readReg reg = do
@@ -187,8 +289,10 @@ cmp val =
 
 push :: SVal -> Ma ()
 push val@RLitInt{}     = lift $ modify' $ \ps -> ps { _stack = val : _stack ps }
+push val@RMemAddress{} = lift $ modify' $ \ps -> ps { _stack = val : _stack ps }
 push val@VirtRegPrim{} = readReg val >>= push
-push _                 = left "push"
+push val@VirtRegPtr{}  = readReg val >>= push
+push x                 = left . pack $ "push: " ++ show x
 
 pop :: Ma SVal
 pop = do
@@ -200,7 +304,10 @@ pop = do
             pure s
 
 j :: ByteString -> Ma ()
-j lbl = do
+j lbl = setIp =<< resolveLabel lbl
+
+je :: ByteString -> Ma ()
+je lbl = do
     cmp' <- _cmp <$> lift get
     if cmp'
         then setIp =<< resolveLabel lbl
