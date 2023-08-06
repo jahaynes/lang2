@@ -1,6 +1,10 @@
-module Phase.Anf.AnfModule where
+module Phase.Anf.AnfModule ( AnfModule (..)
+                           , FunDefAnfT (..)
+                           , anfModule ) where
 
+import Common.EitherT
 import Common.State
+import Common.Trans
 import Core.Expression
 import Core.Module
 import Core.Term
@@ -14,20 +18,21 @@ data AnfModule s =
               , getFunDefAnfTs   :: [FunDefAnfT s]
               } deriving Show
 
-anfModule :: Module (Type ByteString) ByteString -> AnfModule ByteString
-anfModule md =
-    let funDefns  = getFunDefns md
-        funDefns' = map anfFunDefT funDefns
-    in AnfModule (getDataDefns md) funDefns'
+type Anf s a =
+    EitherT ByteString (
+        State (AnfState s)) a
+
+anfModule :: Module (Type ByteString) ByteString
+          -> Either ByteString (AnfModule ByteString)
+anfModule md = AnfModule (getDataDefns md) <$> mapM anfFunDefT (getFunDefns md)
 
 data FunDefAnfT s =
     FunDefAnfT s (Quant s) (NExp s)
         deriving Show
 
-anfFunDefT :: FunDefn (Type ByteString) ByteString -> FunDefAnfT ByteString
-anfFunDefT (FunDefn n pt expr) =
-    let expr' = evalState (norm expr) (AnfState 0 genSym)
-    in FunDefAnfT n pt expr'
+anfFunDefT :: FunDefn (Type ByteString) ByteString
+           -> Either ByteString (FunDefAnfT ByteString)
+anfFunDefT (FunDefn n pt expr) = FunDefAnfT n pt <$> evalState (runEitherT (norm expr)) (AnfState 0 genSym)
 
 data AnfState s =
     AnfState { getNum :: Int
@@ -40,12 +45,12 @@ genSym = do
     put $! AnfState (n+1) sg
     pure . pack $ "anf_" <> show n
 
-norm :: Show s => Expr (Type s) s -> State (AnfState s) (NExp s)
+norm :: Show s => Expr (Type s) s -> Anf s (NExp s)
 norm expr = normExpr expr pure
 
 normExpr :: Show s => Expr (Type s) s
-                   -> (NExp s -> State (AnfState s) (NExp s))
-                   -> State (AnfState s) (NExp s)
+                   -> (NExp s -> Anf s (NExp s))
+                   -> Anf s (NExp s)
 normExpr expr k =
 
     case expr of
@@ -101,11 +106,11 @@ normExpr expr k =
 
 -- both parts necessary?
 -- assume lhs is already normed for now
-normPattern :: Show s => Pattern (Type s) s -> State (AnfState s) (PExp s)
+normPattern :: Show s => Pattern (Type s) s -> Anf s (PExp s)
 normPattern (Pattern a b) =
     PExp <$> normLhs a <*> norm b
 
-normLhs :: Show s => Expr (Type s) s -> State (AnfState s) (PPat s)
+normLhs :: Show s => Expr (Type s) s -> Anf s (PPat s)
 normLhs (App t dc ts) = pure $ PApp (expectDCons dc) t (map expectVar ts)
     where
 
@@ -118,8 +123,8 @@ normLhs (App t dc ts) = pure $ PApp (expectDCons dc) t (map expectVar ts)
 normLhs a = error $ "normLhs: " ++ show a
 
 normAtom :: Show s => Expr (Type s) s
-                   -> (AExp s -> State (AnfState s) (NExp s))
-                   -> State (AnfState s) (NExp s)
+                   -> (AExp s -> Anf s (NExp s))
+                   -> Anf s (NExp s)
 normAtom e k =
 
     case e of
@@ -127,7 +132,7 @@ normAtom e k =
         -- Assumes v == lam == lam'
         Lam t vs body ->
             normExpr body $ \body' -> do
-                v    <- symGen =<< get
+                v    <- lift (symGen =<< get)
                 rest <- k $ ATerm t $ Var v
                 pure $ NLet v
                             (AExp $ ALam t vs body')
@@ -137,7 +142,7 @@ normAtom e k =
         App t f xs ->
             normAtom f $ \f' ->
                 normAtoms xs $ \xs' -> do
-                    v    <- symGen =<< get
+                    v    <- lift (symGen =<< get)
                     rest <- k $ ATerm t $ Var v
                     pure $ NLet v
                                 (CExp $ CApp t f' xs')
@@ -150,7 +155,7 @@ normAtom e k =
         -- assumes v == ite == ite'
         IfThenElse t pr tr fl ->
             normAtom pr $ \pr' -> do
-                v    <- symGen =<< get
+                v    <- lift (symGen =<< get)
                 tr'  <- norm tr
                 fl'  <- norm fl
                 rest <- k $ ATerm t $ Var v
@@ -183,8 +188,8 @@ normAtom e k =
             k $ ATerm t (DCons d)
 
 normAtoms :: Show s => [Expr (Type s) s]
-                    -> ([AExp s] -> State (AnfState s) (NExp s))
-                    -> State (AnfState s) (NExp s)
+                    -> ([AExp s] -> Anf s (NExp s))
+                    -> Anf s (NExp s)
 normAtoms [] k = k []
 normAtoms (e:es) k =
     normAtom e $ \e' ->

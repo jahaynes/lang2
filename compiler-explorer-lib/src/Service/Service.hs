@@ -53,7 +53,7 @@ pipe = do
 
     phaseAnfConvert :: State ProgramState ()
     phaseAnfConvert = modify' $ \ps ->
-        ps { getAnfConverted = anfModule <$> getEtaExpanded ps }
+        ps { getAnfConverted = anfModule =<< getEtaExpanded ps }
 
     phaseClosureConvert :: State ProgramState ()
     phaseClosureConvert = modify' $ \ps ->
