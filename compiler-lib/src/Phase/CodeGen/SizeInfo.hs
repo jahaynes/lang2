@@ -8,7 +8,7 @@ import Common.Trans
 import Core.Module
 import Core.Types
 
-import           Data.ByteString.Char8 (ByteString)
+import           Data.ByteString.Char8 (ByteString, pack)
 import           Data.Map ((!), Map)
 import qualified Data.Map as M
 
@@ -48,11 +48,11 @@ sizeOfDConsInstance dcName (TyCon n tvs) = do
 
     allocationSize concreteTypes
 
-applySubst :: (Ord s, Monad m) => Map s (Type s) -> DataCon s -> EitherT ByteString m [Type s]
+applySubst :: (Ord s, Show s, Monad m) => Map s (Type s) -> DataCon s -> EitherT ByteString m [Type s]
 applySubst subst (DataCon _ members) = mapM go members
     where
-    go (MemberVar t) = pure $ subst ! t
-    go             _ = left "Unhandled case in applySubst/go"
+    go (MemberVar t)      = pure $ subst ! t -- TODO missing case?
+    go (MemberType tc ts) = TyCon tc <$> mapM go ts
 
 -- TODO: Assumes a tag.
 -- TOOD: foldlM ?
@@ -63,5 +63,9 @@ allocationSize = go sizeOfTag []
     go  sz offs (t:ts) = sizeOf t >>= \x -> go (sz+x) (sz:offs) ts
 
 sizeOf :: Monad m => Type ByteString -> EitherT ByteString m Int
-sizeOf (TyCon "Int" []) = pure 8
-sizeOf                _ = left "Unhandled case in sizeOf"
+sizeOf (TyCon "Int"    []) = pure 8
+sizeOf (TyCon "Bool"   []) = pure 8
+sizeOf (TyCon "String" []) = left "Not handling sizeOf(String) just yet"
+sizeOf (TyCon _ ts) = -- This is either a ptr or an Int/Bool.  Both are 8
+    pure 8
+sizeOf                x = left $ "Unhandled case in sizeOf: " <> pack (show x)

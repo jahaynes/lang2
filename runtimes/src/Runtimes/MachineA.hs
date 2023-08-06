@@ -211,7 +211,7 @@ bytesToInt bs = go 0 0
 resolveLabel :: ByteString -> Ma Int
 resolveLabel lbl =
     (map fst . filter (\(_, x) -> x == ALabel lbl) . I.toList . _program <$> lift get) >>= \case
-        []  -> left "No such label"
+        []  -> left $ "No such label: " <> lbl
         [x] -> pure x
         _   -> left "Too many labels"
 

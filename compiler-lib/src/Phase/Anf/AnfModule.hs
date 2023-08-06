@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Phase.Anf.AnfModule ( AnfModule (..)
                            , FunDefAnfT (..)
                            , anfModule ) where
@@ -111,16 +113,18 @@ normPattern (Pattern a b) =
     PExp <$> normLhs a <*> norm b
 
 normLhs :: Show s => Expr (Type s) s -> Anf s (PPat s)
-normLhs (App t dc ts) = pure $ PApp (expectDCons dc) t (map expectVar ts)
+normLhs (App t dc ts) = PApp <$> expectDCons dc
+                             <*> pure t 
+                             <*> mapM expectVar ts
     where
+    expectVar (Term _ v@Var{}) = pure v
+    expectVar x = left $ "Expected Var: " <> pack (show x)
 
-    -- expectDCons :: Expr (Type s) s -> s
-    expectDCons (Term _ (DCons dc)) = dc
+-- Route just-a-term into a Pattern Apply on 0 params
+normLhs dc@(Term t DCons{}) = normLhs (App t dc [])
 
-    -- expectVar :: Expr (Type s) s -> Term s
-    expectVar (Term _ v@Var{}) = v
-
-normLhs a = error $ "normLhs: " ++ show a
+expectDCons (Term _ (DCons dc)) = pure dc
+expectDCons x = left $ "Expected DCons: " <> pack (show x)
 
 normAtom :: Show s => Expr (Type s) s
                    -> (AExp s -> Anf s (NExp s))
