@@ -192,7 +192,7 @@ run = do
 --warn cast
 intFromSval :: SVal -> Ma Int
 intFromSval (RLitInt i) = pure $ fromIntegral i
-intFromSval _ = left "intFromSval"
+intFromSval x = left $ "Unexpected intFromSval: " <> pack (show x)
 
 -- TODO test negatives, or only use Word64s
 intToBytes :: Int -> Vector Word8
@@ -260,6 +260,7 @@ evalOnce :: SVal -> Ma SVal
 evalOnce v@VirtRegPrim{} = readReg v
 evalOnce v@RLitBool{}    = pure v
 evalOnce v@RLitInt{}     = pure v
+evalOnce x = left $ "Unexpected evalOnce: " <> pack (show x)
 
 binOp :: SVal -> BinOp -> SVal -> SVal -> Ma ()
 binOp dst op a b = do
