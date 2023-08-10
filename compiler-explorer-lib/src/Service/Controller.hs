@@ -31,7 +31,7 @@ instance FromJSON Input
 type Api = "lexAndParse" :> ReqBody '[JSON] Input
                          :> Post '[JSON] ProgramState
 
-      :<|> "run" :> Post '[JSON] Text
+      :<|> "run" :> Post '[JSON] (Text, Text)
 
       :<|> "example" :> Capture "closure" Text :> Get '[JSON] Text
 
@@ -45,14 +45,16 @@ server ioref = setProgramState :<|> runCurrentProgramState :<|> getExample
         writeIORef ioref (Just programState)
         pure programState
 
-    runCurrentProgramState :: Handler Text
+    runCurrentProgramState :: Handler (Text, Text)
     runCurrentProgramState = liftIO $
         readIORef ioref <&> \case
-            Nothing -> "No stored program!"
-            Just ps -> decodeUtf8 $
+            Nothing -> ("No stored program!", "No stored program!")
+            Just ps -> 
                 case getCodeGenA ps of
-                    Left e -> e
-                    Right instrs -> runMachineA instrs
+                    Left e1 -> ("", decodeUtf8 e1)
+                    Right instrs ->
+                        case runMachineA instrs of
+                            (r1, r2) -> (decodeUtf8 r1, decodeUtf8 r2)
 
     getExample "closure" =
         pure "f x =\n\

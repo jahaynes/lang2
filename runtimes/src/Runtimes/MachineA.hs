@@ -30,12 +30,14 @@ data AState s =
            , _ipStack   :: ![Int]
            , _registers :: !(Map SVal SVal)
            , _cmp       :: !Bool
+           , _debugLog  :: ![ByteString]
            } deriving Show
 
 type Ma a =
-    EitherT ByteString (State (AState ByteString)) a
+    EitherT ByteString (
+        State (AState ByteString)) a
 
-runMachineA :: [AInstr ByteString] -> ByteString
+runMachineA :: [AInstr ByteString] -> (ByteString, ByteString)
 runMachineA instrs = do
 
     let state = AState { _program   = I.fromList (zip [0..] instrs)
@@ -46,13 +48,14 @@ runMachineA instrs = do
                        , _ipStack   = []
                        , _registers = mempty
                        , _cmp       = True
+                       , _debugLog  = mempty
                        }
 
     let (eResult, state') = runState (runEitherT run) state
 
     case eResult of
-        Left l  -> l
-        Right r -> C8.unlines [r, "", pack $ show state']
+        Left l  -> (C8.unlines . reverse $ _debugLog state', l)
+        Right r -> ("No error", C8.unlines [r, "", pack $ show state'])
 
 run :: Ma ByteString
 run = do
@@ -326,4 +329,11 @@ getInstr = do
     ps <- lift get
     case I.lookup (_ip ps) (_program ps) of
         Nothing -> left "no such instruction"
-        Just i  -> pure i
+        Just i  -> do
+            let _debugLog' =
+                    case i of
+                        ALabel{}   -> pack (show i) : []
+                        AComment{} ->                 _debugLog ps
+                        _          -> pack (show i) : _debugLog ps
+            lift $ put ps { _debugLog = _debugLog' }
+            pure i

@@ -23,13 +23,17 @@ class App extends React.Component {
 
     this.lexAndParse();
 
-    const output = this.getAndClearElement("output");
+    const debugLog = this.getAndClearElement("debugLog");
+    const output   = this.getAndClearElement("output");
 
     fetch("http://127.0.0.1:8080/run", { method:  'POST'
                                        , headers: { 'Accept': 'application/json'
                                                   , 'Content-Type': 'application/json' } })
       .then(resp => resp.json())
-      .then(out => output.value = out);
+      .then(out => {
+        debugLog.value = out[0];
+        output.value   = out[1];
+      });
   }
 
   lexAndParse() {
@@ -92,6 +96,7 @@ class App extends React.Component {
           <button id='stop' onClick={e => alert('stop')}>Stop All</button>
         </div>
         <div>
+          <textarea id='debugLog' className='editor' spellCheck='false' rows={numRows}></textarea>
           <textarea id='output' className='editor' spellCheck='false' rows={numRows}></textarea>
         </div>
 
