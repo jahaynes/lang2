@@ -3,37 +3,45 @@ module Phase.CodeGen.TypesA where
 import Core.Operator
 import Core.Types
 
-             -- Simple
 data AInstr s = ALabel s
               | AComment s
 
-              | AMov SVal SVal -- to / from
-              | AMovToPtrOff SVal Int SVal -- destptr / offbytes / arg1 -- todo split arg1 for efficiency?
-              | AMovFromPtrOff SVal Int SVal -- destreg / offbytes / arg1
-              | ABinOp SVal BinOp SVal SVal -- dest / op / arg1 / arg2
-              | ACmpB SVal -- Compare its value to 'True'.  Result is directly set in machine.
-
-             -- Compound Data
-              | Allocate SVal Int -- dest / bytes
-
-             -- Control Flow
-              | Push s (Type s) SVal -- debugname / type / idunno?
-              | Pop  s (Type s) SVal -- debugname / type / val
-              | Call s
-              | Ret SVal
               | J s
               | Je s
               | Jne s
 
               | AErr s
+              
+              | Call s
+              | Ret AVal
+              | Push s (Type s) AVal -- debugname / type / Reg or literal
+              | Pop s (Type s) Int -- debugname / type / AReg 
 
-                  deriving (Eq, Show)
+              | AMov MovMode
 
--- TODO split into lvalues/rvalues?
--- clean up the uses in machinea and go from there
-data SVal = VirtRegPrim !Int
-          | VirtRegPtr !Int
-          | RLitBool !Bool
-          | RLitInt !Integer
-          | RMemAddress !Int
-             deriving (Eq, Ord, Show)
+                -- x86 adds are only 2-param, so this will need later translation
+              | ABinOp Int BinOp (Type s) AVal (Type s) AVal -- dest / op / type a / a / type b / b
+
+              | ACmpB AVal -- Compare its value to 'True'.  Result is directly set in machine.
+
+              | Allocate Int Int -- destreg / bytes
+
+                  deriving Show
+
+data MovMode = RegFromReg !Int !Int             --  mov ebx         , eax
+             | MemFromReg !Int !Int !Int        --  mov [ebx + 0x10], eax
+             | MemFromLitBool !Int !Int !Bool   --  mov [ebx + 0x10], false
+             | MemFromLitInt !Int !Int !Integer --  mov [ebx + 0x10], 0x20
+             | RegFromMem !Int !Int !Int        --  mov ebx         , [eax + 0x10]
+             | RegFromLitInt !Int !Integer      --  mov ebx         , 0x10
+             | RegFromLitBool !Int !Bool        --  mov ebx         , true
+                 deriving Show
+
+-- I probably can't switch on different AVals during runtime
+-- Expand the instructions instead
+data AVal = ALitInt !Integer
+          | ALitBool !Bool
+          | AReg !Int
+          | MemAddress !Int
+          | AUnkn
+              deriving Show
