@@ -1,6 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Common.CallGraph where
+-- TODO clearer API
+module Common.CallGraph ( CallGraph (..)
+                        , buildGraph
+                        , buildGraph'
+                        , findCycles
+                        , planExcludingPretyped
+                        ) where
 
 import Core.Expression
 import Core.Module
