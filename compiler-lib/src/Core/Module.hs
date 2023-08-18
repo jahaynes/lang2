@@ -1,6 +1,13 @@
 {-# LANGUAGE DeriveFunctor #-}
 
-module Core.Module where
+module Core.Module ( DataCon (..)
+                   , DataDefn (..)
+                   , FunDefn (..)
+                   , Member (..)
+                   , Module (..)
+                   , Quant (..)
+                   , TypeSig (..)
+                   ) where
 
 import Core.Expression
 import Core.Types

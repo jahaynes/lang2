@@ -1,4 +1,6 @@
-module Common.EitherT where
+module Common.EitherT ( EitherT(..)
+                      , left
+                      ) where
 
 import Common.Trans
 

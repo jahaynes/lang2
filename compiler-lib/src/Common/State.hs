@@ -1,4 +1,13 @@
-module Common.State where
+module Common.State ( State(..)
+                    , evalState
+                    , evalState'
+                    , execState
+                    , get
+                    , modify'
+                    , put
+                    ) where
+
+-- TODO make this a special case of StateT ?
 
 newtype State s a = State { runState :: s -> (a, s) }
 

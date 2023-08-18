@@ -19,7 +19,6 @@ library
                     Common.ReaderT
                     Common.StateT
                     Common.Trans
-                    Common.Writer
                     Core.Expression
                     Core.Module
                     Core.Operator

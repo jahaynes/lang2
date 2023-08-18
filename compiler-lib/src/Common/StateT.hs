@@ -1,4 +1,8 @@
-module Common.StateT where
+module Common.StateT ( StateT (..)
+                     , gett
+                     , modifyt
+                     , putt
+                     ) where
 
 import Common.Trans
 
