@@ -57,12 +57,13 @@ renderCodeGenA = C8.dropWhile isSpace . C8.unlines . map (mconcat . go)
 
     go (AMov mm) = mov mm
         where
-        mov (RegFromReg dst src)      = ["  ", reg dst, " <- ", reg src]
-        mov (MemFromReg dst off src)  = ["  ", reg dst, "[", pack (show off), "], ", reg src]
-        mov (RegFromLitInt dst i)     = ["  ", reg dst, " <- ", pack (show i)]
-        mov (MemFromLitInt dst off i) = ["  ", reg dst, "[", pack (show off), "]", " <- ", pack (show i)]
-        mov (RegFromMem dst src off)  = ["  ", reg dst, " <- ", reg src, "[", pack (show off), "]"]
-        mov (RegFromLitBool dst b)    = ["  ", reg dst, " <- ", pack (show b)]
+        mov (RegFromReg dst src)       = ["  ", reg dst, " <- ", reg src]
+        mov (MemFromReg dst off src)   = ["  ", reg dst, "[", pack (show off), "], ", reg src]
+        mov (RegFromLitInt dst i)      = ["  ", reg dst, " <- ", pack (show i)]
+        mov (MemFromLitInt dst off i)  = ["  ", reg dst, "[", pack (show off), "]", " <- ", pack (show i)]
+        mov (RegFromLitBool dst b)     = ["  ", reg dst, " <- ", pack (show b)]
+        mov (MemFromLitBool dst off b) = ["  ", reg dst, "[", pack (show off), "]", " <- ", pack (show b)]
+        mov (RegFromMem dst src off)   = ["  ", reg dst, " <- ", reg src, "[", pack (show off), "]"]
         mov m = ["TODO movmod: " <> pack (show m)]
 
     go x = ["TODO ", pack (show x)]
