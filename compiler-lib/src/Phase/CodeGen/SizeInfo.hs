@@ -66,6 +66,12 @@ sizeOf :: Monad m => Type ByteString -> EitherT ByteString m Int
 sizeOf (TyCon "Int"    []) = pure 8
 sizeOf (TyCon "Bool"   []) = pure 8
 sizeOf (TyCon "String" []) = left "Not handling sizeOf(String) just yet"
-sizeOf (TyCon _ ts) = -- This is either a ptr or an Int/Bool.  Both are 8
+
+sizeOf (TyCon _ _) = -- This is either a ptr or an Int/Bool.  Both are 8
     pure 8
-sizeOf                x = left $ "Unhandled case in sizeOf: " <> pack (show x)
+
+sizeOf (TyVar _) =
+    left "Requested sizeOf on type variable.  Should it have been instantiated to a concrete type?"
+
+sizeOf (TyArr _ _) =
+    left "Requested sizeOf on type arrow.  Does that make sense?"
