@@ -1,29 +1,38 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Phase.ClosureConvert.ClosureConvert where
+module Phase.ClosureConvert.ClosureConvert ( closureConvert ) where
 
+import Common.EitherT
 import Common.State
+import Common.Trans
 import Core.Term
 import Phase.Anf.AnfExpression
 import Phase.Anf.AnfModule             (AnfModule (..), FunDefAnfT (..))
 import Phase.ClosureConvert.FreeVars
 
 import           Data.ByteString.Char8 (ByteString, pack)
+import           Data.Functor          ((<&>))
 import           Data.Set              (Set)
 import qualified Data.Set as S
 
-closureConvert :: AnfModule ByteString -> AnfModule ByteString
-closureConvert md = md { getFunDefAnfTs = closureConvert' $ getFunDefAnfTs md }
+type Cc s a =
+    EitherT ByteString (
+        State (Int, Scope s)) a
 
-closureConvert' :: [FunDefAnfT ByteString] -> [FunDefAnfT ByteString]
-closureConvert' funDefs =
-    let topLevelScope = S.fromList $ map (\(FunDefAnfT n _ _) -> n) funDefs
-    in evalState (mapM (closureConvertDefn genNameImpl topLevelScope) funDefs) (0, Scope mempty)
+closureConvert :: AnfModule ByteString -> Either ByteString (AnfModule ByteString)
+closureConvert md = do
 
-closureConvertDefn :: (Ord s, Show s) => State (Int, Scope s) s
+    let funDefs       = getFunDefAnfTs md
+        topLevelScope = S.fromList $ map (\(FunDefAnfT n _ _) -> n) funDefs
+        funDefMs      = mapM (closureConvertDefn (lift genNameImpl) topLevelScope) funDefs
+    
+    evalState (runEitherT funDefMs) (0, Scope mempty) <&> \fs ->
+        md { getFunDefAnfTs = fs }
+
+closureConvertDefn :: (Ord s, Show s) => Cc s s
                                       -> Set s
                                       -> FunDefAnfT s
-                                      -> State (Int, Scope s) (FunDefAnfT s)
+                                      -> Cc s (FunDefAnfT s)
 closureConvertDefn genName topLevelScope (FunDefAnfT n q fun) = do
 
     fun' <- case fun of
@@ -48,7 +57,7 @@ closureConvertDefn genName topLevelScope (FunDefAnfT n q fun) = do
                     AClo _ fvs _ _ -> do
                         v <- genName
                         let t = typeOfAExp aexp'
-                        let app = CExp $ CAppClo t aexp' (AClosEnv fvs) [] -- always empty?
+                        let app = CExp $ CAppClo t aexp' (AClosEnv fvs) [] -- always empty? -- put this in a writer for warnings
                         pure $ NLet v app (AExp $ ATerm t (Var v))
                     _ -> pure $ AExp aexp'
 
@@ -83,6 +92,9 @@ closureConvertDefn genName topLevelScope (FunDefAnfT n q fun) = do
                     CCase t <$> cca scrut
                             <*> mapM ccp ps
 
+                CAppClo{} ->
+                    left "Closure Apps shouldn't exist here yet"
+
         -- Assume no work needed LHS
         ccp (PExp a b) =
             PExp a <$> go b
@@ -98,7 +110,7 @@ closureConvertDefn genName topLevelScope (FunDefAnfT n q fun) = do
                     cclam Nothing t vs body
 
                 AClo{} ->
-                    error "Doesn't exist yet"
+                    left "Closures shouldn't exist here yet"
 
                 AUnPrimOp t o a ->
                     AUnPrimOp t o <$> cca a
@@ -111,10 +123,11 @@ closureConvertDefn genName topLevelScope (FunDefAnfT n q fun) = do
         cclam mName t vs body = do
             body' <- go body
             let scope = maybe mempty S.singleton mName <> S.fromList vs <> topLevelScope
-                fvs = S.toList $ getFreeVars scope body'
-            pure $ if null fvs
-                    then ALam t     vs body'
-                    else AClo t fvs vs body'
+            pure $ case S.toList <$> getFreeVars scope body' of
+                Left er -> error $ show er -- TODO handle
+                Right fvs
+                    | null fvs  -> ALam t     vs body'
+                    | otherwise -> AClo t fvs vs body'
 
 -- Just for a little ANF transform for the newly introduced closure-call
 genNameImpl :: State (Int, a) ByteString
@@ -124,17 +137,17 @@ genNameImpl = do
     pure $ "ccanf_" <> pack (show n)
 
 withScope' :: Ord s => s
-                    -> State (Int, Scope s) a
-                    -> State (Int, Scope s) a
+                    -> Cc s a
+                    -> Cc s a
 withScope' v f = do
 
     -- Save the initial scope
-    i@(n, Scope initScope) <- get
+    i@(n, Scope initScope) <- lift get
 
     -- Use the new scope for the action
-    put (n, Scope (S.insert v initScope))
+    lift $ put (n, Scope (S.insert v initScope))
     x <- f
 
     -- Restore the old scope
-    put i
+    lift $ put i
     pure x

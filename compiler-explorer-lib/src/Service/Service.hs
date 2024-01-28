@@ -57,7 +57,7 @@ pipe = do
 
     phaseClosureConvert :: State ProgramState ()
     phaseClosureConvert = modify' $ \ps ->
-        ps { getClosureConverted = closureConvert <$> getAnfConverted ps }
+        ps { getClosureConverted = closureConvert =<< getAnfConverted ps }
 
     phaseLambdaLift :: State ProgramState ()
     phaseLambdaLift = modify' $ \ps ->
