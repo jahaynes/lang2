@@ -267,7 +267,17 @@ move movMode = do
                 mem'                   = mconcat [start, liBytes, end]
                 store'                 = I.insert addr mem' store
             in lift $ put state { _store = store' }
-    
+
+        MemFromLitBool dst off lb -> -- TODO untested
+            let Just (MemAddress addr) = I.lookup dst registers
+                Just mem               = I.lookup addr store
+                (start, mid)           = V.splitAt off mem
+                liBytes                = intToBytes $ if lb then 1 else 0
+                end                    = V.drop (V.length liBytes) mid
+                mem'                   = mconcat [start, liBytes, end]
+                store'                 = I.insert addr mem' store
+            in lift $ put state { _store = store' }
+
         RegFromMem dst src off ->
             let Just regVal            = I.lookup src registers
                 addr                   = bytesToAddr regVal
@@ -277,7 +287,7 @@ move movMode = do
                 registers'             = I.insert dst (ALitInt val) registers
             in lift $ put state { _registers = registers' }
 
-        _ -> left . pack $ show movMode
+        _ -> left $ "unknown movmode: " <> (pack $ show movMode)
 
 -- fast and loose
 bytesToAddr :: AVal -> Int

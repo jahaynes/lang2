@@ -24,6 +24,7 @@ import           Data.Char     (isSpace)
 import           Data.Functor  ((<&>))
 import           Data.Map      ((!), Map)
 import qualified Data.Map as M
+import           Debug.Trace (trace)
 
 type Cg a =
     EitherT ByteString (
@@ -107,7 +108,7 @@ codeGenNexp (NLet a b c) = codeGenNlet a b c
 
 codeGenAexp :: AExp ByteString
             -> Cg (AVal, [AInstr ByteString])
-codeGenAexp (ATerm _type term)          = codeGenTerm term
+codeGenAexp (ATerm t term)              = codeGenTerm t term
 codeGenAexp (ALam t vs nexp)            = codegenLam t vs nexp
 codeGenAexp (AClo _type _fvs _vs _nexp) = pure (unkn, [AComment "closure"])
 
@@ -261,18 +262,28 @@ codeGenIfThenElse t pr tr fl = do
     (trReg, trInstrs) <- codeGenNexp tr
     (flReg, flInstrs) <- codeGenNexp fl
     let [if_, then_, else_, endif_] = branchLables
-    let (AReg tr, AReg fl) = (trReg, flReg)
+
+    let trueMov = AMov $ case trReg of
+                             AReg r     -> RegFromReg fresh r
+                             ALitInt i  -> RegFromLitInt fresh i
+                             ALitBool b -> RegFromLitBool fresh b
+
+    let falseMov = AMov $ case flReg of
+                             AReg r     -> RegFromReg fresh r
+                             ALitInt i  -> RegFromLitInt fresh i
+                             ALitBool b -> RegFromLitBool fresh b
+
     let instrs = concat [ [ALabel if_]
                         , prInstrs
                         , [ ACmpB prReg
                           , Jne else_ ]
                         , [ALabel then_]
                         , trInstrs
-                        , [ AMov $ RegFromReg fresh tr
+                        , [ trueMov
                           , J endif_ ]
                         , [ALabel else_]
                         , flInstrs
-                        , [ AMov $ RegFromReg fresh fl
+                        , [ falseMov
                           , ALabel endif_] ]
 
     pure (AReg fresh, instrs)
@@ -378,15 +389,26 @@ codeGenPattern dctypes label (AReg scrutReg) (PApp dc dct ms) rhs destReg doneLa
          ++ [ AMov mov
             , J doneLabel ]
 
-codeGenTerm :: Term ByteString
+codeGenTerm :: Type ByteString
+            -> Term ByteString
             -> Cg (AVal, [AInstr ByteString])
-codeGenTerm (LitBool b) = pure (ALitBool b, [])
-codeGenTerm (LitInt i)  = pure (ALitInt i, [])
-codeGenTerm (Var v) =
+codeGenTerm _ (LitBool b) = pure (ALitBool b, [])
+codeGenTerm _ (LitInt i)  = pure (ALitInt i, [])
+codeGenTerm _ (Var v) =
     getRegister v >>= \case
         Just r  -> pure (r, [])
         Nothing -> left $ "Unregistered: " <> v -- pure (unkn, []).  Unapplied functions can get snagged here
-codeGenTerm term = left $ "codeGenTerm: " <> C8.pack (show term)
+
+-- Just a tag 
+codeGenTerm t d@(DCons dc) = do
+    rr    <- freshNum
+    Tag n <- getTag t dc
+    -- Just a tag should have size 8
+    let instrs = [ Allocate rr 8
+                 , AMov $ MemFromLitInt rr 0 (fromIntegral n)]
+    pure (AReg rr, instrs)
+
+codeGenTerm t term = left $ "codeGenTerm: " <> C8.pack (show term)
 
 getRegister :: ByteString -> Cg (Maybe AVal)
 getRegister v = lift $ do
