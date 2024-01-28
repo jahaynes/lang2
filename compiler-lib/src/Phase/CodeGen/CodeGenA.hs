@@ -365,12 +365,17 @@ codeGenPattern dctypes label (AReg scrutReg) (PApp dc dct ms) rhs destReg doneLa
 
     -- Generate code for the RHS
     (rhsReg, rhsInstrs) <- codeGenNexp rhs
-    let AReg rhs' = rhsReg
+
+    let mov = case rhsReg of
+                  AReg r     -> RegFromReg destReg r
+                  ALitBool b -> RegFromLitBool destReg b
+                  ALitInt i  -> RegFromLitInt destReg i
+                  _ -> error $ "codeGenPattern.mov: " ++ show rhsReg
 
     pure $  (ALabel label)
          :  lhsInstrs
          ++ rhsInstrs
-         ++ [ AMov $ RegFromReg destReg rhs'
+         ++ [ AMov mov
             , J doneLabel ]
 
 codeGenTerm :: Term ByteString
