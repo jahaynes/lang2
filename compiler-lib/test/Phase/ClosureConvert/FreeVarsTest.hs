@@ -23,7 +23,7 @@ test_no_free_vars = unitTest $ do
                    (AExp (ATerm undefined (LitInt 1)))
                    (AExp (ATerm undefined (Var "a")))
 
-    getFreeVars mempty inp === mempty
+    getFreeVars mempty inp === Right mempty
 
 test_lambda_free_vars :: Property
 test_lambda_free_vars = unitTest $ do
@@ -33,7 +33,7 @@ test_lambda_free_vars = unitTest $ do
                                                               (ATerm undefined $ Var "a")
                                                               (ATerm undefined $ Var "b")
 
-    getFreeVars mempty inp === S.singleton "b"
+    getFreeVars mempty inp === Right (S.singleton "b")
 
 unitTest :: PropertyT IO () -> Property
 unitTest p = withTests 1 $ property p
