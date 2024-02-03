@@ -56,7 +56,7 @@ renderCodeGenA = C8.dropWhile isSpace . C8.unlines . map (mconcat . go)
     go (ABinOp dst o _ a _ b) = ["  ", reg dst, " <- ", val a, " ", op o, " ", val b]
     go (Allocate dst sz) = ["  ", reg dst, " <- ", "allocate ", pack (show sz)]
 
-    go (AMov mm) = mov mm
+    go (AMov _ mm) = mov mm -- TODO could render type info if inclined
         where
         mov (RegFromReg dst src)       = ["  ", reg dst, " <- ", reg src]
         mov (MemFromReg dst off src)   = ["  ", reg dst, "[", pack (show off), "], ", reg src]
@@ -152,13 +152,13 @@ codeGenNlet a b c = do
     (creg, cInstrs) <- codeGenNexp c
 
     mov <- case breg of
-               ALitInt  li -> pure [AMov $ RegFromLitInt fresh li]
-               ALitBool lb -> pure [AMov $ RegFromLitBool fresh lb]
-               AReg r      -> pure [AMov $ RegFromReg fresh r]
+               ALitInt  li -> pure $ RegFromLitInt fresh li
+               ALitBool lb -> pure $ RegFromLitBool fresh lb
+               AReg r      -> pure $ RegFromReg fresh r
                AUnkn       -> left "codeGenNlet AUnkn"
 
     let instrs = concat [ bInstrs
-                        , mov
+                        , [ AMov (typeOf b) mov ] -- validate this type against the literal lines above
                         , cInstrs ]
 
     pure (creg, instrs)
@@ -225,7 +225,7 @@ codeGenApp t (ATerm _ (DCons dc)) xs = do
                           , Allocate rr sz ]
 
                         , [ AComment $ "Want to store the tag at 0 (if applicable)"
-                          , AMov $ MemFromLitInt rr 0 (fromIntegral n) ]
+                          , AMov (TyCon "Tag" []) $ MemFromLitInt rr 0 (fromIntegral n) ]
 
                         , [AComment $ "Want to store into offsets: " <> C8.pack (show $ fieldOffsets allocLayout)]
                         , stores
@@ -234,11 +234,12 @@ codeGenApp t (ATerm _ (DCons dc)) xs = do
     pure (AReg rr, instrs)
 
     where
-    store reg off src = AMov $
+    store :: Int -> Int -> AVal -> AInstr ByteString
+    store reg off src =
         case src of
-            ALitBool b -> MemFromLitBool reg off b
-            ALitInt  i -> MemFromLitInt  reg off i
-            AReg srcr  -> MemFromReg     reg off srcr -- TODO check this instruction
+            ALitBool b -> AMov (TyCon "Bool" []) $ MemFromLitBool reg off b
+            ALitInt  i -> AMov (TyCon "Int"  []) $ MemFromLitInt  reg off i
+            AReg srcr  -> AMov (TyCon "Unkn" []) $ MemFromReg     reg off srcr -- TODO check this instruction
 
 codeGenApp t (ATerm _ (Var v)) xs = do
     -- Get the args ready to be pushed
@@ -263,15 +264,15 @@ codeGenIfThenElse t pr tr fl = do
     (flReg, flInstrs) <- codeGenNexp fl
     let [if_, then_, else_, endif_] = branchLables
 
-    let trueMov = AMov $ case trReg of
-                             AReg r     -> RegFromReg fresh r
-                             ALitInt i  -> RegFromLitInt fresh i
-                             ALitBool b -> RegFromLitBool fresh b
+    let trueMov = case trReg of
+                    AReg r     -> AMov (typeOf tr) $ RegFromReg fresh r
+                    ALitInt i  -> AMov (typeOf tr) $ RegFromLitInt fresh i  -- can check type
+                    ALitBool b -> AMov (typeOf tr) $ RegFromLitBool fresh b -- can check type
 
-    let falseMov = AMov $ case flReg of
-                             AReg r     -> RegFromReg fresh r
-                             ALitInt i  -> RegFromLitInt fresh i
-                             ALitBool b -> RegFromLitBool fresh b
+    let falseMov = case flReg of
+                       AReg r     -> AMov (typeOf fl) $ RegFromReg fresh r
+                       ALitInt i  -> AMov (typeOf fl) $ RegFromLitInt fresh i  -- can check type
+                       ALitBool b -> AMov (typeOf fl) $ RegFromLitBool fresh b -- can check type
 
     let instrs = concat [ [ALabel if_]
                         , prInstrs
@@ -344,7 +345,7 @@ codeGenCase t scrut ps = do
 
     let instrs = concat [ scrutInstrs
                         , [ AComment "Checking constructor tag"
-                          , AMov $ RegFromMem tag scrutReg' 0 ]
+                          , AMov (typeOfAExp scrut) $ RegFromMem tag scrutReg' 0 ]
                         , concat checks
                         , [ J inexhaust_ ]
                         , concat loads
@@ -372,21 +373,21 @@ codeGenPattern dctypes label (AReg scrutReg) (PApp dc dct ms) rhs destReg doneLa
         (t, Var v, off) -> do
             fresh <- freshNum
             register v (AReg fresh)
-            pure . AMov $ RegFromMem fresh scrutReg off
+            pure . AMov (TyCon "Unkn" []) $ RegFromMem fresh scrutReg off
 
     -- Generate code for the RHS
     (rhsReg, rhsInstrs) <- codeGenNexp rhs
 
     let mov = case rhsReg of
-                  AReg r     -> RegFromReg destReg r
-                  ALitBool b -> RegFromLitBool destReg b
-                  ALitInt i  -> RegFromLitInt destReg i
+                  AReg r     -> AMov (typeOf rhs) $ RegFromReg destReg r
+                  ALitBool b -> AMov (typeOf rhs) $ RegFromLitBool destReg b    -- TODO can check type
+                  ALitInt i  -> AMov (typeOf rhs) $ RegFromLitInt destReg i     -- TODO can check type
                   _ -> error $ "codeGenPattern.mov: " ++ show rhsReg
 
     pure $  (ALabel label)
          :  lhsInstrs
          ++ rhsInstrs
-         ++ [ AMov mov
+         ++ [ mov
             , J doneLabel ]
 
 codeGenTerm :: Type ByteString
@@ -405,7 +406,7 @@ codeGenTerm t d@(DCons dc) = do
     Tag n <- getTag t dc
     -- Just a tag should have size 8
     let instrs = [ Allocate rr 8
-                 , AMov $ MemFromLitInt rr 0 (fromIntegral n)]
+                 , AMov t $ MemFromLitInt rr 0 (fromIntegral n)]
     pure (AReg rr, instrs)
 
 codeGenTerm t term = left $ "codeGenTerm: " <> C8.pack (show term)

@@ -17,7 +17,7 @@ data AInstr s = ALabel s
               | Push s (Type s) AVal -- debugname / type / Reg or literal
               | Pop s (Type s) Int -- debugname / type / AReg 
 
-              | AMov MovMode
+              | AMov (Type s) MovMode
 
                 -- x86 adds are only 2-param, so this will need later translation
               | ABinOp Int BinOp (Type s) AVal (Type s) AVal -- dest / op / type a / a / type b / b
