@@ -50,10 +50,10 @@ server ioref = setProgramState :<|> runCurrentProgramState :<|> getExample
         readIORef ioref <&> \case
             Nothing -> ("No stored program!", "No stored program!")
             Just ps -> 
-                case getCodeGenA ps of
+                case getUnclobberedA ps of
                     Left e1 -> ("", decodeUtf8 e1)
                     Right instrs ->
-                        case runMachineA instrs of
+                        case runMachineA (concat instrs) of
                             (r1, r2) -> (decodeUtf8 r1, decodeUtf8 r2)
 
     getExample "closure" =
@@ -82,6 +82,23 @@ server ioref = setProgramState :<|> runCurrentProgramState :<|> getExample
              \      MkPair a b -> b\n\
              \  in\n\
              \  snd (MkPair 1 2)"
+
+    getExample "reenter" =
+        pure "reenter x =\n\
+             \  if x == 0\n\
+             \    then 0\n\
+             \    else x + reenter (x - 1)\n\
+             \\n\
+             \main = reenter 5"
+
+    getExample "badfibs" =
+        pure  "badfibs n =\n\
+              \  if n < 2\n\
+              \    then n\n\
+              \    else badfibs (n-1) + badfibs (n-2)\n\
+              \\n\
+              \main =\n\
+              \  badfibs 4"
 
     getExample _ =
         pure "unknown example"

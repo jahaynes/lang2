@@ -47,6 +47,7 @@ class App extends React.Component {
     const lambdaLiftedPretty     = this.getAndClearElement("lambdaLiftedPretty")
     const uncurriedPretty        = this.getAndClearElement("uncurriedPretty")
     const codeGenA               = this.getAndClearElement("codeGenA")
+    const unclobberedA           = this.getAndClearElement("unclobberedA")
 
     const req = { getInput: source.value }
 
@@ -64,7 +65,8 @@ class App extends React.Component {
         closureConvertedPretty.value = ts.closureConvertedPretty;
         lambdaLiftedPretty.value     = ts.lambdaLiftedPretty;
         uncurriedPretty.value        = ts.uncurriedPretty;
-        codeGenA.value               = ts.codeGenA; })
+        codeGenA.value               = ts.codeGenA;
+        unclobberedA.value           = ts.unclobberedA; })
       .catch(exception => console.log(exception));
   }
 
@@ -78,9 +80,11 @@ class App extends React.Component {
         <div>
           <select onChange={e => this.selectExample(e)}>
             <option></option>
+            <option id="badfibs">badfibs</option>
             <option id="closure">closure</option>
             <option id="summorial">summorial</option>
             <option id="pair">pair</option>
+            <option id="reenter">reenter</option>
           </select>
         </div>
 
@@ -88,6 +92,7 @@ class App extends React.Component {
         <div>
           <textarea id='text' className='editor' spellCheck='false' rows={numRows} onChange={e => this.lexAndParse()}></textarea>
           <textarea id='codeGenA' className='editor' spellCheck='false' rows={numRows}></textarea>
+          <textarea id='unclobberedA' className='editor' spellCheck='false' rows={numRows}></textarea>
         </div>
 
         <div>

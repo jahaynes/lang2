@@ -75,12 +75,12 @@ run = do
         Ret val ->
             ret val step
 
-        AMov (RegFromLitInt dst li) -> do
+        AMov _ (RegFromLitInt dst li) -> do
             writeReg dst (ALitInt li)
             modifyIp (+1)
             step
 
-        AMov (RegFromReg dst src) -> do
+        AMov _ (RegFromReg dst src) -> do
             writeReg dst =<< readReg src
             modifyIp (+1)
             step
@@ -101,7 +101,7 @@ run = do
             modifyIp (+1)
             step
 
-        Call lbl -> do
+        Call lbl _ _ -> do
             ip <- getIp
             pushIp (ip + 1)
             setIp =<< resolveLabel lbl
@@ -129,7 +129,7 @@ run = do
             modifyIp (+1)
             step
 
-        AMov mm -> do
+        AMov _ mm -> do
             move mm
             modifyIp (+1)
             step
@@ -185,6 +185,21 @@ binOp dest op ta a tb b =
             a' <- asBool a
             b' <- asBool b
             writeReg dest (ALitBool $! a' && b')
+
+        (OrB, TyCon "Bool" [], TyCon "Bool" []) -> do
+            a' <- asBool a
+            b' <- asBool b
+            writeReg dest (ALitBool $! a' || b')
+
+        (GtI, TyCon "Int" [], TyCon "Int" []) -> do
+            a' <- asInteger a
+            b' <- asInteger b
+            writeReg dest (ALitBool $! a' > b')
+
+        (LtI, TyCon "Int" [], TyCon "Int" []) -> do
+            a' <- asInteger a
+            b' <- asInteger b
+            writeReg dest (ALitBool $! a' < b')
 
         _ ->
             left . pack $ "binOp: " ++ show (op, ta, tb)

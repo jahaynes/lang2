@@ -12,7 +12,7 @@ data AInstr s = ALabel s
 
               | AErr s
               
-              | Call s
+              | Call s Int Int -- captures number of pre-pushes and post-pops
               | Ret AVal
               | Push s (Type s) AVal -- debugname / type / Reg or literal
               | Pop s (Type s) Int -- debugname / type / AReg 

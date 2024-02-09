@@ -44,7 +44,7 @@ renderCodeGenA = C8.dropWhile isSpace . C8.unlines . map (mconcat . go)
     go (ALabel s)   = ["\n", s, ":"]
     go (AComment s) = ["  // ", s]
 
-    go (Call f)   = ["  call ", f]
+    go (Call f _ _)   = ["  call ", f] -- TODO could render arity here
     go (ACmpB v)  = ["  cmpb ", val v]
     go (J lbl)    = ["  j ", lbl]
     go (Je lbl)   = ["  je ", lbl]
@@ -86,11 +86,14 @@ renderCodeGenA = C8.dropWhile isSpace . C8.unlines . map (mconcat . go)
     op _    = "TODO OP"
 
 codeGenModuleA :: AnfModule ByteString
-               -> Either ByteString [AInstr ByteString]
-codeGenModuleA modu =
-    let xs = concat <$> mapM codeGenFunDefn (getFunDefAnfTs modu)
-        -- dConsTypesMap = loadDConsTypesMap (getDataDefnAnfTs modu)
-    in evalState (runReaderT (runEitherT xs) (getDataDefnAnfTs modu)) (Gen 0 mempty)
+               -> Either ByteString [[AInstr ByteString]]
+codeGenModuleA modu = flip evalState initState
+                    . flip runReaderT initEnv
+                    . runEitherT $ mapM codeGenFunDefn (getFunDefAnfTs modu)
+
+    where
+    initState = Gen 0 mempty
+    initEnv   = getDataDefnAnfTs modu
 
 codeGenFunDefn :: FunDefAnfT ByteString
                -> Cg [AInstr ByteString]
@@ -248,7 +251,7 @@ codeGenApp t (ATerm _ (Var v)) xs = do
     fresh <- freshNum
     let instrs = concat [ concat prePushInstrs
                         , pushes
-                        , [ Call v
+                        , [ Call v (length pushes) 1
                           , Pop ("ret from " <> v) t fresh ] ]
     pure (AReg fresh, instrs)
 
