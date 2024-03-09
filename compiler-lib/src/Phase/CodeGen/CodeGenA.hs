@@ -301,6 +301,8 @@ codeGenApp t (ATerm _ (Var v)) xs = do
                           , Pop ("ret from " <> v) t fresh ] ]
     pure (AReg fresh, instrs)
 
+codeGenAppClo t _ cloEnv [] = error "TODO: this is an apply-0 (i.e. bind function name) not a closure call"
+
 codeGenAppClo t (ATerm _ (Var v)) cloEnv xs = do
 
     (er, eInstrs) <- packClosureEnv cloEnv
@@ -315,7 +317,7 @@ codeGenAppClo t (ATerm _ (Var v)) cloEnv xs = do
                         , concat prePushInstrs
                         , pushes
                         , [envPush]
-                        , [ Call v (length pushes) 1
+                        , [ Call v (1 + length pushes) 1
                         , Pop ("ret from " <> v) t fresh ] ]
     pure (AReg fresh, instrs)
 
@@ -458,7 +460,7 @@ codeGenPattern dctypes label (AReg scrutReg) (PApp dc dct ms) rhs destReg doneLa
         (t, Var v, off) -> do
             fresh <- freshNum
             register v (AReg fresh)
-            pure . AMov (TyCon "Unkn" []) $ RegFromMem fresh scrutReg off
+            pure . AMov (TyCon "Unkn" []) $ RegFromMem fresh scrutReg off -- TODO is this unkn the t a few lines above?
 
     -- Generate code for the RHS
     (rhsReg, rhsInstrs) <- codeGenNexp rhs
