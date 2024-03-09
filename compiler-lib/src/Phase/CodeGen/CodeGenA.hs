@@ -301,6 +301,8 @@ codeGenApp t (ATerm _ (Var v)) xs = do
                           , Pop ("ret from " <> v) t fresh ] ]
     pure (AReg fresh, instrs)
 
+codeGenAppClo t (ATerm _ (Var v)) cloEnv [] = error "create, don't call"
+
 codeGenAppClo t (ATerm _ (Var v)) cloEnv xs = trace ("called on " ++ show v ++ " " ++ show xs) $ do
 
     (er, eInstrs) <- packClosureEnv cloEnv

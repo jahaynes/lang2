@@ -50,7 +50,7 @@ server ioref = setProgramState :<|> runCurrentProgramState :<|> getExample
         readIORef ioref <&> \case
             Nothing -> ("No stored program!", "No stored program!")
             Just ps -> 
-                case getUnclobberedA ps of
+                case getCodeGenA ps of
                     Left e1 -> ("", decodeUtf8 e1)
                     Right instrs ->
                         case runMachineA (concat instrs) of
