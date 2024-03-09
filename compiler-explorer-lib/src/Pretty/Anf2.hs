@@ -117,8 +117,11 @@ printCExp cexp =
             xs' <- mapM (noIndent . printAExp) xs
             pure $ TB.intercalate " " (f':xs')
 
-        CAppClo _ f cloEnv xs ->
-            pure "cappclo"
+        CAppClo _ f cloEnv xs -> do
+            f'  <- printAExp f
+            ce' <- noIndent $ printCloEnv cloEnv
+            xs' <- mapM (noIndent . printAExp) xs
+            pure $ TB.intercalate " " (f':ce':xs')
 
         -- TODO improve
         CIfThenElse _ pr tr fl -> do
@@ -156,3 +159,12 @@ printTerm term =
                    LitString s -> mconcat ["\"", bytestring s, "\""]
                    Var v       -> bytestring v
                    DCons dc    -> bytestring dc
+
+printCloEnv :: AClosEnv ByteString -> State Int Builder
+printCloEnv (AClosEnv es) = pure
+                          . TB.intercalate ", " 
+                          . map f
+                          $ es
+    where
+    f x = "{" <> g x <> "}"
+    g (TyCon tc [], fv) = TB.intercalate " " [bytestring fv, "::", bytestring tc]
