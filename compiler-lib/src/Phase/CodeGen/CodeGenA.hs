@@ -156,8 +156,10 @@ codegenClo t [(tfv, fv)] vs nexp = do
 
     -- Attempt at reading one env var into a register
     fresh <- AReg <$> freshNum
-    -- TODO emit instruction to actually read from env into 
     register fv fresh
+    -- TODO kill the above two lines?
+    -- TODO pop the env off before the other params
+
 
     pops         <- popsForwardOrder t vs
     (ret, nexp') <- codeGenNexp nexp
@@ -286,6 +288,9 @@ codeGenAppClo t (ATerm _ (Var v)) cloEnv xs = do
     -- Get the args ready to be pushed
     (xs', prePushInstrs) <- unzip <$> mapM codeGenAexp xs
     let pushes = pushesReverseOrder (zip xs xs')
+
+    -- TODO include the env in the pushes
+
     fresh <- freshNum
     let instrs = concat [ concat prePushInstrs
                         , pushes
