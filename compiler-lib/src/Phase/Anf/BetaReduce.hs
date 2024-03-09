@@ -26,7 +26,7 @@ betaReduce a b c = fst $ runState (goNExp c) (Hygiene mempty)
         pure $ ALam t vs body'
     goAExp (AClo t fvs vs body) = do
         preserved <- get
-        mask fvs
+        mask (map snd fvs)
         mask vs
         body' <- goNExp body
         put preserved

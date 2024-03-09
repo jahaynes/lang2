@@ -116,6 +116,9 @@ findClobbered = zipWithM_ go [0..]
     go n (Call lbl prePushes postPops) =
         call n lbl prePushes postPops
 
+    go _ (Allocate dst _) =
+        regWrite [dst]
+
     go _ Ret{} =
         pure ()
 
@@ -127,6 +130,10 @@ goMov t (RegFromReg w r) = do
 goMov t (RegFromLitInt w _) = do
     preserveTypeInfo w t
     regWrite [w]
+
+goMov t (MemFromReg base _off src) =
+    regRead [base, src]
+
 goMov _ x = error . show $ ("urr: movmode", x)
 
 preserveTypeInfo :: Int -> Type s -> State (Liveness s) ()

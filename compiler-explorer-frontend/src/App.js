@@ -65,7 +65,7 @@ class App extends React.Component {
         closureConvertedPretty.value = ts.closureConvertedPretty;
         lambdaLiftedPretty.value     = ts.lambdaLiftedPretty;
         uncurriedPretty.value        = ts.uncurriedPretty;
-        codeGenA.value               = ts.codeGenA;
+        codeGenA.value               = ts.lambdaLiftedPretty;
         unclobberedA.value           = ts.unclobberedA; })
       .catch(exception => console.log(exception));
   }

@@ -90,7 +90,7 @@ printAExp aexp =
 
         AClo _ fvs vs body -> do
             body' <- printNExp body
-            let fvs' = bytestring $ C8.intercalate " " fvs
+            let fvs' = bytestring $ C8.intercalate " " (map snd fvs)
                 vs'  = bytestring $ C8.intercalate " " vs
             pure $ mconcat ["(\\", vs', " {", fvs', "}.", body', ")"]
 
