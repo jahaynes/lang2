@@ -103,10 +103,6 @@ printAExp aexp =
             b' <- noIndent $ printAExp b
             pure $ TB.intercalate " " [a', printBinOp op, b']
 
-        --AClosEnv evs -> do
-        --    let evs' = bytestring $ C8.intercalate " " evs
-        --    pure $ "{env " <> evs' <> "}"
-
 printCExp :: CExp ByteString -> State Int Builder
 printCExp cexp =
 
@@ -146,6 +142,7 @@ printPExp (PExp lhs rhs) = do
     rhs' <- noIndent $ printNExp rhs
     pure $ TB.intercalate " " [lhs', "->", rhs']
 
+printPPat :: PPat ByteString -> State Int Builder
 printPPat (PVar v) = pure $ bytestring v
 printPPat (PApp dc _ ts) = do
     ts' <- mapM printTerm ts
