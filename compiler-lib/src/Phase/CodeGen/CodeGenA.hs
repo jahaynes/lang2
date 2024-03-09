@@ -301,7 +301,16 @@ codeGenApp t (ATerm _ (Var v)) xs = do
                           , Pop ("ret from " <> v) t fresh ] ]
     pure (AReg fresh, instrs)
 
-codeGenAppClo t _ cloEnv [] = error "TODO: this is an apply-0 (i.e. bind function name) not a closure call"
+codeGenAppClo t (ATerm _ (Var v)) cloEnv [] = 
+    trace "codeGenAppClo []" $ do
+        fresh <- freshNum
+
+        mr <- getRegister v
+        case mr of
+            Nothing -> undefined
+            Just (AReg src) -> do
+                let instr = AMov t (RegFromReg fresh src)
+                pure (AReg fresh, [instr])
 
 codeGenAppClo t (ATerm _ (Var v)) cloEnv xs = do
 
