@@ -127,12 +127,18 @@ goMov t (RegFromReg w r) = do
     preserveTypeInfo w t
     regWrite [w]
     regRead [r]
+
 goMov t (RegFromLitInt w _) = do
     preserveTypeInfo w t
     regWrite [w]
 
 goMov t (MemFromReg base _off src) =
     regRead [base, src]
+
+goMov t (RegFromMem dst base _off) = do
+    preserveTypeInfo dst t
+    regWrite [dst]
+    regRead [base]
 
 goMov _ x = error . show $ ("urr: movmode", x)
 

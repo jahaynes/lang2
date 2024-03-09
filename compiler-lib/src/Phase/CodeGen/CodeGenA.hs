@@ -17,7 +17,7 @@ import Phase.CodeGen.TagInfo
 import Phase.CodeGen.TypesA
 import TypeSystem.Common       (Subst (..))
 
-import           Control.Monad               (forM)
+import           Control.Monad               (forM, replicateM, zipWithM_)
 import           Data.ByteString.Char8       (ByteString, pack)
 import qualified Data.ByteString.Char8 as C8
 import           Data.Char     (isSpace)
@@ -150,21 +150,41 @@ codegenClo :: Type ByteString
            -> [ByteString]
            -> NExp ByteString
            -> Cg (AVal, [AInstr ByteString])
-codegenClo t [(tfv, fv)] vs nexp = do
+codegenClo t tfvs vs nexp = do
 
-    regMap0      <- saveRegisterMap             -- Why?
+    regMap0 <- saveRegisterMap             -- Why?
 
-    -- Attempt at reading one env var into a register
-    fresh <- AReg <$> freshNum
-    register fv fresh
-    -- TODO kill the above two lines?
-    -- TODO pop the env off before the other params
+    er <- freshNum
+    let envPop = Pop "env" (TyCon "{env}" []) er
 
+    -- UNPACKING THE ENV
+
+    let types = map fst tfvs
+
+    -- Calculate allocated sizes
+    let offs = reverse
+             . snd
+             . foldl' (\(acc, bcc) sz -> (sz+acc, acc:bcc)) (0, [])
+             . map sizeof
+             $ types
+
+    -- Assign registers
+    rs <- replicateM (length types) freshNum
+    -- register a (AReg fresh)
+    zipWithM_ register (map snd tfvs) (map AReg rs)
+
+    let moves = zipWith3 (\t r o -> AMov t (RegFromMem r er o))
+                         types
+                         rs
+                         offs
+
+    -- END
 
     pops         <- popsForwardOrder t vs
     (ret, nexp') <- codeGenNexp nexp
     restoreRegisterMap regMap0                  -- Why?
-    let instrs = concat [ pops
+    let instrs = concat [ envPop : pops
+                        , moves
                         , nexp' ]
     pure (ret, instrs)
 
@@ -284,17 +304,17 @@ codeGenApp t (ATerm _ (Var v)) xs = do
 codeGenAppClo t (ATerm _ (Var v)) cloEnv xs = do
 
     (er, eInstrs) <- packClosureEnv cloEnv
+    let envPush = Push "env" (TyCon "{env}" []) (AReg er)
 
     -- Get the args ready to be pushed
     (xs', prePushInstrs) <- unzip <$> mapM codeGenAexp xs
     let pushes = pushesReverseOrder (zip xs xs')
 
-    -- TODO include the env in the pushes
-
     fresh <- freshNum
-    let instrs = concat [ concat prePushInstrs
+    let instrs = concat [ eInstrs
+                        , concat prePushInstrs
                         , pushes
-                        , eInstrs -- <- is this in the right location relative to other instructions?
+                        , [envPush]
                         , [ Call v (length pushes) 1
                         , Pop ("ret from " <> v) t fresh ] ]
     pure (AReg fresh, instrs)
