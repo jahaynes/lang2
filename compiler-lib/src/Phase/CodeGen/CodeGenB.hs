@@ -104,9 +104,7 @@ codeGenAppClo rr t f (AClosEnv cloEnv) [] = do
     let szs = 8                   -- Function pointer
             : map sizeof srcTypes -- closure env vars
     
-    let (total, offs) = (\(a,b) -> (a,reverse b))
-                      . foldl' (\(acc, bcc) sz -> (sz+acc, acc:bcc)) (0, [])
-                      $ szs
+    let (total, offs) = totalAndOffsets szs
 
     fn <- numForFun f
     let fpMov = AMov (TyCon "TBD" []) (MemFromLitInt rr 0 (fromIntegral fn))
@@ -120,6 +118,10 @@ codeGenAppClo rr t f (AClosEnv cloEnv) [] = do
     pure $ Allocate rr total
          : fpMov
          : evMovs
+
+totalAndOffsets :: [Int] -> (Int, [Int])
+totalAndOffsets = (\(a,b) -> (a,reverse b))
+                . foldl' (\(acc, bcc) sz -> (sz+acc, acc:bcc)) (0, [])
 
 numForFun :: ByteString -> Cg Int
 numForFun v = lift . lift $ do
@@ -154,11 +156,13 @@ codeGenApp rr t f xs = do
 
     let (xsrs, xsis) = unzip xs'
 
+    -- TODO needs an implicit push for the env var first?
     let pushes = zipWith (\x r -> Push (describe x) (typeOfAExp x) (AReg r)) xs xsrs
 
     pure $ concat [ concat xsis
                   , pushes
-                  , [ Call f (length pushes) 1 ]
+                  , [ Call f (length pushes) 1 ]  -- wrong, can't directly call 'anf_0' ?
+                                                  -- should be call closure?
                   , [ Pop ("ret from " <> f) t rr ]
                   ]
 
@@ -178,6 +182,9 @@ codeGenClo :: Int
            -> NExp ByteString
            -> Cg [AInstr ByteString]
 codeGenClo rr t fvs vs body = trace "unfinished codeGenClo" $ do
+
+    -- pop implicit env
+
     pure [AComment "unfinished codeGenClo"]
 
 codeGenLam :: Int
