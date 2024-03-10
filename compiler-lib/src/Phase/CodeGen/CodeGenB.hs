@@ -94,11 +94,31 @@ codeGenApp :: Int
            -> [AExp ByteString]
            -> Cg [AInstr ByteString]
 -- it's possible to tell from t/xs whether this is fully-applied.  Relevant?
-codeGenApp rr t f xs = do
-    
-    
-    
-    error $ show (f, xs)
+-- apply args and see if return type is primitive or function?
+codeGenApp rr t f xs = trace (show (f, xs)) $ do
+
+    {-
+        In the sample, this handles both steps:
+            regular call to f, returned closure
+            closure call to anf_0 regular return?
+    -}
+
+    xs' <- forM xs $ \x -> do
+               xr <- freshNum
+               x' <- codeGenAexp xr x
+               pure (xr, x')
+
+    let (xsrs, xsis) = unzip xs'
+
+    let pushes = zipWith (\x r -> Push (describe x) (typeOfAExp x) (AReg r)) xs xsrs
+
+    pure $ concat [ concat xsis
+                  , pushes
+                  , [ Call f (length pushes) 1 ]
+                  , [ Pop ("ret from " <> f) (TyCon "TBD" []) rr ]
+                  ]
+
+
 
 codeGenAexp :: Int
             -> AExp ByteString
@@ -115,11 +135,11 @@ codeGenClo :: Int
            -> [ByteString]
            -> NExp ByteString
            -> Cg [AInstr ByteString]
-codeGenClo rr t fvs vs body = do
+codeGenClo rr t fvs vs body = trace "codeGenClo" $ do
     pure []
 
 
-codeGenLam rr t vs body = do
+codeGenLam rr t vs body = trace "codeGenLam" $ do
     pure []
 
 codeGenBinOp :: Int
@@ -167,3 +187,9 @@ saveRegisterMap = lift $ lift (varRegisters <$> get)
 
 restoreRegisterMap :: Map ByteString Int -> Cg ()
 restoreRegisterMap regMap = lift . lift . modify' $ \gen -> gen { varRegisters = regMap }
+
+describe (ABinPrimOp _ AddI _ _) = "+"
+describe (ABinPrimOp _ SubI _ _) = "-"
+describe (ATerm _ (Var v)) = v
+describe (ATerm _ (LitInt i)) = C8.pack (show i)
+describe x = "Not described: " <> C8.pack (show x)
