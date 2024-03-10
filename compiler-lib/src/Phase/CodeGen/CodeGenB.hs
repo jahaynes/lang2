@@ -35,7 +35,9 @@ type Cg a =
 
 data Gen s =
     Gen { regCount     :: !Int
-        , varRegisters :: !(Map s Int) 
+        , varRegisters :: !(Map s Int)
+        , fnCount      :: !Int
+        , functionNums :: !(Map s Int)
         }
 
 renderCodeGenB :: [AInstr ByteString]
@@ -48,7 +50,7 @@ codeGenModuleB modu = flip evalState initState
                     . flip runReaderT initEnv
                     . runEitherT $ mapM codeGenFunDefn (getFunDefAnfTs modu)
     where
-    initState = Gen 0 mempty
+    initState = Gen 0 mempty 0 mempty
     initEnv   = getDataDefnAnfTs modu
 
 codeGenFunDefn :: FunDefAnfT ByteString -> Cg [AInstr ByteString]
@@ -85,8 +87,50 @@ codeGenNLet rr a b c = do
 codeGenCexp :: Int
             -> CExp ByteString
             -> Cg [AInstr ByteString]
-codeGenCexp rr (CApp t (ATerm _ (Var f)) xs) = codeGenApp rr t f xs
-codeGenCexp rr c = error $ "codeGenAexp: " ++ show c
+codeGenCexp rr (CApp    t (ATerm _ (Var f))        xs) = codeGenApp    rr t f        xs
+codeGenCexp rr (CAppClo t (ATerm _ (Var f)) cloEnv xs) = codeGenAppClo rr t f cloEnv xs
+codeGenCexp rr c = error $ "codeGenCexp: " ++ show c
+
+codeGenAppClo :: Int
+              -> Type ByteString
+              -> ByteString
+              -> AClosEnv ByteString
+              -> [AExp ByteString]
+              -> Cg [AInstr ByteString]
+codeGenAppClo rr t f (AClosEnv cloEnv) [] = do
+
+    let srcTypes = map fst cloEnv
+
+    let szs = 8                   -- Function pointer
+            : map sizeof srcTypes -- closure env vars
+    
+    let (total, offs) = (\(a,b) -> (a,reverse b))
+                      . foldl' (\(acc, bcc) sz -> (sz+acc, acc:bcc)) (0, [])
+                      $ szs
+
+    fn <- numForFun f
+    let fpMov = AMov (TyCon "TBD" []) (MemFromLitInt rr 0 (fromIntegral fn))
+
+    srcRegs <- map fromJust <$> mapM getRegister (map snd cloEnv)
+    let evMovs = zipWith3 (\t' o r -> AMov t' (MemFromReg rr o r))
+                          srcTypes
+                          (tail offs)
+                          srcRegs
+
+    pure $ Allocate rr total
+         : fpMov
+         : evMovs
+
+numForFun :: ByteString -> Cg Int
+numForFun v = lift . lift $ do
+    st <- get
+    case M.lookup v (functionNums st) of
+        Just fn -> pure fn
+        Nothing -> do
+            let n = fnCount st
+            put st { fnCount = n + 1
+                   , functionNums = M.insert v n (functionNums st) }
+            pure n
 
 codeGenApp :: Int
            -> Type ByteString
@@ -95,7 +139,7 @@ codeGenApp :: Int
            -> Cg [AInstr ByteString]
 -- it's possible to tell from t/xs whether this is fully-applied.  Relevant?
 -- apply args and see if return type is primitive or function?
-codeGenApp rr t f xs = trace (show (f, xs)) $ do
+codeGenApp rr t f xs = do
 
     {-
         In the sample, this handles both steps:
@@ -115,10 +159,8 @@ codeGenApp rr t f xs = trace (show (f, xs)) $ do
     pure $ concat [ concat xsis
                   , pushes
                   , [ Call f (length pushes) 1 ]
-                  , [ Pop ("ret from " <> f) (TyCon "TBD" []) rr ]
+                  , [ Pop ("ret from " <> f) t rr ]
                   ]
-
-
 
 codeGenAexp :: Int
             -> AExp ByteString
@@ -135,12 +177,32 @@ codeGenClo :: Int
            -> [ByteString]
            -> NExp ByteString
            -> Cg [AInstr ByteString]
-codeGenClo rr t fvs vs body = trace "codeGenClo" $ do
-    pure []
+codeGenClo rr t fvs vs body = trace "unfinished codeGenClo" $ do
+    pure [AComment "unfinished codeGenClo"]
 
+codeGenLam :: Int
+           -> Type ByteString
+           -> [ByteString]
+           -> NExp ByteString
+           -> Cg [AInstr ByteString]
+codeGenLam rr t vs body = do
+    pops  <- popsForwardOrder t vs
+    body' <- codeGenNexp rr body
+    pure $ concat [ pops
+                  , body' ]
 
-codeGenLam rr t vs body = trace "codeGenLam" $ do
-    pure []
+popsForwardOrder :: Type ByteString
+                 -> [ByteString]
+                 -> Cg [AInstr ByteString]
+popsForwardOrder ty = mapM go . bind ty
+    where
+    go (t, v) = do
+        fresh <- freshNum
+        register v fresh
+        pure $ Pop v t fresh
+
+    bind (TyArr a b) (v:vs) = (a,v) : bind b vs
+    bind           _     [] = []
 
 codeGenBinOp :: Int
              -> Type ByteString
@@ -188,8 +250,14 @@ saveRegisterMap = lift $ lift (varRegisters <$> get)
 restoreRegisterMap :: Map ByteString Int -> Cg ()
 restoreRegisterMap regMap = lift . lift . modify' $ \gen -> gen { varRegisters = regMap }
 
+describe :: AExp ByteString -> ByteString
 describe (ABinPrimOp _ AddI _ _) = "+"
 describe (ABinPrimOp _ SubI _ _) = "-"
 describe (ATerm _ (Var v)) = v
 describe (ATerm _ (LitInt i)) = C8.pack (show i)
 describe x = "Not described: " <> C8.pack (show x)
+
+-- put this somewhere common
+sizeof :: Type ByteString -> Int
+sizeof (TyCon "Int" []) = 8
+sizeof x = error $ "Unknown size: " ++ show x

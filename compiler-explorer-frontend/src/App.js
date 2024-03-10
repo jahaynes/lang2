@@ -47,7 +47,6 @@ class App extends React.Component {
     const lambdaLiftedPretty     = this.getAndClearElement("lambdaLiftedPretty")
     const uncurriedPretty        = this.getAndClearElement("uncurriedPretty")
     const codeGenA               = this.getAndClearElement("codeGenA")
-    const unclobberedA           = this.getAndClearElement("unclobberedA")
 
     const req = { getInput: source.value }
 
@@ -65,14 +64,13 @@ class App extends React.Component {
         closureConvertedPretty.value = ts.closureConvertedPretty;
         lambdaLiftedPretty.value     = ts.lambdaLiftedPretty;
         uncurriedPretty.value        = ts.uncurriedPretty;
-        codeGenA.value               = ts.codeGenA;
-        unclobberedA.value           = ts.unclobberedA; })
+        codeGenA.value               = ts.codeGenA; })
       .catch(exception => console.log(exception));
   }
 
   render() {
 
-    const numRows = 12;
+    const numRows = 16;
 
     return (
       <div className="App">
@@ -92,7 +90,6 @@ class App extends React.Component {
         <div>
           <textarea id='text' className='editor' spellCheck='false' rows={numRows} onChange={e => this.lexAndParse()}></textarea>
           <textarea id='codeGenA' className='editor' spellCheck='false' rows={numRows}></textarea>
-          <textarea id='unclobberedA' className='editor' spellCheck='false' rows={numRows}></textarea>
         </div>
 
         <div>
