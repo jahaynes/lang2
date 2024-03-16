@@ -8,9 +8,11 @@ build-type:          Simple
 extra-source-files:  CHANGELOG.md
 
 library
+  default-extensions: OverloadedStrings
   build-depends:    base,
                     bytestring,
                     containers,
+                    text,
                     vector,
                     vector-builder
   exposed-modules:  Common.CallGraph
@@ -38,6 +40,7 @@ library
                     Phase.CodeGen.SizeInfo
                     Phase.CodeGen.TagInfo
                     Phase.CodeGen.TypesA
+                    Phase.CodeGen.TypesC
                     Phase.ClosureConvert.ClosureConvert
                     Phase.ClosureConvert.FreeVars
                     Phase.EtaExpand.EtaExpand
