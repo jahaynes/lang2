@@ -1,11 +1,9 @@
 module Phase.CodeGen.TypesC where
 
-import           Control.Monad (zipWithM_)
-import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import           Data.Maybe (fromJust)
-import           Data.Text (Text)
-import           Data.Vector ((!), Vector)
+import           Data.Text (Text, unpack)
+import           Data.Vector ((!))
 import qualified Data.Vector as V
 import           Debug.Trace (trace)
 
@@ -60,21 +58,27 @@ interpret is = do
             let i = iv ! ip in
             case i of
 
-                CLabel{} ->
+                CLabel{} -> trace ("At label, ipstack: " ++ show ipStack) $
                     loop ram free valStack ipStack regs (ip+1)
 
                 CPush (CLitInt i) ->
                     let valStack' = i:valStack
                     in loop ram free valStack' ipStack regs (ip+1)
 
-                CCall (CallLabel f) ->
+                CCall (CallLabel f) -> trace ("calling " ++ unpack f) $
                     let ipStack' = ip+1:ipStack
-                    in loop ram free ipStack' valStack regs (loc iv f)
+                    in loop ram free valStack ipStack' regs (loc iv f)
+
+                CCall (CallClosureAddr r) -> trace ("calling closure") $
+                    let Just p   = M.lookup r regs
+                        Just v   = M.lookup p ram
+                        ipStack' = ip+1:ipStack
+                    in loop ram free valStack ipStack' regs v
 
                 CPop r ->
                     let (v:valStack') = valStack
                         regs' = M.insert r v regs
-                    in loop ram free ipStack valStack' regs' (ip+1)
+                    in loop ram free valStack' ipStack regs' (ip+1)
 
                 CTimes d a b ->
                     let Just a' = case a of
@@ -84,36 +88,46 @@ interpret is = do
                                       CReg r    -> M.lookup r regs
                                       CLitInt i -> Just i
                         regs' = M.insert d (a' * b') regs
-                    in loop ram free ipStack valStack regs' (ip+1)
+                    in loop ram free valStack ipStack regs' (ip+1)
 
                 CAlloc r sz ->
                     let (cells, 0) = sz `divMod` 8
                         free' = free + cells
                         regs' = M.insert r free regs
-                    in loop ram free' ipStack valStack regs' (ip+1)
+                    in loop ram free' valStack ipStack regs' (ip+1)
 
                 CMov (ToOffsetFrom d o (CLbl f)) ->
                     let Just p    = M.lookup d regs
                         (cell, 0) = (p + o) `divMod` 8
                         ram' = M.insert cell (loc iv f) ram
-                    in loop ram' free ipStack valStack regs (ip+1)
+                    in loop ram' free valStack ipStack regs (ip+1)
 
                 CMov (ToOffsetFrom d o (CReg r)) ->
                     let Just v    = M.lookup r regs
                         Just p    = M.lookup d regs
                         (cell, 0) = (p + o) `divMod` 8
                         ram' = M.insert cell v ram
-                    in loop ram' free ipStack valStack regs (ip+1)
+                    in loop ram' free valStack ipStack regs (ip+1)
     
-                CRet (CReg 5) ->
-                    let Just v     = M.lookup 5 regs
-                        ip':stack' = ipStack
-                        valStack'  = v:valStack
-                    in loop ram free stack' valStack' regs ip'
+                CMov (ToFromOffset d r o) ->
+                    let Just v    = M.lookup r regs
+                    in error $ show v
+
+                CRet (CReg r) -> trace ("returning, ipstack: " ++ show ipStack) $
+                    let Just v = M.lookup r regs
+                    in case ipStack of
+                           [] -> do
+                               print ram
+                               print v
+                           (ip':stack') ->
+                               let valStack' = v:valStack
+                               in loop ram free valStack' stack' regs ip'
+
+
 
                 _        -> error $ "Unhandled " ++ show i
 
-    loop M.empty 0 [-1] [] M.empty 0
+    loop M.empty 0 [] [] M.empty 0
 
     where
     loc iv f = fromJust $ V.findIndex isLabel iv
