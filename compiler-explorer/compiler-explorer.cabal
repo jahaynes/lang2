@@ -9,7 +9,7 @@ extra-source-files:  CHANGELOG.md
 
 executable compiler-explorer
   build-depends:    base,
-                    compiler-lib
+                    compiler-explorer-lib
   ghc-options:      -Wall -O2
   main-is:          Main.hs
   hs-source-dirs:   src

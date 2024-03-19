@@ -49,7 +49,8 @@ data CVal s = CLitInt !Int
             | CLbl !s
                 deriving Show
 
-data MovMode s = ToOffsetFrom !R !Int !(CVal s)
+data MovMode s = ToFrom !R !R
+               | ToOffsetFrom !R !Int !(CVal s)
                | ToFromOffset !R !R !Int            -- 2nd reg is a pointer
                    deriving Show
 
