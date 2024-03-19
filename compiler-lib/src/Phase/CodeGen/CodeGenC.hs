@@ -10,7 +10,7 @@ import Core.Module
 import Core.Operator
 import Core.Term               (Term (..))
 import Core.Types
-import Phase.Anf.AnfExpression (AExp (..), CExp (..), NExp (..), PExp (..), PPat (..), typeOf, typeOfAExp)
+import Phase.Anf.AnfExpression (AClosEnv (..), AExp (..), CExp (..), NExp (..), PExp (..), PPat (..), typeOf, typeOfAExp)
 import Phase.Anf.AnfModule     (AnfModule (..), FunDefAnfT (..))
 import Phase.CodeGen.SizeInfo
 import Phase.CodeGen.TagInfo
@@ -37,7 +37,10 @@ data Gen s =
         }
 
 renderCodeGenC :: [CInstr ByteString] -> ByteString
-renderCodeGenC = C8.unlines . map (C8.pack . show)
+renderCodeGenC = C8.unlines . map (C8.pack . render)
+    where
+    render c@CLabel{} = show c
+    render c            = "  " <> show c
 
 codeGenModuleC :: AnfModule ByteString
                -> Either ByteString [[CInstr ByteString]]
@@ -54,8 +57,7 @@ codeGenFunDefn :: FunDefAnfT ByteString
 codeGenFunDefn (FunDefAnfT name _quant nexp) =
     codeGenNexp nexp <&> \(r, nexp') ->
         concat [ [CLabel name]
-               , nexp'
-               , [CRet r] ]
+               , nexp' ]
 
 codeGenNexp :: NExp ByteString -> Cg (CVal ByteString, [CInstr ByteString])
 codeGenNexp (AExp aexp) = codeGenAexp aexp
@@ -77,20 +79,21 @@ codeGenCApp _ f xs = do
     --error $ show (f, xs)
 
     bar <- freshReg
-    pure (CReg bar, [CComment "placeholder for codeGenCApp"])
+    pure (CReg bar, [CComment "codeGenCApp"])
 
     -- f  = (ATerm (("Int") -> (("Int") -> ("Int"))) (Var "f")
     -- xs = [ATerm ("Int") (LitInt 1)])
 
 
-codeGenCAppClo _ f env xs = do
-    -- error $ show (f, env, xs)
-    foo <- freshReg
-    pure (CReg foo, [CComment "placeholder for codeGenCAppClo"])
-    -- f   = ATerm (("Int") -> ("Int")) (Var "lclo_0")
-    -- env = AClosEnv ["xx"]
-    -- xs  = []
+codeGenCAppClo _ f (AClosEnv env) xs = do
+    
+    -- Allocate a closure
+    let sz = 8 + length env -- TODO more precise
 
+
+
+    error (show (f, env, xs))
+    
 
 codeGenNLet a b c = do
 
