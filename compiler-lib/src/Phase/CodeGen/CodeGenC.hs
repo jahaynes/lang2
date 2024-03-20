@@ -57,7 +57,8 @@ codeGenFunDefn :: FunDefAnfT ByteString
 codeGenFunDefn (FunDefAnfT name _quant nexp) =
     codeGenNexp nexp <&> \(r, nexp') ->
         concat [ [CLabel name]
-               , nexp' ]
+               , nexp'
+               , [CRet r] ]
 
 codeGenNexp :: NExp ByteString -> Cg (CVal ByteString, [CInstr ByteString])
 codeGenNexp (AExp aexp) = codeGenAexp aexp
@@ -91,8 +92,11 @@ codeGenCAppClo _ f (AClosEnv env) xs = do
     let sz = 8 + length env -- TODO more precise
 
 
+    r <- freshReg
 
-    error (show (f, env, xs))
+    pure (CReg r, [CComment "{codeGenCAppClo}"])
+
+    --error (show (f, env, xs))
     
 
 codeGenNLet a b c = do
@@ -116,6 +120,11 @@ codeGenNLet a b c = do
                      ,  cs ])
 
 codeGenATerm :: Type ByteString -> Term ByteString -> Cg (CVal ByteString, [CInstr ByteString])
+codeGenATerm t (LitInt i) = do
+    let i' = fromIntegral i -- TODO
+    r <- freshReg
+    pure (CReg r, [CMov (FromLitInt r i')])
+
 codeGenATerm t (Var v) = do
     mr <- getRegister v
     case mr of
@@ -158,17 +167,13 @@ codeGenAClo _ fvs vs body = do
     -- Body
     (rBody, body') <- codeGenNexp body
 
-    -- Return
-    let ret = CRet rBody
-
     -- Restore lexical scope
     restoreRegisterMap regMap
 
     pure (rBody, concat [ [popEnv]
                         ,  loads
                         ,  pops
-                        ,  body'
-                        , [ret] ])
+                        ,  body' ])
 
 -- combine with closure code
 codeGenALam _ vs body = do
@@ -183,15 +188,11 @@ codeGenALam _ vs body = do
     -- Body
     (rBody, body') <- codeGenNexp body
 
-    -- Return
-    let ret = CRet rBody
-
     -- Restore lexical scope
     restoreRegisterMap regMap
 
-    pure (rBody, concat [  pops
-                        ,  body'
-                        , [ret] ])
+    pure (rBody, concat [ pops
+                        , body' ])
 
 
 {-
