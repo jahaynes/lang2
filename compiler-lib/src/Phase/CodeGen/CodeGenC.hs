@@ -85,19 +85,28 @@ codeGenCApp _ f xs = do
     -- f  = (ATerm (("Int") -> (("Int") -> ("Int"))) (Var "f")
     -- xs = [ATerm ("Int") (LitInt 1)])
 
-
-codeGenCAppClo _ f (AClosEnv env) xs = do
+codeGenCAppClo _ (ATerm _ (Var f)) (AClosEnv env) xs = do
     
+    -- TODO make sure f is a top-level label
+    -- or else check to see if it's a register containing a function ptr perhaps?
+
     -- Allocate a closure
-    let sz = 8 + length env -- TODO more precise
+    ra <- freshReg
+    let sz = 8 + length env -- TODO more precise sizing
+    let alloc = CAlloc ra sz
 
+    -- Find the registers that need to be copied into the closure
+    ers <- forM env $ \er -> do
+               mr <- getRegister er
+               case mr of
+                   Nothing -> error "no such reg"
+                   Just r  -> pure $ CReg r
 
-    r <- freshReg
+    let closureVals = CLbl f : ers
+        closureMovs = zipWith (\o v -> CMov (ToOffsetFrom ra o v)) offsets closureVals
 
-    pure (CReg r, [CComment "{codeGenCAppClo}"])
-
-    --error (show (f, env, xs))
-    
+    pure (CReg ra, concat [ [alloc]
+                          , closureMovs ])
 
 codeGenNLet a b c = do
 
