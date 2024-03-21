@@ -10,6 +10,7 @@ import Common.State
 import Runtimes.MachineA
 import Service.ProgramState
 import Service.Service                       (pipe)
+import Phase.CodeGen.TypesC
 
 import           Control.Monad.IO.Class      (liftIO)
 import           Data.Aeson
@@ -47,12 +48,16 @@ server ioref = setProgramState :<|> runCurrentProgramState :<|> getExample
 
     runCurrentProgramState :: Handler (Text, Text)
     runCurrentProgramState = liftIO $
-        readIORef ioref <&> \case
-            Nothing -> ("No stored program!", "No stored program!")
+        readIORef ioref >>= \case
+            Nothing -> pure ("No stored program!", "No stored program!")
             Just ps -> 
                 case getCodeGenC ps of
-                    Left e1 -> ("", decodeUtf8 e1)
-                    Right instrs -> error "foo"
+                    Left e1 -> pure ("", decodeUtf8 e1)
+                    Right instrs -> do
+                        interpret . map (fmap decodeUtf8) . concat $ instrs
+                        undefined
+                        
+                        
                         --case runMachineA (concat instrs) of
                         --    (r1, r2) -> (decodeUtf8 r1, decodeUtf8 r2)
 

@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveFunctor, Strict #-}
 module Phase.CodeGen.TypesC where
 
 import Common.State
@@ -37,24 +38,25 @@ data CInstr s = CComment !s
               | CTimes !R !(CVal s) !(CVal s) -- dest reg / a / b
 
               | CMov !(MovMode s)
-                  deriving Show
+                  deriving (Functor, Show)
 
 data CallDest s = CallLabel !s
                 | CallReg !R
                 | CallClosureAddr !R  -- reg containing ptr to closure
-                    deriving Show
+                    deriving (Functor, Show)
 
 data CVal s = CLitInt !Int
             | CReg !R
             | CLbl !s
-                deriving Show
+                deriving (Functor, Show)
 
 data MovMode s = ToFrom !R !R
                | FromLitInt !R !Int
                | ToOffsetFrom !R !Int !(CVal s)
                | ToFromOffset !R !R !Int            -- 2nd reg is a pointer
-                   deriving Show
+                   deriving (Functor, Show)
 
+{-
 typesCMain :: IO ()
 typesCMain = do
 
@@ -74,16 +76,22 @@ typesCMain = do
         putStr (show lineNo)
         putStr "\t"
         print c
+-}
 
 interpret :: [CInstr Text] -> IO ()
 interpret is = do
     
+    hSetBuffering stdout LineBuffering
+
     let iv = V.fromList is
 
     let loop !ram !free !valStack !ipStack !regs !ip = do
             let i = iv ! ip
             putStr $ show ip ++ "\t"
             case i of
+
+                CComment{} ->
+                    loop ram free valStack ipStack regs (ip+1)
 
                 CLabel l -> do
                     putStrLn $ unpack l
@@ -145,7 +153,14 @@ interpret is = do
                         free' = free + cells
                         regs' = M.insert r free regs
                     printf "%s = alloc %d\n" (show r) sz
+                    print ("regs", regs')
                     loop ram free' valStack ipStack regs' (ip+1)
+
+                CMov (ToFrom d r) -> do
+                    printf "%s <- %s\n" (show d) (show r)
+                    let Just val = M.lookup r regs
+                    let regs' = M.insert d val regs
+                    loop ram free valStack ipStack regs' (ip+1)
 
                 CMov (ToOffsetFrom d o (CLbl f)) -> do
                     let Just p = M.lookup d regs
@@ -181,14 +196,14 @@ interpret is = do
 
                 _        -> error $ "Unhandled " ++ show i
 
-    loop M.empty 0 [] [] M.empty (13 {- TODO -} )
+    loop M.empty 0 [] [] M.empty (loc iv "main")
 
     where
     loc iv f = fromJust $ V.findIndex isLabel iv
         where
         isLabel (CLabel l) = l == f
         isLabel          _ = False
-
+{-
 allInstrs :: [CInstr Text]
 allInstrs = evalState go (R 0)
     where
@@ -197,7 +212,7 @@ allInstrs = evalState go (R 0)
         b <- anf0Instr
         c <- mainInstr
         pure $ concat [a, b, c]
-
+-}
 fInstrs :: State R [CInstr Text]
 fInstrs = do
     -- Args

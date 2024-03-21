@@ -92,7 +92,7 @@ codeGenCAppClo _ (ATerm _ (Var f)) (AClosEnv env) xs = do
 
     -- Allocate a closure
     ra <- freshReg
-    let sz = 8 + length env -- TODO more precise sizing
+    let sz = 8 + (8 * length env) -- TODO more precise sizing
     let alloc = CAlloc ra sz
 
     -- Find the registers that need to be copied into the closure
