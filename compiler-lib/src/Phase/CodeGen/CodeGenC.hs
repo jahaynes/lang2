@@ -83,19 +83,21 @@ codeGenCApp _ f xs = do
 
     let pushes = reverse $ map CPush xs'
 
-    let call = CCall $ case f' of
-                          CLbl l ->
-                              CallLabel l
-                          CReg r -> -- Assume closure?
-                              CallReg r
+    -- TODO might also need to push an environment here?
+
+    let call = case f' of
+                   CLbl l ->
+                       CallLabel l
+                   CReg r -> -- Assume closure?
+                       CallReg r
     ret <- freshReg
-    let pop = CPop ret
     pure (CReg ret, concat [ fInstrs
                            , concat xsInstrs
                            , pushes
-                           , [call]
-                           , [pop] ])
+                           , [CCall call]
+                           , [CPop ret] ])
 
+-- TODO use xs
 codeGenCAppClo _ f (AClosEnv env) xs = do
     
     ( f',  fInstrs) <-                codeGenAexp f
