@@ -77,18 +77,29 @@ codeGenCexp (CAppClo t f env xs)  = codeGenCAppClo t f env xs
 codeGenCexp x                     = error $ show ("codeGenCexp", x)
 
 codeGenCApp _ f xs = do
-    --error $ show (f, xs)
 
-    bar <- freshReg
-    pure (CReg bar, [CComment "codeGenCApp"])
+    ( f',  fInstrs) <-                codeGenAexp f
+    (xs', xsInstrs) <- unzip <$> mapM codeGenAexp xs
 
-    -- f  = (ATerm (("Int") -> (("Int") -> ("Int"))) (Var "f")
-    -- xs = [ATerm ("Int") (LitInt 1)])
+    let pushes = reverse $ map CPush xs'
 
-codeGenCAppClo _ (ATerm _ (Var f)) (AClosEnv env) xs = do
+    let call = CCall $ case f' of
+                          CLbl l ->
+                              CallLabel l
+                          CReg r -> -- Assume closure?
+                              CallReg r
+    ret <- freshReg
+    let pop = CPop ret
+    pure (CReg ret, concat [ fInstrs
+                           , concat xsInstrs
+                           , pushes
+                           , [call]
+                           , [pop] ])
+
+codeGenCAppClo _ f (AClosEnv env) xs = do
     
-    -- TODO make sure f is a top-level label
-    -- or else check to see if it's a register containing a function ptr perhaps?
+    ( f',  fInstrs) <-                codeGenAexp f
+    (xs', xsInstrs) <- unzip <$> mapM codeGenAexp xs
 
     -- Allocate a closure
     ra <- freshReg
@@ -102,7 +113,7 @@ codeGenCAppClo _ (ATerm _ (Var f)) (AClosEnv env) xs = do
                    Nothing -> error "no such reg"
                    Just r  -> pure $ CReg r
 
-    let closureVals = CLbl f : ers
+    let closureVals = f' : ers
         closureMovs = zipWith (\o v -> CMov (ToOffsetFrom ra o v)) offsets closureVals
 
     pure (CReg ra, concat [ [alloc]
@@ -131,15 +142,15 @@ codeGenNLet a b c = do
 codeGenATerm :: Type ByteString -> Term ByteString -> Cg (CVal ByteString, [CInstr ByteString])
 codeGenATerm t (LitInt i) = do
     let i' = fromIntegral i -- TODO
-    r <- freshReg
-    pure (CReg r, [CMov (FromLitInt r i')])
+    pure (CLitInt i', [])
 
 codeGenATerm t (Var v) = do
     mr <- getRegister v
     case mr of
-        Just r  -> pure (CReg r, [])
-        Nothing -> left $ "Unknown register for " <> v
-    
+        Just r ->
+            pure (CReg r, [])
+        Nothing -> -- Assuming lbl
+            pure (CLbl v, [])    
 
 codeGenBinPrimOp _ op a b = do
 

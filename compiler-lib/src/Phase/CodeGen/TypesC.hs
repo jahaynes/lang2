@@ -42,7 +42,7 @@ data CInstr s = CComment !s
 
 data CallDest s = CallLabel !s
                 | CallReg !R
-                | CallClosureAddr !R  -- reg containing ptr to closure
+                | CallClosureAddr !R  -- reg containing ptr to closure... same as callreg?
                     deriving (Functor, Show)
 
 data CVal s = CLitInt !Int
@@ -107,6 +107,12 @@ interpret is = do
                     let valStack' = v:valStack
                     printf "pushed val %d\n" v
                     loop ram free valStack' ipStack regs (ip+1)
+
+                CCall (CallReg r) -> do
+                    let ipStack' = ip+1:ipStack
+                    let Just ip' = M.lookup r regs
+                    printf "Calling from reg to location %d\n" ip'
+                    loop ram free valStack ipStack' regs ip'
 
                 CCall (CallLabel f) -> do
                     let ipStack' = ip+1:ipStack
