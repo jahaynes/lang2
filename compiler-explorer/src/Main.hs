@@ -1,6 +1,5 @@
 module Main where
 
-import Phase.CodeGen.TypesC
 import Service.Controller (runController)
 import Text.Printf        (printf)
 

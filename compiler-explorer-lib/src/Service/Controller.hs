@@ -7,14 +7,12 @@
 module Service.Controller (runController) where
 
 import Common.State
-import Runtimes.MachineA
+import Runtimes.MachineC
 import Service.ProgramState
 import Service.Service                       (pipe)
-import Phase.CodeGen.TypesC
 
 import           Control.Monad.IO.Class      (liftIO)
 import           Data.Aeson
-import           Data.Functor                ((<&>))
 import           Data.IORef
 import           Data.Text                   (Text, pack)
 import           Data.Text.Encoding          (decodeUtf8)
@@ -54,7 +52,7 @@ server ioref = setProgramState :<|> runCurrentProgramState :<|> getExample
                 case getCodeGenC ps of
                     Left e1 -> pure ("", decodeUtf8 e1)
                     Right instrs -> do
-                        x <- interpret . map (fmap decodeUtf8) . concat $ instrs
+                        x <- interpret . concat $ instrs
                         let xt = pack (show x)
                         pure (xt, xt)
                         

@@ -1,5 +1,3 @@
-{-# LANGUAGE LambdaCase, OverloadedStrings, ScopedTypeVariables #-}
-
 module Phase.CodeGen.CodeGenC where
 
 import Common.EitherT          (EitherT (..))
@@ -14,7 +12,7 @@ import Phase.Anf.AnfExpression (AClosEnv (..), AExp (..), CExp (..), NExp (..), 
 import Phase.Anf.AnfModule     (AnfModule (..), FunDefAnfT (..))
 import Phase.CodeGen.TypesC
 
-import           Control.Monad               (forM)
+import           Control.Monad               (forM, mapAndUnzipM)
 import           Data.ByteString.Char8       (ByteString)
 import qualified Data.ByteString.Char8 as C8
 import           Data.Functor                ((<&>))
@@ -27,7 +25,7 @@ type Cg a =
             State (Gen ByteString))) a
 
 data Gen s =
-    Gen { regCount     :: !Int
+    Gen { nextNum      :: !Int
         , varRegisters :: !(Map s R) 
         }
 
@@ -65,18 +63,17 @@ codeGenAexp (ATerm t v)           = codeGenATerm t v
 codeGenAexp (ALam t vs body)      = codeGenALam t vs body
 codeGenAexp (AClo t fvs vs body)  = codeGenAClo t fvs vs body
 codeGenAexp (ABinPrimOp t op a b) = codeGenBinPrimOp t op a b
-codeGenAexp x                     = error $ show ("codeGenAexp", x)
 
 codeGenCexp :: CExp ByteString -> Cg (CVal ByteString, [CInstr ByteString])
-codeGenCexp (CApp t f xs)         = codeGenCApp t f xs
-codeGenCexp (CAppClo t f env xs)  = codeGenCAppClo t f env xs
-codeGenCexp x                     = error $ show ("codeGenCexp", x)
+codeGenCexp (CApp t f xs)            = codeGenCApp t f xs
+codeGenCexp (CAppClo t f env xs)     = codeGenCAppClo t f env xs
+codeGenCexp (CIfThenElse t pr tr fl) = codeGenIfThenElse t pr tr fl
 
 codeGenCApp :: Type ByteString -> AExp ByteString -> [AExp ByteString] -> Cg (CVal ByteString, [CInstr ByteString])
 codeGenCApp _ f xs = do
 
-    ( f',  fInstrs) <-                codeGenAexp f
-    (xs', xsInstrs) <- unzip <$> mapM codeGenAexp xs
+    ( f',  fInstrs) <-              codeGenAexp f
+    (xs', xsInstrs) <- mapAndUnzipM codeGenAexp xs
 
     let pushes = reverse $ map CPush xs'
 
@@ -95,12 +92,10 @@ codeGenCApp _ f xs = do
                            , [CCall call]
                            , [CPop ret] ])
 
--- TODO use xs
 codeGenCAppClo :: Type ByteString -> AExp ByteString -> AClosEnv ByteString -> [AExp ByteString] -> Cg (CVal ByteString, [CInstr ByteString])
 codeGenCAppClo _ f (AClosEnv env) xs@[] = do
-    
-    ( f',  fInstrs) <-                codeGenAexp f
-    (xs', xsInstrs) <- unzip <$> mapM codeGenAexp xs
+
+    (f', fInstrs) <- codeGenAexp f
 
     -- Allocate a closure
     ra <- freshReg
@@ -118,10 +113,8 @@ codeGenCAppClo _ f (AClosEnv env) xs@[] = do
         closureMovs = zipWith (\o v -> CMov (ToOffsetFrom ra o v)) offsets closureVals
 
     pure (CReg ra, concat [ fInstrs
-                          , concat xsInstrs
                           , [alloc]
                           , closureMovs ])
-
 
 codeGenNLet :: ByteString -> NExp ByteString -> NExp ByteString -> Cg (CVal ByteString, [CInstr ByteString])
 codeGenNLet a b c = do
@@ -144,6 +137,52 @@ codeGenNLet a b c = do
                      , [mov]
                      ,  cs ])
 
+codeGenIfThenElse _ pr tr fl = do
+
+    fresh        <- freshReg
+    branchLables <- mapM freshBranchLabel ["if_", "then_", "else_", "endif_"]
+    let [if_, then_, else_, endif_] = branchLables
+
+    (prReg, prInstrs) <- codeGenAexp pr
+    (trReg, trInstrs) <- codeGenNexp tr
+    (flReg, flInstrs) <- codeGenNexp fl
+
+
+    let instrs = concat [ prInstrs
+                        , trInstrs
+                        , flInstrs ]
+
+    pure (CReg fresh, instrs)
+
+
+    {-
+
+    let trueMov = case trReg of
+                    AReg r     -> AMov (typeOf tr) $ RegFromReg fresh r
+                    ALitInt i  -> AMov (typeOf tr) $ RegFromLitInt fresh i  -- can check type
+                    ALitBool b -> AMov (typeOf tr) $ RegFromLitBool fresh b -- can check type
+
+    let falseMov = case flReg of
+                       AReg r     -> AMov (typeOf fl) $ RegFromReg fresh r
+                       ALitInt i  -> AMov (typeOf fl) $ RegFromLitInt fresh i  -- can check type
+                       ALitBool b -> AMov (typeOf fl) $ RegFromLitBool fresh b -- can check type
+
+    let instrs = concat [ [ALabel if_]
+                        , prInstrs
+                        , [ ACmpB prReg
+                          , Jne else_ ]
+                        , [ALabel then_]
+                        , trInstrs
+                        , [ trueMov
+                          , J endif_ ]
+                        , [ALabel else_]
+                        , flInstrs
+                        , [ falseMov
+                          , ALabel endif_] ]
+
+    pure (AReg fresh, instrs)
+    -}
+
 codeGenATerm :: Type ByteString -> Term ByteString -> Cg (CVal ByteString, [CInstr ByteString])
 codeGenATerm _ (LitInt i) =
     pure (CLitInt (fromIntegral i), []) -- TODO: tame fromintegral
@@ -165,7 +204,9 @@ codeGenBinPrimOp _ op a b = do
     dest <- freshReg
 
     let instr = case op of
+                    EqA  -> error "TODO eq"
                     AddI -> [CPlus  dest ra rb]
+                    SubI -> [CMinus dest ra rb]
                     MulI -> [CTimes dest ra rb]
 
     pure (CReg dest, concat [ as
@@ -248,9 +289,15 @@ bindFreshReg v = do
 register :: ByteString -> R -> Cg ()
 register var reg = lift . lift . modify' $ \gen -> gen { varRegisters = M.insert var reg (varRegisters gen) }
 
-freshReg :: Cg R
-freshReg = lift . lift $ do
+freshNum :: Cg Int
+freshNum = lift . lift $ do
     gen <- get
-    let rc = regCount gen
-    put gen { regCount = rc + 1 }
-    pure $ R rc
+    let rc = nextNum gen
+    put gen { nextNum = rc + 1 }
+    pure rc
+
+freshReg :: Cg R
+freshReg = R <$> freshNum
+
+freshBranchLabel :: ByteString -> Cg ByteString
+freshBranchLabel pre = freshNum <&> \n -> pre <> C8.pack (show n)
