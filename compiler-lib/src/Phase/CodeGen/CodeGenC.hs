@@ -2,8 +2,8 @@
 
 module Phase.CodeGen.CodeGenC where
 
-import Common.EitherT          (EitherT (..), left)
-import Common.ReaderT          (ReaderT (..), ask)
+import Common.EitherT          (EitherT (..))
+import Common.ReaderT          (ReaderT (..))
 import Common.State
 import Common.Trans
 import Core.Module
@@ -12,19 +12,14 @@ import Core.Term               (Term (..))
 import Core.Types
 import Phase.Anf.AnfExpression (AClosEnv (..), AExp (..), CExp (..), NExp (..), PExp (..), PPat (..), typeOf, typeOfAExp)
 import Phase.Anf.AnfModule     (AnfModule (..), FunDefAnfT (..))
-import Phase.CodeGen.SizeInfo
-import Phase.CodeGen.TagInfo
 import Phase.CodeGen.TypesC
-import TypeSystem.Common       (Subst (..))
 
-import           Control.Monad               (forM, replicateM, zipWithM)
-import           Data.ByteString.Char8       (ByteString, pack)
+import           Control.Monad               (forM)
+import           Data.ByteString.Char8       (ByteString)
 import qualified Data.ByteString.Char8 as C8
-import           Data.Char     (isSpace)
-import           Data.Functor  ((<&>))
-import           Data.Map      ((!), Map)
+import           Data.Functor                ((<&>))
+import           Data.Map                    (Map)
 import qualified Data.Map as M
-import           Debug.Trace (trace)
 
 type Cg a =
     EitherT ByteString (
@@ -72,10 +67,12 @@ codeGenAexp (AClo t fvs vs body)  = codeGenAClo t fvs vs body
 codeGenAexp (ABinPrimOp t op a b) = codeGenBinPrimOp t op a b
 codeGenAexp x                     = error $ show ("codeGenAexp", x)
 
+codeGenCexp :: CExp ByteString -> Cg (CVal ByteString, [CInstr ByteString])
 codeGenCexp (CApp t f xs)         = codeGenCApp t f xs
 codeGenCexp (CAppClo t f env xs)  = codeGenCAppClo t f env xs
 codeGenCexp x                     = error $ show ("codeGenCexp", x)
 
+codeGenCApp :: Type ByteString -> AExp ByteString -> [AExp ByteString] -> Cg (CVal ByteString, [CInstr ByteString])
 codeGenCApp _ f xs = do
 
     ( f',  fInstrs) <-                codeGenAexp f
@@ -83,7 +80,7 @@ codeGenCApp _ f xs = do
 
     let pushes = reverse $ map CPush xs'
 
-    -- TODO might also need to push an environment here?
+    let envPush = CPush (CLitInt 0) -- Hack
 
     let call = case f' of
                    CLbl l ->
@@ -94,11 +91,13 @@ codeGenCApp _ f xs = do
     pure (CReg ret, concat [ fInstrs
                            , concat xsInstrs
                            , pushes
+                           , [envPush]
                            , [CCall call]
                            , [CPop ret] ])
 
 -- TODO use xs
-codeGenCAppClo _ f (AClosEnv env) xs = do
+codeGenCAppClo :: Type ByteString -> AExp ByteString -> AClosEnv ByteString -> [AExp ByteString] -> Cg (CVal ByteString, [CInstr ByteString])
+codeGenCAppClo _ f (AClosEnv env) xs@[] = do
     
     ( f',  fInstrs) <-                codeGenAexp f
     (xs', xsInstrs) <- unzip <$> mapM codeGenAexp xs
@@ -118,9 +117,13 @@ codeGenCAppClo _ f (AClosEnv env) xs = do
     let closureVals = f' : ers
         closureMovs = zipWith (\o v -> CMov (ToOffsetFrom ra o v)) offsets closureVals
 
-    pure (CReg ra, concat [ [alloc]
+    pure (CReg ra, concat [ fInstrs
+                          , concat xsInstrs
+                          , [alloc]
                           , closureMovs ])
 
+
+codeGenNLet :: ByteString -> NExp ByteString -> NExp ByteString -> Cg (CVal ByteString, [CInstr ByteString])
 codeGenNLet a b c = do
 
     (rb, bs) <- codeGenNexp b
@@ -130,7 +133,7 @@ codeGenNLet a b c = do
 
     ra <- bindFreshReg a -- currently disallows recursion
     let mov = CMov $ case rb of
-                         CReg b -> ToFrom ra b
+                         CReg b' -> ToFrom ra b'
 
     (rc, cs) <- codeGenNexp c
 
@@ -142,11 +145,10 @@ codeGenNLet a b c = do
                      ,  cs ])
 
 codeGenATerm :: Type ByteString -> Term ByteString -> Cg (CVal ByteString, [CInstr ByteString])
-codeGenATerm t (LitInt i) = do
-    let i' = fromIntegral i -- TODO
-    pure (CLitInt i', [])
+codeGenATerm _ (LitInt i) =
+    pure (CLitInt (fromIntegral i), []) -- TODO: tame fromintegral
 
-codeGenATerm t (Var v) = do
+codeGenATerm _ (Var v) = do
     mr <- getRegister v
     case mr of
         Just r ->
@@ -154,6 +156,7 @@ codeGenATerm t (Var v) = do
         Nothing -> -- Assuming lbl
             pure (CLbl v, [])    
 
+codeGenBinPrimOp :: Type ByteString -> BinOp -> AExp ByteString -> AExp ByteString -> Cg (CVal ByteString, [CInstr ByteString])
 codeGenBinPrimOp _ op a b = do
 
     (ra, as) <- codeGenAexp a
@@ -169,6 +172,7 @@ codeGenBinPrimOp _ op a b = do
                             , bs
                             , instr ])
 
+codeGenAClo :: Type ByteString -> [ByteString] -> [ByteString] -> NExp ByteString -> Cg (CVal ByteString, [CInstr ByteString])
 codeGenAClo _ fvs vs body = do
 
     -- Preserve lexical scope
@@ -197,11 +201,15 @@ codeGenAClo _ fvs vs body = do
                         ,  pops
                         ,  body' ])
 
--- combine with closure code
+-- TODO: combine with closure code
+codeGenALam :: Type ByteString -> [ByteString] -> NExp ByteString -> Cg (CVal ByteString, [CInstr ByteString])
 codeGenALam _ vs body = do
 
     -- Preserve lexical scope
     regMap <- saveRegisterMap
+
+    -- Pop the env (workaround)
+    popEnv <- CPop <$> freshReg
 
     -- Formal params
     vRegs <- mapM bindFreshReg vs
@@ -213,35 +221,12 @@ codeGenALam _ vs body = do
     -- Restore lexical scope
     restoreRegisterMap regMap
 
-    pure (rBody, concat [ pops
+    pure (rBody, concat [ [popEnv]
+                        , pops
                         , body' ])
-
-
-{-
-anf0Instr :: State R [CInstr Text]
-anf0Instr = do
-
-    -- Env { xx }
-    env <- freshR
-    let popEnv = CPop env
-    xx <- freshR
-    let readXx = CMov $ ToFromOffset xx env 8
-
-    -- Format params
-    y <- freshR
-    let popY = CPop y
-    yxx <- freshR
-
-    let plus = CPlus yxx (CReg y) (CReg xx)
-    let ret  = CRet (CReg yxx)
-
-    pure [CLabel "anf_0", popEnv, readXx, popY, plus, ret]
--}
 
 offsets :: [Int]
 offsets = map (*8) [0..]
-
-
 
 getRegister :: ByteString -> Cg (Maybe R)
 getRegister v = lift $ do

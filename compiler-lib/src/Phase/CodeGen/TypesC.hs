@@ -3,15 +3,13 @@ module Phase.CodeGen.TypesC where
 
 import Common.State
 
-import           Control.Monad (zipWithM_)
 import qualified Data.Map.Strict as M
 import           Data.Maybe (fromJust)
 import           Data.Text (Text, unpack)
 import           Data.Vector ((!))
 import qualified Data.Vector as V
-import Debug.Trace (trace)
-import Text.Printf (printf)
-import System.IO
+import           Text.Printf (printf)
+import           System.IO
 
 newtype R =
     R Int
@@ -19,7 +17,6 @@ newtype R =
 
 instance Show R where
     show (R n) = 'r':show n
-
 
 -- newtype Val, Ptr, Off, Sz
 
@@ -56,29 +53,7 @@ data MovMode s = ToFrom !R !R
                | ToFromOffset !R !R !Int            -- 2nd reg is a pointer
                    deriving (Functor, Show)
 
-{-
-typesCMain :: IO ()
-typesCMain = do
-
-    hSetBuffering stdout LineBuffering
-
-    zipWithM_ render [0..] allInstrs
-    putStrLn ""
-
-    interpret allInstrs
-
-    where
-    render :: Int -> CInstr Text -> IO ()
-    render lineNo c@CLabel{} = do
-        putStr (show lineNo ++ " ")
-        print c
-    render lineNo c = do
-        putStr (show lineNo)
-        putStr "\t"
-        print c
--}
-
-interpret :: [CInstr Text] -> IO ()
+interpret :: [CInstr Text] -> IO Int
 interpret is = do
     
     hSetBuffering stdout LineBuffering
@@ -194,7 +169,9 @@ interpret is = do
                 CRet (CReg r) -> do
                     let Just v = M.lookup r regs
                     case ipStack of
-                        [] -> printf "No IpStack. %s = %s\n" (show r) (show $ M.lookup r regs)
+                        [] -> do
+                            printf "No IpStack. %s = %s\n" (show r) (show v)
+                            pure v
                         (ip':stack') -> do
                             let valStack' = v:valStack
                             printf "pushed %d and returning to %d\n" v ip'
@@ -209,105 +186,9 @@ interpret is = do
         where
         isLabel (CLabel l) = l == f
         isLabel          _ = False
-{-
-allInstrs :: [CInstr Text]
-allInstrs = evalState go (R 0)
-    where
-    go = do
-        a <- fInstrs
-        b <- anf0Instr
-        c <- mainInstr
-        pure $ concat [a, b, c]
--}
-fInstrs :: State R [CInstr Text]
-fInstrs = do
-    -- Args
-    x <- freshR
-    let pop = CPop x
-    -- Some body
-    xx <- freshR
-    let mul = CTimes xx (CReg x) (CReg x)
-    -- Alloc the closure
-    clo <- freshR
-    let alloc = CAlloc clo 16
-    let copyInFPtr = CMov $ ToOffsetFrom clo 0 (CLbl "anf_0")
-    let copyInXx   = CMov $ ToOffsetFrom clo 8 (CReg xx)
-    let ret = CRet (CReg clo)
-    -- clo holds a pointer
-    pure [CLabel "f", pop, mul, alloc, copyInFPtr, copyInXx, ret]
-
-anf0Instr :: State R [CInstr Text]
-anf0Instr = do
-
-    -- Env { xx }
-    env <- freshR
-    let popEnv = CPop env
-    xx <- freshR
-    let readXx = CMov $ ToFromOffset xx env 8
-
-    -- Format params
-    y <- freshR
-    let popY = CPop y
-    yxx <- freshR
-
-    let plus = CPlus yxx (CReg y) (CReg xx)
-    let ret  = CRet (CReg yxx)
-
-    pure [CLabel "anf_0", popEnv, readXx, popY, plus, ret]
 
 freshR :: State R R
 freshR = do
     r@(R i) <- get
     put . R $ i + 1
     pure r
-
-mainInstr :: State R [CInstr Text]
-mainInstr = do
-
-    clo <- freshR
-    let pushCallPop = [ CPush (CLitInt 3)
-                      , CCall (CallLabel "f")
-                      , CPop clo ]
-
-    ret <- freshR
-    let cloCall = [ CPush (CLitInt 4) -- (rev order)
-                  , CPush (CReg clo) -- push the closure itself (Acting as the env)
-                  , CCall $ CallClosureAddr clo
-                  , CPop ret
-                  , CRet $ CReg ret ]
-
-    pure $ concat [[CLabel "main"], pushCallPop, cloCall]
-
-{-
-
------------------------------------
-
-f x =
-  let xx = x * x in
-  (\y. y + xx)
-
-main = (f 3) 4
-
------------------------------------
-
-anf_0 {_, xx} y =
-    y + xx
-
-f x =
-    let xx = x * x
-    let clo = alloc {anf_0, xx}
-    (&)clo
-
-main =
-    
-    push 1
-    call (Lbl f)
-    a <- pop :: Int -> Int
-    push 2
-    call (cloaddr a)
-    b <- pop :: Int
-    ret b
-
--}
-
-

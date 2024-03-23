@@ -16,7 +16,7 @@ import           Control.Monad.IO.Class      (liftIO)
 import           Data.Aeson
 import           Data.Functor                ((<&>))
 import           Data.IORef
-import           Data.Text                   (Text)
+import           Data.Text                   (Text, pack)
 import           Data.Text.Encoding          (decodeUtf8)
 import           GHC.Generics                (Generic)
 import           Network.Wai.Handler.Warp    (run)
@@ -46,7 +46,7 @@ server ioref = setProgramState :<|> runCurrentProgramState :<|> getExample
         writeIORef ioref (Just programState)
         pure programState
 
-    runCurrentProgramState :: Handler (Text, Text)
+    runCurrentProgramState :: Handler (Text, Text) -- Why 2?
     runCurrentProgramState = liftIO $
         readIORef ioref >>= \case
             Nothing -> pure ("No stored program!", "No stored program!")
@@ -54,8 +54,9 @@ server ioref = setProgramState :<|> runCurrentProgramState :<|> getExample
                 case getCodeGenC ps of
                     Left e1 -> pure ("", decodeUtf8 e1)
                     Right instrs -> do
-                        interpret . map (fmap decodeUtf8) . concat $ instrs
-                        undefined
+                        x <- interpret . map (fmap decodeUtf8) . concat $ instrs
+                        let xt = pack (show x)
+                        pure (xt, xt)
                         
                         
                         --case runMachineA (concat instrs) of
