@@ -12,7 +12,7 @@ import Phase.CodeGen.CodeGenC
 import Phase.ClosureConvert.ClosureConvert
 import Phase.EtaExpand.EtaExpand
 import Phase.LambdaLift.LambdaLift
---import Phase.Unclobber.UnclobberRecursiveRegisters
+import Phase.Unclobber.UnclobberRecursiveRegisters
 import Phase.Uncurry.Uncurry
 import Service.ProgramState
 import TypeSystem.TypeCheck
@@ -28,7 +28,7 @@ pipe = do
     phaseLambdaLift
     phaseUncurry
     phaseCodeGenC
-    --phaseUnclobberRecursiveRegisters
+    phaseUnclobberRecursiveRegisters
 
     where
     phaseLexer :: State ProgramState ()
@@ -73,6 +73,6 @@ pipe = do
     phaseCodeGenC = modify' $ \ps ->
         ps { getCodeGenC = codeGenModuleC =<< getLambdaLifted ps }
 
-    --phaseUnclobberRecursiveRegisters :: State ProgramState ()
-    --phaseUnclobberRecursiveRegisters = modify' $ \ps ->
-        --ps { getUnclobberedA = unclobberRecursiveRegisters =<< getCodeGenC ps }
+    phaseUnclobberRecursiveRegisters :: State ProgramState ()
+    phaseUnclobberRecursiveRegisters = modify' $ \ps ->
+        ps { getUnclobberedC = unclobberRecursiveRegisters =<< getCodeGenC ps }

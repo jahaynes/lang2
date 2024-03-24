@@ -12,7 +12,7 @@ instance Show R where
 data CInstr s = CComment !s 
               | CLabel !s
 
-              | CCall !(CallDest s)
+              | CCall !(CallDest s) !Int !Int -- prepushes, postpops
               | CRet !(CVal s)
 
               | CPush !(CVal s)

@@ -47,7 +47,7 @@ class App extends React.Component {
     const lambdaLiftedPretty     = this.getAndClearElement("lambdaLiftedPretty")
     const uncurriedPretty        = this.getAndClearElement("uncurriedPretty")
     const codeGenC               = this.getAndClearElement("codeGenC")
-    // const unclobberedA           = this.getAndClearElement("unclobberedA")
+    const unclobberedC           = this.getAndClearElement("unclobberedC")
 
     const req = { getInput: source.value }
 
@@ -66,7 +66,7 @@ class App extends React.Component {
         lambdaLiftedPretty.value     = ts.lambdaLiftedPretty;
         uncurriedPretty.value        = ts.uncurriedPretty;
         codeGenC.value               = ts.codeGenC;
-       // unclobberedA.value           = ts.unclobberedA;
+        unclobberedC.value           = ts.unclobberedC;
       })
       .catch(exception => console.log(exception));
   }
@@ -93,6 +93,7 @@ class App extends React.Component {
         <div>
           <textarea id='text' className='editor' spellCheck='false' rows={numRows} onChange={e => this.lexAndParse()}></textarea>
           <textarea id='codeGenC' className='editor' spellCheck='false' rows={numRows}></textarea>
+          <textarea id='unclobberedC' className='editor' spellCheck='false' rows={numRows}></textarea>
         </div>
 
         <div>

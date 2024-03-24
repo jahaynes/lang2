@@ -23,8 +23,7 @@ interpret is = do
                 CComment{} ->
                     loop ram free valStack ipStack regs cmp (ip+1)
 
-                CLabel l -> do
-                    putStrLn $ unpack l
+                CLabel l ->
                     loop ram free valStack ipStack regs cmp (ip+1)
 
                 CPush (CLitInt i) -> do
@@ -36,16 +35,16 @@ interpret is = do
                     let valStack' = v:valStack
                     loop ram free valStack' ipStack regs cmp (ip+1)
 
-                CCall (CallReg r) -> do
+                CCall (CallReg r) _ _ -> do
                     let ipStack' = ip+1:ipStack
                     let Just ip' = M.lookup r regs
                     loop ram free valStack ipStack' regs cmp ip'
 
-                CCall (CallLabel f) -> do
+                CCall (CallLabel f) _ _ -> do
                     let ipStack' = ip+1:ipStack
                     loop ram free valStack ipStack' regs cmp (loc iv f)
 
-                CCall (CallClosureAddr r) -> do
+                CCall (CallClosureAddr r) _ _ -> do
                     let Just p   = M.lookup r regs
                         Just v   = M.lookup p ram
                         ipStack' = ip+1:ipStack

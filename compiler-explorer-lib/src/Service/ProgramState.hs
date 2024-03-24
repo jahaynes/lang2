@@ -32,7 +32,7 @@ data ProgramState =
                  , getLambdaLifted     :: !(Either ByteString (AnfModule ByteString))
                  , getUncurried        :: !(Either ByteString (AnfModule ByteString))
                  , getCodeGenC         :: !(Either ByteString [[CInstr ByteString]])
-                 -- , getUnclobberedA     :: !(Either ByteString [[AInstr ByteString]])
+                 , getUnclobberedC     :: !(Either ByteString [[CInstr ByteString]])
                  , getOutput           :: !ByteString
                  }
 
@@ -55,7 +55,7 @@ instance ToJSON ProgramState where
             txtUncurried              = either decodeUtf8 (\(AnfModule _ anfdefs) -> pack . unlines . map show $ anfdefs) (getUncurried ps)
             txtUncurriedPretty        = either decodeUtf8 renderAnfModule (getUncurried ps)
             txtCodeGenC               = decodeUtf8 $ either id renderCodeGenC (concat <$> getCodeGenC ps)
-            -- txtUnclobberedA           = decodeUtf8 $ either id renderCodeGenA (concat <$> getUnclobberedA ps)
+            txtUnclobberedC           = decodeUtf8 $ either id renderCodeGenC (concat <$> getUnclobberedC ps)
             txtOutput                 = decodeUtf8 $ getOutput ps
 
         object [ "tokens"                 .= String txtTokens
@@ -73,11 +73,11 @@ instance ToJSON ProgramState where
                , "uncurried"              .= String txtUncurried
                , "uncurriedPretty"        .= String txtUncurriedPretty
                , "codeGenC"               .= String txtCodeGenC
-               -- , "unclobberedA"           .= String txtUnclobberedA
+               , "unclobberedC"           .= String txtUnclobberedC
                , "output"                 .= String txtOutput
                ]
 
 fromSource :: Text -> ProgramState
-fromSource txt = ProgramState (encodeUtf8 txt) na na na na na na na na na na ""
+fromSource txt = ProgramState (encodeUtf8 txt) na na na na na na na na na na na ""
     where
     na = Left "Not Available"

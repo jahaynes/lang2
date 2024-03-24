@@ -49,7 +49,7 @@ server ioref = setProgramState :<|> runCurrentProgramState :<|> getExample
         readIORef ioref >>= \case
             Nothing -> pure ("No stored program!", "No stored program!")
             Just ps -> 
-                case getCodeGenC ps of
+                case getUnclobberedC ps of
                     Left e1 -> pure ("", decodeUtf8 e1)
                     Right instrs -> do
                         x <- interpret . concat $ instrs

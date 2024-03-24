@@ -89,7 +89,7 @@ codeGenCApp _ f xs = do
                            , concat xsInstrs
                            , pushes
                            , [envPush]
-                           , [CCall call]
+                           , [CCall call (length (envPush:pushes)) 1]
                            , [CPop ret] ])
 
 codeGenCAppClo :: Type ByteString -> AExp ByteString -> AClosEnv ByteString -> [AExp ByteString] -> Cg (CVal ByteString, [CInstr ByteString])
