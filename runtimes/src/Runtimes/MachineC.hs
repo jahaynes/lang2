@@ -16,45 +16,45 @@ interpret is = do
     
     let iv = V.fromList is
 
-    let loop !ram !free !valStack !ipStack !regs !ip = do
+    let loop !ram !free !valStack !ipStack !regs !cmp !ip = do
 
             case iv ! ip of
 
                 CComment{} ->
-                    loop ram free valStack ipStack regs (ip+1)
+                    loop ram free valStack ipStack regs cmp (ip+1)
 
                 CLabel l -> do
                     putStrLn $ unpack l
-                    loop ram free valStack ipStack regs (ip+1)
+                    loop ram free valStack ipStack regs cmp (ip+1)
 
                 CPush (CLitInt i) -> do
                     let valStack' = i:valStack
-                    loop ram free valStack' ipStack regs (ip+1)
+                    loop ram free valStack' ipStack regs cmp (ip+1)
 
                 CPush (CReg r) -> do
                     let Just v = M.lookup r regs
                     let valStack' = v:valStack
-                    loop ram free valStack' ipStack regs (ip+1)
+                    loop ram free valStack' ipStack regs cmp (ip+1)
 
                 CCall (CallReg r) -> do
                     let ipStack' = ip+1:ipStack
                     let Just ip' = M.lookup r regs
-                    loop ram free valStack ipStack' regs ip'
+                    loop ram free valStack ipStack' regs cmp ip'
 
                 CCall (CallLabel f) -> do
                     let ipStack' = ip+1:ipStack
-                    loop ram free valStack ipStack' regs (loc iv f)
+                    loop ram free valStack ipStack' regs cmp (loc iv f)
 
                 CCall (CallClosureAddr r) -> do
                     let Just p   = M.lookup r regs
                         Just v   = M.lookup p ram
                         ipStack' = ip+1:ipStack
-                    loop ram free valStack ipStack' regs v
+                    loop ram free valStack ipStack' regs cmp v
 
                 CPop r -> do
                     let (v:valStack') = valStack
                         regs' = M.insert r v regs
-                    loop ram free valStack' ipStack regs' (ip+1)
+                    loop ram free valStack' ipStack regs' cmp (ip+1)
 
                 CPlus d a b -> do
                     -- TODO this case-switching is probably not OK in machine code
@@ -65,7 +65,7 @@ interpret is = do
                                       CReg r    -> M.lookup r regs
                                       CLitInt i -> Just i
                         regs' = M.insert d (a' + b') regs
-                    loop ram free valStack ipStack regs' (ip+1)
+                    loop ram free valStack ipStack regs' cmp (ip+1)
 
                 CMinus d a b -> do
                     -- TODO this case-switching is probably not OK in machine code
@@ -76,7 +76,7 @@ interpret is = do
                                       CReg r    -> M.lookup r regs
                                       CLitInt i -> Just i
                         regs' = M.insert d (a' - b') regs
-                    loop ram free valStack ipStack regs' (ip+1)
+                    loop ram free valStack ipStack regs' cmp (ip+1)
 
                 CTimes d a b -> do
                     -- TODO this case-switching is probably not OK in machine code
@@ -87,38 +87,76 @@ interpret is = do
                                       CReg r    -> M.lookup r regs
                                       CLitInt i -> Just i
                         regs' = M.insert d (a' * b') regs
-                    loop ram free valStack ipStack regs' (ip+1)
+                    loop ram free valStack ipStack regs' cmp (ip+1)
+
+                CEq d a b -> do
+                    -- TODO this case-switching is probably not OK in machine code
+                    let Just a' = case a of
+                                      CReg r    -> M.lookup r regs
+                                      CLitInt i -> Just i
+                        Just b' = case b of
+                                      CReg r    -> M.lookup r regs
+                                      CLitInt i -> Just i
+                        regs' = M.insert d (if a' == b' then 1 else 0) regs
+                    loop ram free valStack ipStack regs' cmp (ip+1)
+
+                CAnd d a b -> do
+                    -- TODO this case-switching is probably not OK in machine code
+                    let Just a' = case a of
+                                      CReg r    -> M.lookup r regs
+                                      CLitInt i -> Just i
+                        Just b' = case b of
+                                      CReg r    -> M.lookup r regs
+                                      CLitInt i -> Just i
+                        regs' = M.insert d (signum (a' * b')) regs
+                    loop ram free valStack ipStack regs' cmp (ip+1)
 
                 CAlloc r sz -> do
                     let (cells, 0) = sz `divMod` 8
                         free' = free + cells
                         regs' = M.insert r free regs
-                    loop ram free' valStack ipStack regs' (ip+1)
+                    loop ram free' valStack ipStack regs' cmp (ip+1)
+
+                CCmpB r -> do
+                    let Just val = M.lookup r regs
+                    let cmp' = not (val == 0)
+                    loop ram free valStack ipStack regs cmp' (ip+1)
+
+                J lbl ->
+                    loop ram free valStack ipStack regs cmp (loc iv lbl)
+
+                Jne lbl -> do
+                    let ip' = if cmp then ip+1 else loc iv lbl
+                    loop ram free valStack ipStack regs cmp ip'
+
+                CMov (FromLitInt d i) -> do
+                    let regs' = M.insert d i regs
+                    loop ram free valStack ipStack regs' cmp (ip+1)
 
                 CMov (ToFrom d r) -> do
                     let Just val = M.lookup r regs
                     let regs' = M.insert d val regs
-                    loop ram free valStack ipStack regs' (ip+1)
+                    loop ram free valStack ipStack regs' cmp (ip+1)
 
                 CMov (ToOffsetFrom d o (CLbl f)) -> do
                     let Just p = M.lookup d regs
                         (cell, 0) = (p + o) `divMod` 8
                         ram' = M.insert cell (loc iv f) ram
-                    loop ram' free valStack ipStack regs (ip+1)
+                    loop ram' free valStack ipStack regs cmp (ip+1)
 
                 CMov (ToOffsetFrom d o (CReg r)) -> do
                     let Just p = M.lookup d regs
                         (cell, 0) = (p + o) `divMod` 8
                         Just v = M.lookup r regs
                         ram' = M.insert cell v ram
-                    loop ram' free valStack ipStack regs (ip+1)
+                    loop ram' free valStack ipStack regs cmp (ip+1)
     
                 CMov (ToFromOffset d r o) -> do
                     let Just p = M.lookup r regs
                         (cell, 0) = (p + o) `divMod` 8
                         Just v = M.lookup cell ram
                         regs' = M.insert d v regs
-                    loop ram free valStack ipStack regs' (ip+1)
+                    loop ram free valStack ipStack regs' cmp (ip+1)
 
                 CRet (CReg r) -> do
                     let Just v = M.lookup r regs
@@ -126,11 +164,11 @@ interpret is = do
                         [] -> pure v
                         (ip':stack') -> do
                             let valStack' = v:valStack
-                            loop ram free valStack' stack' regs ip'
+                            loop ram free valStack' stack' regs cmp  ip'
 
                 x -> error $ show x
 
-    loop M.empty 0 [] [] M.empty (loc iv "main")
+    loop M.empty 0 [] [] M.empty False (loc iv "main")
 
     where
     loc iv f = fromJust $ V.findIndex isLabel iv

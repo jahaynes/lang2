@@ -24,6 +24,13 @@ data CInstr s = CComment !s
               | CMinus !R !(CVal s) !(CVal s) -- dest reg / a / b
               | CTimes !R !(CVal s) !(CVal s) -- dest reg / a / b
 
+              | CEq  !R !(CVal s) !(CVal s) -- dest reg / a / b
+              | CAnd !R !(CVal s) !(CVal s) -- dest reg / a / b
+
+              | CCmpB !R
+              | J !s
+              | Jne !s
+
               | CMov !(MovMode s)
                   deriving Show
 

@@ -147,46 +147,41 @@ codeGenIfThenElse _ pr tr fl = do
     (trReg, trInstrs) <- codeGenNexp tr
     (flReg, flInstrs) <- codeGenNexp fl
 
+    (prr, is) <- case prReg of
+                     CReg prr -> pure (prr, [])
+                     CLitInt i -> do
+                        prr <- freshReg
+                        pure (prr, [CMov $ FromLitInt prr i])
 
-    let instrs = concat [ prInstrs
-                        , trInstrs
-                        , flInstrs ]
+    let trueMov = case trReg of
+                      CReg r    -> ToFrom fresh r
+                      CLitInt i -> FromLitInt fresh i
+
+    let falseMov = case flReg of
+                       CReg r    -> ToFrom fresh r
+                       CLitInt i -> FromLitInt fresh i
+
+    let instrs = concat [ [CLabel if_]
+                        ,  prInstrs
+                        ,  is
+                        , [CCmpB prr]
+                        , [Jne else_]
+
+                        , [CLabel then_]
+                        ,  trInstrs
+                        , [CMov trueMov]
+                        , [J endif_]
+
+                        , [CLabel else_]
+                        ,  flInstrs
+                        , [CMov falseMov]
+                        , [CLabel endif_] ]
 
     pure (CReg fresh, instrs)
 
-
-    {-
-
-    let trueMov = case trReg of
-                    AReg r     -> AMov (typeOf tr) $ RegFromReg fresh r
-                    ALitInt i  -> AMov (typeOf tr) $ RegFromLitInt fresh i  -- can check type
-                    ALitBool b -> AMov (typeOf tr) $ RegFromLitBool fresh b -- can check type
-
-    let falseMov = case flReg of
-                       AReg r     -> AMov (typeOf fl) $ RegFromReg fresh r
-                       ALitInt i  -> AMov (typeOf fl) $ RegFromLitInt fresh i  -- can check type
-                       ALitBool b -> AMov (typeOf fl) $ RegFromLitBool fresh b -- can check type
-
-    let instrs = concat [ [ALabel if_]
-                        , prInstrs
-                        , [ ACmpB prReg
-                          , Jne else_ ]
-                        , [ALabel then_]
-                        , trInstrs
-                        , [ trueMov
-                          , J endif_ ]
-                        , [ALabel else_]
-                        , flInstrs
-                        , [ falseMov
-                          , ALabel endif_] ]
-
-    pure (AReg fresh, instrs)
-    -}
-
 codeGenATerm :: Type ByteString -> Term ByteString -> Cg (CVal ByteString, [CInstr ByteString])
-codeGenATerm _ (LitInt i) =
-    pure (CLitInt (fromIntegral i), []) -- TODO: tame fromintegral
-
+codeGenATerm _ (LitInt i)  = pure (CLitInt (fromIntegral i), []) -- TODO: tame fromintegral
+codeGenATerm _ (LitBool b) = pure (CLitInt $ if b then 1 else 0, [])
 codeGenATerm _ (Var v) = do
     mr <- getRegister v
     case mr of
@@ -204,10 +199,11 @@ codeGenBinPrimOp _ op a b = do
     dest <- freshReg
 
     let instr = case op of
-                    EqA  -> error "TODO eq"
+                    EqA  -> [CEq    dest ra rb]
                     AddI -> [CPlus  dest ra rb]
                     SubI -> [CMinus dest ra rb]
                     MulI -> [CTimes dest ra rb]
+                    AndB -> [CAnd   dest ra rb]
 
     pure (CReg dest, concat [ as
                             , bs
