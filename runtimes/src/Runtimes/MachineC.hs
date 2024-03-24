@@ -89,6 +89,17 @@ interpret is = do
                         regs' = M.insert d (a' * b') regs
                     loop ram free valStack ipStack regs' cmp (ip+1)
 
+                CLt d a b -> do
+                    -- TODO this case-switching is probably not OK in machine code
+                    let Just a' = case a of
+                                      CReg r    -> M.lookup r regs
+                                      CLitInt i -> Just i
+                        Just b' = case b of
+                                      CReg r    -> M.lookup r regs
+                                      CLitInt i -> Just i
+                        regs' = M.insert d (if a' < b' then 1 else 0) regs
+                    loop ram free valStack ipStack regs' cmp (ip+1)
+
                 CEq d a b -> do
                     -- TODO this case-switching is probably not OK in machine code
                     let Just a' = case a of

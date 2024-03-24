@@ -27,6 +27,8 @@ data CInstr s = CComment !s
               | CEq  !R !(CVal s) !(CVal s) -- dest reg / a / b
               | CAnd !R !(CVal s) !(CVal s) -- dest reg / a / b
 
+              | CLt !R !(CVal s) !(CVal s) -- dest reg / a / b
+
               | CCmpB !R
               | J !s
               | Jne !s

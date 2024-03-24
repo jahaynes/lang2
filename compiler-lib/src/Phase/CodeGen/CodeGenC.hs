@@ -203,6 +203,7 @@ codeGenBinPrimOp _ op a b = do
                     AddI -> [CPlus  dest ra rb]
                     SubI -> [CMinus dest ra rb]
                     MulI -> [CTimes dest ra rb]
+                    LtI  -> [CLt    dest ra rb]
                     AndB -> [CAnd   dest ra rb]
 
     pure (CReg dest, concat [ as
