@@ -17,16 +17,16 @@ import qualified Data.ByteString.Char8 as C8
 import           Data.Functor          ((<&>))
 import           Data.Text             (Text)
 import qualified Data.Text as T
-import           Text.Builder          (Builder)
-import qualified Text.Builder as TB
+import           TextBuilder           (TextBuilder)
+import qualified TextBuilder as TB
 
 renderAnfModule :: AnfModule ByteString -> Text
-renderAnfModule = TB.run . printAnfModule
+renderAnfModule = TB.toText . printAnfModule
 
-printAnfModule :: AnfModule ByteString -> Builder
+printAnfModule :: AnfModule ByteString -> TextBuilder
 printAnfModule (AnfModule _ funDefns) = TB.intercalate "\n\n" (map printAnfFunDefn funDefns)
 
-printAnfFunDefn :: FunDefAnfT ByteString -> Builder
+printAnfFunDefn :: FunDefAnfT ByteString -> TextBuilder
 printAnfFunDefn (FunDefAnfT n (Quant qs) expr) =
 
     let typ = printPolyType (Forall qs (typeOf expr))
@@ -46,19 +46,19 @@ printAnfFunDefn (FunDefAnfT n (Quant qs) expr) =
                                    , bytestring n <> " ="
                                    , impl ]
 
-withIndent :: State Int Builder -> State Int Builder
+withIndent :: State Int TextBuilder -> State Int TextBuilder
 withIndent sf = State $ \i -> (evalState sf (i+2), i)
 
-noIndent :: State Int Builder -> State Int Builder
+noIndent :: State Int TextBuilder -> State Int TextBuilder
 noIndent sf = State $ \i -> (evalState sf 0, i)
 
-repl :: Int -> Text -> Builder
+repl :: Int -> Text -> TextBuilder
 repl n = TB.text . T.replicate n
 
-indentSt :: Builder -> State Int Builder
+indentSt :: TextBuilder -> State Int TextBuilder
 indentSt b = get <&> \i -> repl i " " <> b
 
-printNExp :: NExp ByteString -> State Int Builder
+printNExp :: NExp ByteString -> State Int TextBuilder
 printNExp nexp =
 
     case nexp of
@@ -75,7 +75,7 @@ printNExp nexp =
             c' <- printNExp c
             pure $ mconcat [a', b', " in\n", c']
 
-printAExp :: AExp ByteString -> State Int Builder
+printAExp :: AExp ByteString -> State Int TextBuilder
 printAExp aexp =
 
     case aexp of
@@ -107,7 +107,7 @@ printAExp aexp =
         --    let evs' = bytestring $ C8.intercalate " " evs
         --    pure $ "{env " <> evs' <> "}"
 
-printCExp :: CExp ByteString -> State Int Builder
+printCExp :: CExp ByteString -> State Int TextBuilder
 printCExp cexp =
 
     case cexp of
@@ -137,7 +137,7 @@ printCExp cexp =
             pexps'' <- mapM (withIndent . indentSt) pexps'
             pure $ TB.intercalate "\n" (case':pexps'')
 
-printPExp :: PExp ByteString -> State Int Builder
+printPExp :: PExp ByteString -> State Int TextBuilder
 printPExp (PExp lhs rhs) = do
     lhs' <- noIndent $ printPPat lhs
     rhs' <- noIndent $ printNExp rhs
@@ -148,7 +148,7 @@ printPPat (PApp dc _ ts) = do
     ts' <- mapM printTerm ts
     pure $ TB.intercalate " " (bytestring dc:ts')
 
-printTerm :: Term ByteString -> State Int Builder
+printTerm :: Term ByteString -> State Int TextBuilder
 printTerm term =
     indentSt $ case term of
                    LitBool b   -> if b then "True" else "False"

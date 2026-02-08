@@ -4,10 +4,10 @@ module Pretty.Term where
 
 import Core.Term (Term (..))
 
-import Data.Text    (Text)
-import Text.Builder (Builder, char, decimal, text)
+import Data.Text   (Text)
+import TextBuilder (TextBuilder, char, decimal, text)
 
-printTerm :: Term Text -> Builder
+printTerm :: Term Text -> TextBuilder
 printTerm t =
     case t of
         Var v         -> text v

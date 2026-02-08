@@ -13,16 +13,16 @@ import Pretty.Type
 import           Data.ByteString       (ByteString)
 import           Data.Text             (Text)
 import           Data.Text.Encoding
-import           Text.Builder          (Builder)
-import qualified Text.Builder as TB
+import           TextBuilder          (TextBuilder)
+import qualified TextBuilder as TB
 
 renderTypedModule :: Module (Type ByteString) ByteString -> Text
-renderTypedModule = TB.run . printTypedModule
+renderTypedModule = TB.toText . printTypedModule
 
-printTypedModule :: Module (Type ByteString) ByteString -> Builder
+printTypedModule :: Module (Type ByteString) ByteString -> TextBuilder
 printTypedModule (Module _ _ funDefns) = TB.intercalate "\n\n" (map printFunDefn funDefns)
 
-printFunDefn :: FunDefn (Type ByteString) ByteString -> Builder
+printFunDefn :: FunDefn (Type ByteString) ByteString -> TextBuilder
 printFunDefn (FunDefn n (Quant qs) (Lam t vs body)) =
 
     let sig  = TB.intercalate " " [ bytestring n
@@ -50,7 +50,7 @@ printFunDefn (FunDefn n _ expr) =
 
 printTypedExpression :: Int
                      -> Expr (Type ByteString) ByteString
-                     -> Builder
+                     -> TextBuilder
 
 printTypedExpression ind aexp =
 
@@ -95,7 +95,7 @@ printTypedExpression ind aexp =
 
 printPattern :: Int
              -> Pattern (Type ByteString) ByteString
-             -> Builder
+             -> TextBuilder
 printPattern ind (Pattern lhs rhs) =
     mconcat [ indent ind
             , printTypedExpression ind lhs

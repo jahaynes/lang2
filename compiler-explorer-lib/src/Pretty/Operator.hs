@@ -4,17 +4,17 @@ module Pretty.Operator where
 
 import Core.Operator
 
-import           Text.Builder (Builder)
-import qualified Text.Builder as TB
+import           TextBuilder (TextBuilder)
+import qualified TextBuilder as TB
 
-printUnOp :: UnOp -> Builder
+printUnOp :: UnOp -> TextBuilder
 printUnOp unOp =
     case unOp of
         Negate -> TB.char   '-'
         EShow  -> TB.string "show"
         Err    -> TB.string "error"
 
-printBinOp :: BinOp -> Builder
+printBinOp :: BinOp -> TextBuilder
 printBinOp binOp =
     case binOp of
         AddI    -> TB.char   '+'

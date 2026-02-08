@@ -5,21 +5,21 @@ module Pretty.Common where
 import           Data.ByteString    (ByteString)
 import qualified Data.Text as T
 import           Data.Text.Encoding (decodeUtf8)
-import           Text.Builder       (Builder)
-import qualified Text.Builder as TB
+import           TextBuilder        (TextBuilder)
+import qualified TextBuilder as TB
 
 data Grouping = Atom | Paren | Braces
 
-group :: (Grouping, Builder) -> Builder
+group :: (Grouping, TextBuilder) -> TextBuilder
 group (Atom, b)  = b
 group (Paren, b) = mconcat [TB.char '(', b, TB.char ')']
 group (Braces, b) = mconcat [TB.char '{', b, TB.char '}']
 
-bytestring :: ByteString -> Builder
+bytestring :: ByteString -> TextBuilder
 bytestring = TB.text . decodeUtf8
 
-printVars :: [ByteString] -> Builder
+printVars :: [ByteString] -> TextBuilder
 printVars = TB.intercalate " " . map bytestring
 
-indent :: Int -> Builder
+indent :: Int -> TextBuilder
 indent i = TB.text $ T.replicate (2*i) " "

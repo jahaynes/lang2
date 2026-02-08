@@ -8,12 +8,12 @@ import Pretty.Common
 import Pretty.Operator
 import Pretty.Term
 
-import           Data.Text    (Text)
-import           Text.Builder (Builder)
-import qualified Text.Builder as TB
+import           Data.Text   (Text)
+import           TextBuilder (TextBuilder)
+import qualified TextBuilder as TB
 
 -- TODO - is this dupe?
-printExpr :: Show t => Expr t Text -> (Grouping, Builder)
+printExpr :: Show t => Expr t Text -> (Grouping, TextBuilder)
 printExpr (App _ f xs) =
     let f'  = group $ printExpr f
         xs' = TB.intercalate " " $ map (group . printExpr) xs

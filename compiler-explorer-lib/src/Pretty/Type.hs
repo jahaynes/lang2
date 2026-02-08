@@ -5,15 +5,15 @@ module Pretty.Type where
 import Core.Types
 import Pretty.Common
 
-import           Data.ByteString       (ByteString)
-import           Text.Builder          (Builder)
-import qualified Text.Builder as TB
+import           Data.ByteString   (ByteString)
+import           TextBuilder       (TextBuilder)
+import qualified TextBuilder as TB
 
-printPolyType :: Polytype ByteString -> Builder
+printPolyType :: Polytype ByteString -> TextBuilder
 printPolyType (Forall [] t) = printType t
 printPolyType (Forall q  t) = mconcat ["forall ", printVars q, ". ", printType t]
 
-printType :: Type ByteString -> Builder
+printType :: Type ByteString -> TextBuilder
 printType t =
     case t of
         TyArr a b -> mconcat [go a, " -> ", go b]
