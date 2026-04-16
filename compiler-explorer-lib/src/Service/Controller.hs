@@ -7,15 +7,14 @@
 module Service.Controller (runController) where
 
 import Common.State
-import Runtimes.MachineA
+import Runtimes.MachineC
 import Service.ProgramState
 import Service.Service                       (pipe)
 
 import           Control.Monad.IO.Class      (liftIO)
 import           Data.Aeson
-import           Data.Functor                ((<&>))
 import           Data.IORef
-import           Data.Text                   (Text)
+import           Data.Text                   (Text, pack)
 import           Data.Text.Encoding          (decodeUtf8)
 import           GHC.Generics                (Generic)
 import           Network.Wai.Handler.Warp    (run)
@@ -45,16 +44,21 @@ server ioref = setProgramState :<|> runCurrentProgramState :<|> getExample
         writeIORef ioref (Just programState)
         pure programState
 
-    runCurrentProgramState :: Handler (Text, Text)
+    runCurrentProgramState :: Handler (Text, Text) -- Why 2?
     runCurrentProgramState = liftIO $
-        readIORef ioref <&> \case
-            Nothing -> ("No stored program!", "No stored program!")
+        readIORef ioref >>= \case
+            Nothing -> pure ("No stored program!", "No stored program!")
             Just ps -> 
-                case getUnclobberedA ps of
-                    Left e1 -> ("", decodeUtf8 e1)
-                    Right instrs ->
-                        case runMachineA (concat instrs) of
-                            (r1, r2) -> (decodeUtf8 r1, decodeUtf8 r2)
+                case getUnclobberedC ps of
+                    Left e1 -> pure ("", decodeUtf8 e1)
+                    Right instrs -> do
+                        x <- interpret . concat $ instrs
+                        let xt = pack (show x)
+                        pure (xt, xt)
+                        
+                        
+                        --case runMachineA (concat instrs) of
+                        --    (r1, r2) -> (decodeUtf8 r1, decodeUtf8 r2)
 
     getExample "closure" =
         pure "f x =\n\
@@ -98,7 +102,7 @@ server ioref = setProgramState :<|> runCurrentProgramState :<|> getExample
               \    else badfibs (n-1) + badfibs (n-2)\n\
               \\n\
               \main =\n\
-              \  badfibs 4"
+              \  badfibs 9"
 
     getExample _ =
         pure "unknown example"

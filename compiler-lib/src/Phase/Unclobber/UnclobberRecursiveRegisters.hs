@@ -4,16 +4,21 @@
 
 module Phase.Unclobber.UnclobberRecursiveRegisters (unclobberRecursiveRegisters) where
 
+import Common.EitherT
 import Common.State
-import Core.Types
-import Phase.CodeGen.TypesA
+import Common.Trans
+import Phase.CodeGen.TypesC
 
 import           Control.Monad           (zipWithM_)
-import           Data.ByteString         (ByteString)
+import           Data.ByteString.Char8   (ByteString, pack)
 import           Data.Map                (Map)
 import qualified Data.Map as M
 import           Data.Set                ((\\), Set)
 import qualified Data.Set as S
+
+type Unclobber s a =
+    EitherT ByteString
+        (State (Liveness s)) a
 
 {-
     Using virtual registers everywhere prevents clobbering,
@@ -25,84 +30,84 @@ import qualified Data.Set as S
     FIXME: It currently preserves too many registers (registers
     which are not overwritten in the call)
 -}
-unclobberRecursiveRegisters :: [[AInstr ByteString]] -> Either ByteString [[AInstr ByteString]]
-unclobberRecursiveRegisters = Right . map unclobber
+unclobberRecursiveRegisters :: [[CInstr ByteString]] -> Either ByteString [[CInstr ByteString]]
+unclobberRecursiveRegisters = mapM unclobber
 
-unclobber :: [AInstr ByteString] -> [AInstr ByteString]
+unclobber :: [CInstr ByteString] -> Either ByteString [CInstr ByteString]
 unclobber is =
 
-    let liveness =
-            execState (findClobbered is) (Liveness mempty mempty mempty mempty mempty mempty)
+    let state = Liveness mempty mempty mempty mempty mempty
 
-    in go (typeInfo liveness)
-          (callBlocks liveness)
-          0
-          (M.toAscList $ clobbered liveness) -- Need to be applied in order (to keep line-numbers correct)
-          is
+    in case runState (runEitherT $ findClobbered is) state of
+
+        (Left err, _) ->
+            Left err
+
+        (Right{}, live) ->
+            Right $ go (callBlocks live)
+                0
+                (M.toAscList $ clobbered live) -- Need to be applied in order (to keep line-numbers correct)
+                is
 
     where
-    go :: Map Int (Type ByteString) -- TODO neaten
-       -> Map (Int, ByteString) (Int, Int)
+    go :: Map (Int, ByteString) (Int, Int)
        -> Int
-       -> [((Int, ByteString), Set Int)]
-       -> [AInstr ByteString]
-       -> [AInstr ByteString]
-    go typeInf rngs off                     [] is = is
-    go typeInf rngs off (((ln, lbl), regs):cs) is =
+       -> [((Int, ByteString), Set R)]
+       -> [CInstr ByteString]
+       -> [CInstr ByteString]
+    go    _   _                     [] is = is
+    go rngs off (((ln, lbl), regs):cs) is =
         let Just (lo, hi)    = M.lookup (ln, lbl) rngs
             (startMid, rest) = splitAt (hi + 1 - off) is
             (start, mid)     = splitAt (lo - off) startMid
             off' = hi + 1
         in concat ( [ start
-                    , map createPush (S.toList regs)
+                    , map (CPush . CReg) (S.toList regs)
                     , mid
-                    , map createPop  (reverse $ S.toList regs)
-                    , go typeInf rngs off' cs rest ] :: [[AInstr ByteString]])
-        where
-        createPush :: Int -> AInstr ByteString
-        createPush r = let Just t = M.lookup r typeInf in Push "unclobber" t (AReg r)
-
-        createPop :: Int -> AInstr ByteString
-        createPop r = let Just t = M.lookup r typeInf in Pop "unclobber" t r
+                    , map CPop (reverse $ S.toList regs)
+                    , go rngs off' cs rest ] :: [[CInstr ByteString]])
 
 newtype WriteSet =
-    WriteSet (Set Int)
+    WriteSet (Set R)
         deriving (Semigroup, Monoid, Show)
 
 newtype ReadSet =
-    ReadSet (Set Int)
+    ReadSet (Set R)
         deriving (Semigroup, Monoid, Show)
 
 data Liveness s =
     Liveness { writeSet   :: !WriteSet
              , readSet    :: !ReadSet
              , liveness   :: !(Map (Int, s) (WriteSet, ReadSet))
-             , clobbered  :: !(Map (Int, s) (Set Int))
-             , typeInfo   :: !(Map Int (Type s))
+             , clobbered  :: !(Map (Int, s) (Set R))
              , callBlocks :: !(Map (Int, s) (Int, Int))
              } deriving Show
 
-findClobbered :: Ord s => [AInstr s] -> State (Liveness s) ()
+findClobbered :: (Show s, Ord s) => [CInstr s] -> Unclobber s ()
 findClobbered = zipWithM_ go [0..]
 
     where
-    go _ ALabel{} =
+    go _ CLabel{} =
         pure ()
 
-    go _ (Pop _ t w) = do
-        preserveTypeInfo w t
+    go _ (CPop w) =
         regWrite [w]
 
-    go _ (Push _ _ r) =
+    go _ (CPush r) =
         regRead (regOf r)
 
-    go _ (ABinOp w _ t a _ b) = do
-        preserveTypeInfo w t
-        regWrite [w]
-        regRead (regOf a <> regOf b)
+    go _ (CPlus  d a b) = goBinOp d a b
+    go _ (CMinus d a b) = goBinOp d a b
+    go _ (CTimes d a b) = goBinOp d a b
+    go _ (CDiv   d a b) = goBinOp d a b
+    go _ (CMod   d a b) = goBinOp d a b
+    go _ (CEq    d a b) = goBinOp d a b
+    go _ (CAnd   d a b) = goBinOp d a b
+    go _ (COr    d a b) = goBinOp d a b
+    go _ (CLt    d a b) = goBinOp d a b
 
-    go _ (ACmpB r) =
-        regRead (regOf r)
+    go _ (CCmpB r) =
+        regRead [r]
 
     go _ J{} =
         pure ()
@@ -110,31 +115,50 @@ findClobbered = zipWithM_ go [0..]
     go _ Jne{} =
         pure ()
 
-    go _ (AMov t mov) =
-        goMov t mov
+    go _ (CMov mov) =
+        goMov mov
 
-    go n (Call lbl prePushes postPops) =
+    -- TODO - this needs to work on non-label call targets.  See below
+    go n (CCall (CallLabel lbl) prePushes postPops) =
         call n lbl prePushes postPops
 
-    go _ Ret{} =
+    -- This is a blind call
+    go n (CCall CallReg{} prePushes postPops) =
+        left "Blind call.  Must preserve all regs?"
+
+    go _ CRet{} =
         pure ()
 
-goMov :: Ord s => Type s -> MovMode -> State (Liveness s) ()
-goMov t (RegFromReg w r) = do
-    preserveTypeInfo w t
+    go _ (CAlloc d _) =
+        regWrite [d]
+
+    go _ (CNeg r) = do
+        regRead [r]
+        regWrite [r]
+
+    go _ x =
+        left $ "Unhandled case: " <> pack (show x)
+
+goBinOp :: Ord s => R -> CVal s -> CVal s -> Unclobber s ()
+goBinOp d a b = do
+    regWrite [d]
+    regRead (regOf a <> regOf b)
+
+goMov :: Ord s => MovMode s -> Unclobber s ()
+goMov (ToFrom w r) = do
     regWrite [w]
     regRead [r]
-goMov t (RegFromLitInt w _) = do
-    preserveTypeInfo w t
+goMov (FromLitInt w _) =
     regWrite [w]
-goMov _ x = error . show $ ("urr: movmode", x)
+goMov (ToOffsetFrom d _ a) = do
+    regWrite [d]
+    regRead (regOf a)
+goMov (ToFromOffset d a _) = do
+    regWrite [d]
+    regRead [a]
 
-preserveTypeInfo :: Int -> Type s -> State (Liveness s) ()
-preserveTypeInfo r t = modify' $ \live ->
-    live { typeInfo = M.insert r t (typeInfo live) }
-
-regWrite :: Set Int -> State (Liveness s) ()
-regWrite regs = modify' $ \live ->
+regWrite :: Set R -> Unclobber s ()
+regWrite regs = lift . modify' $ \live ->
 
            -- Update the current write set state
     live { writeSet = let WriteSet ws = writeSet live in WriteSet (regs <> ws)
@@ -142,8 +166,8 @@ regWrite regs = modify' $ \live ->
            -- We unmark registers as clobbered if they are written after the call but before a read
          , liveness = (\(WriteSet ws, rs) -> (WriteSet (ws \\ regs), rs)) <$> liveness live }
 
-regRead :: Ord s => Set Int -> State (Liveness s) ()
-regRead regs = modify' $ \live ->
+regRead :: Ord s => Set R -> Unclobber s ()
+regRead regs = lift . modify' $ \live ->
     let ReadSet rs = readSet live
     in live { readSet   = ReadSet (regs <> rs)
             , clobbered = updateClobbered (liveness live) (clobbered live)
@@ -151,8 +175,8 @@ regRead regs = modify' $ \live ->
     where
     updateClobbered lv = M.unionWith S.union (M.map (\(WriteSet ws, _) -> S.intersection ws regs) lv)
 
-call :: Ord s => Int -> s -> Int -> Int -> State (Liveness s) ()
-call lineNo lbl prePushes postPops = modify' $ \live ->
+call :: Ord s => Int -> s -> Int -> Int -> Unclobber s ()
+call lineNo lbl prePushes postPops = lift . modify' $ \live ->
     live { liveness = M.insert (lineNo, lbl)
                                (writeSet live, readSet live)
                                (liveness live)
@@ -161,6 +185,6 @@ call lineNo lbl prePushes postPops = modify' $ \live ->
                                  (callBlocks live)
          }
 
-regOf :: AVal -> Set Int
-regOf (AReg r) = [r]
+regOf :: CVal s -> Set R
+regOf (CReg r) = [r]
 regOf        _ = []

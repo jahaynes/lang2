@@ -92,6 +92,7 @@ parseProduct = do
     mulOp = parseSatisfy "mulOp" $ \case
                 TMul -> Just MulI
                 TDiv -> Just DivI
+                TMod -> Just ModI -- TODO: right precedence / associativity?
                 _    -> Nothing
 
 parseApply :: Parser ParseState (Expr Untyped ByteString)
