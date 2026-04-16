@@ -90,7 +90,7 @@ printAExp aexp =
 
         AClo _ fvs vs body -> do
             body' <- printNExp body
-            let fvs' = bytestring $ C8.intercalate " " fvs
+            let fvs' = bytestring $ C8.intercalate " " (map snd fvs)
                 vs'  = bytestring $ C8.intercalate " " vs
             pure $ mconcat ["(\\", vs', " {", fvs', "}.", body', ")"]
 
@@ -117,8 +117,11 @@ printCExp cexp =
             xs' <- mapM (noIndent . printAExp) xs
             pure $ TB.intercalate " " (f':xs')
 
-        CAppClo _ f cloEnv xs ->
-            pure "cappclo"
+        CAppClo _ f cloEnv xs -> do
+            f'  <- printAExp f
+            ce' <- noIndent $ printCloEnv cloEnv
+            xs' <- mapM (noIndent . printAExp) xs
+            pure $ TB.intercalate " " (f':ce':xs')
 
         -- TODO improve
         CIfThenElse _ pr tr fl -> do
@@ -143,6 +146,7 @@ printPExp (PExp lhs rhs) = do
     rhs' <- noIndent $ printNExp rhs
     pure $ TB.intercalate " " [lhs', "->", rhs']
 
+printPPat :: PPat ByteString -> State Int Builder
 printPPat (PVar v) = pure $ bytestring v
 printPPat (PApp dc _ ts) = do
     ts' <- mapM printTerm ts
@@ -156,3 +160,12 @@ printTerm term =
                    LitString s -> mconcat ["\"", bytestring s, "\""]
                    Var v       -> bytestring v
                    DCons dc    -> bytestring dc
+
+printCloEnv :: AClosEnv ByteString -> State Int Builder
+printCloEnv (AClosEnv es) = pure
+                          . TB.intercalate ", " 
+                          . map f
+                          $ es
+    where
+    f x = "{" <> g x <> "}"
+    g (TyCon tc [], fv) = TB.intercalate " " [bytestring fv, "::", bytestring tc]

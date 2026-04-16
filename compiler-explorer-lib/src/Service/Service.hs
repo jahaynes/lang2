@@ -9,6 +9,7 @@ import Parse.Module
 import Parse.Parser
 import Phase.Anf.AnfModule
 import Phase.CodeGen.CodeGenA
+import Phase.CodeGen.CodeGenB
 import Phase.ClosureConvert.ClosureConvert
 import Phase.EtaExpand.EtaExpand
 import Phase.LambdaLift.LambdaLift
@@ -27,8 +28,8 @@ pipe = do
     phaseClosureConvert
     phaseLambdaLift
     phaseUncurry
-    phaseCodeGenA
-    phaseUnclobberRecursiveRegisters
+    phaseCodeGenB
+    -- phaseUnclobberRecursiveRegisters
 
     where
     phaseLexer :: State ProgramState ()
@@ -69,9 +70,9 @@ pipe = do
     phaseUncurry = modify' $ \ps ->
         ps { getUncurried = uncurryModule =<< getLambdaLifted ps } -- TODO
 
-    phaseCodeGenA :: State ProgramState ()
-    phaseCodeGenA = modify' $ \ps ->
-        ps { getCodeGenA = codeGenModuleA =<< getLambdaLifted ps }
+    phaseCodeGenB :: State ProgramState ()
+    phaseCodeGenB = modify' $ \ps ->
+        ps { getCodeGenA = codeGenModuleB =<< getLambdaLifted ps }
 
     phaseUnclobberRecursiveRegisters :: State ProgramState ()
     phaseUnclobberRecursiveRegisters = modify' $ \ps ->

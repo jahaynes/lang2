@@ -8,6 +8,7 @@ import Common.EitherT          (EitherT (..), left)
 import Common.State
 import Common.Trans
 import Core.Term
+import Core.Types
 import Phase.Anf.AnfExpression
 
 import           Data.ByteString.Char8       (ByteString, pack)
@@ -23,12 +24,12 @@ type Fv s a =
         State (Scope s)) a
 
 -- TODO probably doesn't need Either, except for dev
-getFreeVars :: (Ord s, Show s) => Set s -> NExp s -> Either ByteString (Set s)
+getFreeVars :: (Ord s, Show s) => Set s -> NExp s -> Either ByteString (Set (Type s, s))
 getFreeVars scope n = evalState
                         (runEitherT (nexpFreeVars n))
                         (Scope scope)
 
-nexpFreeVars :: (Show s, Ord s) => NExp s -> Fv s (Set s)
+nexpFreeVars :: (Show s, Ord s) => NExp s -> Fv s (Set (Type s, s))
 nexpFreeVars nexp =
 
     case nexp of
@@ -44,13 +45,13 @@ nexpFreeVars nexp =
                 mappend <$> nexpFreeVars b
                         <*> nexpFreeVars c
 
-aexpFreeVars :: (Show s, Ord s) => AExp s -> Fv s (Set s)
+aexpFreeVars :: (Show s, Ord s) => AExp s -> Fv s (Set (Type s, s))
 aexpFreeVars aexp =
 
     case aexp of
 
-        ATerm _ term ->
-            termFreeVars term
+        ATerm t term ->
+            termFreeVars t term
 
         ALam _ vs b ->
             withScope vs $
@@ -65,7 +66,7 @@ aexpFreeVars aexp =
         AClo{} ->
             error "TODO: aexpFreeVars AClo"
 
-cexpFreeVars :: (Show s, Ord s) => CExp s -> Fv s (Set s)
+cexpFreeVars :: (Show s, Ord s) => CExp s -> Fv s (Set (Type s, s))
 cexpFreeVars cexp =
 
     case cexp of
@@ -84,7 +85,7 @@ cexpFreeVars cexp =
             bs <- mapM pexpFreeVars ps
             pure $ mconcat (a:bs)
 
-pexpFreeVars :: (Show s, Ord s) => PExp s -> Fv s (Set s)
+pexpFreeVars :: (Show s, Ord s) => PExp s -> Fv s (Set (Type s, s))
 pexpFreeVars (PExp a b) =
     withScope (scopeFromPattern a)
               (nexpFreeVars b)
@@ -97,21 +98,21 @@ pexpFreeVars (PExp a b) =
         LitInt{}  -> mempty
         (Var v)   -> [v]
 
-termFreeVars :: Ord s => Term s -> Fv s (Set s)
-termFreeVars t =
-    case t of
-        Var s       -> variableIfNotScoped s
+termFreeVars :: Ord s => Type s -> Term s -> Fv s (Set (Type s, s))
+termFreeVars t term =
+    case term of
+        Var v       -> variableIfNotScoped t v
         LitInt{}    -> pure mempty
         LitBool{}   -> pure mempty
         LitString{} -> pure mempty
-        DCons{}     -> pure mempty
+        DCons{}     -> pure mempty -- mmm not sure?
 
-variableIfNotScoped :: Ord s => s -> Fv s (Set s)
-variableIfNotScoped v = do
+variableIfNotScoped :: Ord s => Type s -> s -> Fv s (Set (Type s, s))
+variableIfNotScoped t v = do
     scope <- getScope <$> lift get
     pure $ if S.member v scope
                then mempty
-               else S.singleton v
+               else S.singleton (t, v)
 
 withScope :: Ord s => [s]
                    -> Fv s a

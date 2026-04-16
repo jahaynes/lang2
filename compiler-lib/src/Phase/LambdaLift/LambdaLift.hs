@@ -143,7 +143,7 @@ lambdaLiftDefn nameGen (FunDefAnfT t n fun) =
                     -- If this lambda has a name
                     -- rename (recursive) references to it during the lift
                     Just oldName ->
-                        let subst = foldr M.delete (M.singleton oldName newName) (fvs <> vs)
+                        let subst = foldr M.delete (M.singleton oldName newName) (map snd fvs <> vs)
                         in alphaNExp subst body
                     Nothing -> body
         lam' <- AExp . AClo t fvs vs <$> ll body'
