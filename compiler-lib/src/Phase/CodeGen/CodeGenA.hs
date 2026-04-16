@@ -10,20 +10,22 @@ import Core.Module
 import Core.Operator
 import Core.Term               (Term (..))
 import Core.Types
-import Phase.Anf.AnfExpression (AExp (..), CExp (..), NExp (..), PExp (..), PPat (..), typeOf, typeOfAExp)
+import Phase.Anf.AnfExpression (AClosEnv (..), AExp (..), CExp (..), NExp (..), PExp (..), PPat (..), typeOf, typeOfAExp)
 import Phase.Anf.AnfModule     (AnfModule (..), FunDefAnfT (..))
 import Phase.CodeGen.SizeInfo
 import Phase.CodeGen.TagInfo
 import Phase.CodeGen.TypesA
 import TypeSystem.Common       (Subst (..))
 
-import           Control.Monad               (forM)
+import           Control.Monad               (forM, replicateM, zipWithM_)
 import           Data.ByteString.Char8       (ByteString, pack)
 import qualified Data.ByteString.Char8 as C8
 import           Data.Char     (isSpace)
 import           Data.Functor  ((<&>))
+import           Data.List     (foldl')
 import           Data.Map      ((!), Map)
 import qualified Data.Map as M
+import           Data.Maybe    (fromJust)
 import           Debug.Trace (trace)
 
 type Cg a =
@@ -78,6 +80,7 @@ renderCodeGenA = C8.dropWhile isSpace . C8.unlines . map (mconcat . go)
     typ (TyCon t []) = t
     typ (TyCon t ts) = C8.unwords (t : map typ ts)
     typ (TyVar a)    = a
+    typ (TyArr a b)  = C8.concat ["(", typ a, " -> ", typ b, ")"]
 
     op EqA  = "=="
     op AddI = "+"
@@ -111,10 +114,9 @@ codeGenNexp (NLet a b c) = codeGenNlet a b c
 
 codeGenAexp :: AExp ByteString
             -> Cg (AVal, [AInstr ByteString])
-codeGenAexp (ATerm t term)              = codeGenTerm t term
-codeGenAexp (ALam t vs nexp)            = codegenLam t vs nexp
-codeGenAexp (AClo _type _fvs _vs _nexp) = pure (unkn, [AComment "closure"])
-
+codeGenAexp (ATerm t term)       = codeGenTerm t term
+codeGenAexp (ALam t vs nexp)     = codegenLam t vs nexp
+codeGenAexp (AClo t fvs vs nexp) = codegenClo t fvs vs nexp
 codeGenAexp (ABinPrimOp t op a b) = do
     (areg, aInstrs) <- codeGenAexp a
     (breg, bInstrs) <- codeGenAexp b
@@ -125,7 +127,7 @@ codeGenAexp (ABinPrimOp t op a b) = do
                         , [ABinOp dest op (typeOfAExp a) areg (typeOfAExp b) breg] ]
     pure (AReg dest, instrs)
 
-codeGenAexp aexp = pure (unkn, [AComment $ "unknown aexp: " <> C8.pack (show aexp)])
+codeGenAexp aexp = pure (error "codeGenAexp", [AComment $ "unknown aexp: " <> C8.pack (show aexp)])
 
 codegenLam :: Type ByteString
            -> [ByteString]
@@ -133,13 +135,57 @@ codegenLam :: Type ByteString
            -> Cg (AVal, [AInstr ByteString])
 codegenLam t vs nexp = do
 
-    regMap0 <- saveRegisterMap
+    regMap0      <- saveRegisterMap             -- Why?
 
-    pops <- popsForwardOrder t vs
+    pops         <- popsForwardOrder t vs
     (ret, nexp') <- codeGenNexp nexp
+    restoreRegisterMap regMap0                  -- Why?
     let instrs = concat [ pops
                         , nexp' ]
-    restoreRegisterMap regMap0
+    pure (ret, instrs)
+
+-- TODO: HERE
+codegenClo :: Type ByteString
+           -> [(Type ByteString, ByteString)]
+           -> [ByteString]
+           -> NExp ByteString
+           -> Cg (AVal, [AInstr ByteString])
+codegenClo t tfvs vs nexp = do
+
+    regMap0 <- saveRegisterMap             -- Why?
+
+    er <- freshNum
+    let envPop = Pop "env" (TyCon "{env}" []) er
+
+    -- UNPACKING THE ENV
+
+    let types = map fst tfvs
+
+    -- Calculate allocated sizes
+    let offs = reverse
+             . snd
+             . foldl' (\(acc, bcc) sz -> (sz+acc, acc:bcc)) (0, [])
+             . map sizeof
+             $ types
+
+    -- Assign registers
+    rs <- replicateM (length types) freshNum
+    -- register a (AReg fresh)
+    zipWithM_ register (map snd tfvs) (map AReg rs)
+
+    let moves = zipWith3 (\t r o -> AMov t (RegFromMem r er o))
+                         types
+                         rs
+                         offs
+
+    -- END
+
+    pops         <- popsForwardOrder t vs
+    (ret, nexp') <- codeGenNexp nexp
+    restoreRegisterMap regMap0                  -- Why?
+    let instrs = concat [ envPop : pops
+                        , moves
+                        , nexp' ]
     pure (ret, instrs)
 
 codeGenNlet :: ByteString
@@ -155,10 +201,10 @@ codeGenNlet a b c = do
     (creg, cInstrs) <- codeGenNexp c
 
     mov <- case breg of
-               ALitInt  li -> pure $ RegFromLitInt fresh li
-               ALitBool lb -> pure $ RegFromLitBool fresh lb
-               AReg r      -> pure $ RegFromReg fresh r
-               AUnkn       -> left "codeGenNlet AUnkn"
+            ALitInt  li -> pure $ RegFromLitInt fresh li
+            ALitBool lb -> pure $ RegFromLitBool fresh lb
+            AReg r      -> pure $ RegFromReg fresh r
+            AUnkn       -> left "codeGenNlet AUnkn"
 
     let instrs = concat [ bInstrs
                         , [ AMov (typeOf b) mov ] -- validate this type against the literal lines above
@@ -255,9 +301,47 @@ codeGenApp t (ATerm _ (Var v)) xs = do
                           , Pop ("ret from " <> v) t fresh ] ]
     pure (AReg fresh, instrs)
 
--- TODO
-codeGenAppClo _t _f _cloEnv _xs = do
-    pure (unkn, [ALabel "..codeGenAppClo.."])
+codeGenAppClo t (ATerm _ (Var v)) cloEnv [] = error "create, don't call"
+
+codeGenAppClo t (ATerm _ (Var v)) cloEnv xs = trace ("called on " ++ show v ++ " " ++ show xs) $ do
+
+    (er, eInstrs) <- packClosureEnv cloEnv
+    let envPush = Push "env" (TyCon "{env}" []) (AReg er)
+
+    -- Get the args ready to be pushed
+    (xs', prePushInstrs) <- unzip <$> mapM codeGenAexp xs
+    let pushes = pushesReverseOrder (zip xs xs')
+
+    fresh <- freshNum
+    let instrs = concat [ eInstrs
+                        , concat prePushInstrs
+                        , pushes
+                        , [envPush]
+                        , [ Call v (1 + length pushes) 1
+                        , Pop ("ret from " <> v) t fresh ] ]
+    pure (AReg fresh, instrs)
+
+-- allocate env and move free vars across from formal scope
+packClosureEnv (AClosEnv es) = do
+
+    fresh <- freshNum
+
+    let types = map fst es
+
+    -- Calculate allocation sizes    
+    let (total, offs) = (\(a,b) -> (a,reverse b))
+                      . foldl' (\(acc, bcc) sz -> (sz+acc, acc:bcc)) (0, [])
+                      . map sizeof
+                      $ types
+
+    rs <- map fromJust <$> mapM getRegister (map snd es)
+    
+    let movs = zipWith3 (\t (AReg r) off -> AMov t (MemFromReg fresh off r))
+                        types
+                        rs
+                        offs
+
+    pure (fresh, Allocate fresh total : movs)
 
 codeGenIfThenElse t pr tr fl = do
     fresh             <- freshNum
@@ -376,7 +460,7 @@ codeGenPattern dctypes label (AReg scrutReg) (PApp dc dct ms) rhs destReg doneLa
         (t, Var v, off) -> do
             fresh <- freshNum
             register v (AReg fresh)
-            pure . AMov (TyCon "Unkn" []) $ RegFromMem fresh scrutReg off
+            pure . AMov (TyCon "Unkn" []) $ RegFromMem fresh scrutReg off -- TODO is this unkn the t a few lines above?
 
     -- Generate code for the RHS
     (rhsReg, rhsInstrs) <- codeGenNexp rhs
@@ -429,9 +513,6 @@ freshNum = lift . lift $ do
     put gen { regCount = rc + 1 }
     pure rc
 
-unkn :: AVal
-unkn = AUnkn
-
 register :: ByteString -> AVal -> Cg ()
 register var reg = lift . lift . modify' $ \gen -> gen { varRegisters = M.insert var reg (varRegisters gen) }
 
@@ -465,3 +546,8 @@ instantiateLhs (TyCon tc typeInsts) = do
         go :: Member s -> Type s
         go (MemberType n' tv) = TyCon n' (map go tv)
         go (MemberVar v)      = subst ! v
+
+-- put this somewhere common
+sizeof :: Type ByteString -> Int
+sizeof (TyCon "Int" []) = 8
+sizeof x = error $ "Unknown size: " ++ show x
