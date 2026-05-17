@@ -34,9 +34,11 @@ library
                     Phase.Anf.AnfModule
                     Phase.Anf.BetaReduce
                     Phase.CodeGen.CodeGenA
+                    Phase.CodeGen.CodeGenD
                     Phase.CodeGen.SizeInfo
                     Phase.CodeGen.TagInfo
                     Phase.CodeGen.TypesA
+                    Phase.CodeGen.TypesD
                     Phase.ClosureConvert.ClosureConvert
                     Phase.ClosureConvert.FreeVars
                     Phase.EtaExpand.EtaExpand
