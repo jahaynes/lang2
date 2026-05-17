@@ -1,0 +1,6 @@
+.stack-work/
+.vscode/
+bin/
+node_modules/
+package-lock.json
+stack.yaml.lock
