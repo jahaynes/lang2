@@ -11,12 +11,6 @@ body {
 }
 
 .editor {
-
-  /* Spacing */
-  margin: 0.5rem;
-  width: 29%;
-  padding: 10px;
-
   /* Borders */
   border: none;
   border-radius: 0.5em;
@@ -27,4 +21,18 @@ body {
   background-color: #444;
   color: #def;
   font-size: large;
+}
+
+.single {
+  /* Spacing */
+  margin: 0.5rem;
+  width: 29%;
+  padding: 10px;
+}
+
+.double {
+  /* Spacing */
+  margin: 0.5rem;
+  width: 58%;
+  padding: 10px;
 }

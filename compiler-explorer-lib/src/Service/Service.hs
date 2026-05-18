@@ -8,11 +8,12 @@ import Parse.Lexer
 import Parse.Module
 import Parse.Parser
 import Phase.Anf.AnfModule
-import Phase.CodeGen.CodeGenA
+--import Phase.CodeGen.CodeGenA
+import Phase.CodeGen.CodeGenD
 import Phase.ClosureConvert.ClosureConvert
 import Phase.EtaExpand.EtaExpand
 import Phase.LambdaLift.LambdaLift
-import Phase.Unclobber.UnclobberRecursiveRegisters
+-- import Phase.Unclobber.UnclobberRecursiveRegisters
 import Phase.Uncurry.Uncurry
 import Service.ProgramState
 import TypeSystem.TypeCheck
@@ -27,8 +28,9 @@ pipe = do
     phaseClosureConvert
     phaseLambdaLift
     phaseUncurry
-    phaseCodeGenA
-    phaseUnclobberRecursiveRegisters
+    --phaseCodeGenA
+    phaseCodeGenD
+    -- phaseUnclobberRecursiveRegisters
 
     where
     phaseLexer :: State ProgramState ()
@@ -69,6 +71,11 @@ pipe = do
     phaseUncurry = modify' $ \ps ->
         ps { getUncurried = uncurryModule =<< getLambdaLifted ps } -- TODO
 
+    phaseCodeGenD :: State ProgramState ()
+    phaseCodeGenD = modify' $ \ps ->
+        ps { getCodeGenD = codeGenModuleD =<< getLambdaLifted ps }
+
+{-
     phaseCodeGenA :: State ProgramState ()
     phaseCodeGenA = modify' $ \ps ->
         ps { getCodeGenA = codeGenModuleA =<< getLambdaLifted ps }
@@ -76,3 +83,4 @@ pipe = do
     phaseUnclobberRecursiveRegisters :: State ProgramState ()
     phaseUnclobberRecursiveRegisters = modify' $ \ps ->
         ps { getUnclobberedA = unclobberRecursiveRegisters =<< getCodeGenA ps }
+-}

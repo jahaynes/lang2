@@ -1,4 +1,5 @@
-module Phase.CodeGen.TypesD ( DBinOp (..)
+module Phase.CodeGen.TypesD ( CallDest (..)
+                            , DBinOp (..)
                             , DInstr (..)
                             , DVal (..)
                             , MovMode (..)
@@ -15,9 +16,11 @@ instance Show R where
 data DInstr s = DComment !s 
               | DLabel !s
 
-              --      Dest Label Args
-              | DCall !R !(CallDest s) ![DVal s]
-                  {- This is OK for IR, but it's missing the Pops at the function site -}
+              | DPush !(DVal s)
+
+              | DPop !R
+
+              | DCall !(CallDest s)
                 
               | DFun ![DVal s] [DInstr s]
 
@@ -50,8 +53,7 @@ data DBinOp = DPlus
                 deriving Show
 
 data CallDest s = CallLabel !s
-                | CallReg !R
-                | CallClosureAddr !R  -- reg containing ptr to closure... same as callreg?
+                | CallReg !R                                      
                     deriving Show
 
 data DVal s = DLitInt !Int

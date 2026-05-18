@@ -16,6 +16,7 @@ import Phase.Anf.AnfExpression (AExp (..), CExp (..), NExp (..))
 import Phase.Anf.AnfModule     (AnfModule (..), FunDefAnfT (..))
 import Phase.CodeGen.TypesD
 
+import           Control.Monad               (forM, mapAndUnzipM)
 import           Data.ByteString.Char8       (ByteString)
 import qualified Data.ByteString.Char8 as C8
 import           Data.Functor                ((<&>))
@@ -36,7 +37,7 @@ renderCodeGenD :: [DInstr ByteString] -> ByteString
 renderCodeGenD = C8.unlines . map (C8.pack . render)
     where
     render c@DLabel{} = show c
-    render c            = "  " <> show c
+    render c          = "  " <> show c
 
 codeGenModuleD :: AnfModule ByteString
                -> Either ByteString [[DInstr ByteString]]
@@ -64,21 +65,69 @@ codeGenNexp (NLet a b c) = codeGenNLet a b c
 codeGenAexp :: AExp ByteString -> Cg (DVal ByteString, [DInstr ByteString])
 codeGenAexp (ATerm t v)           = codeGenATerm t v
 codeGenAexp (ALam t vs body)      = codeGenALam t vs body
-codeGenAexp (AClo t fvs vs body)  = error "Closures unhandled"
+codeGenAexp (AClo _t _fvs _vs _body) = error "Closures unhandled"
 codeGenAexp (AUnPrimOp t op a)    = codeGenUnPrimOp t op a
 codeGenAexp (ABinPrimOp t op a b) = codeGenBinPrimOp t op a b
 
 codeGenCexp :: CExp ByteString -> Cg (DVal ByteString, [DInstr ByteString])
 codeGenCexp (CApp t f xs)            = codeGenCApp t f xs
-codeGenCexp (CAppClo t f env xs)     = error "Closures unhandled"
+codeGenCexp (CAppClo _t _f _env _xs) = error "Closures unhandled"
 codeGenCexp (CIfThenElse t pr tr fl) = codeGenIfThenElse t pr tr fl
-codeGenCexp (CCase t scrut ps)       = error "Case unhandled"
+codeGenCexp (CCase _t _scrut _ps)    = error "Case unhandled"
 
 codeGenCApp :: Type ByteString -> AExp ByteString -> [AExp ByteString] -> Cg (DVal ByteString, [DInstr ByteString])
-codeGenCApp _ f xs = error "DApp unhandled"
+codeGenCApp _ f xs = do
+
+    ret <- freshReg
+
+    ( f',  fInstrs) <-              codeGenAexp f
+    (xs', xsInstrs) <- mapAndUnzipM codeGenAexp xs
+
+    let f'' = case f' of
+                  DLitInt{} -> error "Type error"
+                  DReg r    -> CallReg r
+                  DLbl l    -> CallLabel l
+
+    pure (DReg ret, concat [ [DComment "Begin codeGenCApp"]
+                           , fInstrs
+                           , concat xsInstrs
+                           , map DPush (reverse xs')
+                           , [DCall f'']
+                           , [DPop ret]
+                           , [DComment "End codeGenCApp"]
+                           ])
 
 codeGenALam :: Type ByteString -> [ByteString] -> NExp ByteString -> Cg (DVal ByteString, [DInstr ByteString])
-codeGenALam _ fvs body = error "DLam unhandled"
+codeGenALam _ fvs body = do
+
+    ret <- freshReg
+
+    -- Preserve lexical scope
+    regMap <- saveRegisterMap
+
+    -- pop some fvs, forward order
+    pops <- forM fvs $ \fv -> do
+                r <- bindFreshReg fv
+                pure $ DPop r
+
+    -- process body
+    (rb, bs) <- codeGenNexp body
+
+    -- Opportunity to return register directly here
+    let after = case rb of
+                    DLitInt{} -> error "TODO DLitInt"
+                    DReg r    -> DMov (ToFrom ret r)
+                    DLbl{}    -> error "TODO DLbl"
+
+    -- Restore lexical scope
+    restoreRegisterMap regMap    
+
+    pure (DReg ret, concat [ [DComment "Begin codeGenALam"]
+                           , pops
+                           , bs
+                           , [after]
+                           , [DComment "End codeGenALam"]
+                           ])
 
 codeGenNLet :: ByteString -> NExp ByteString -> NExp ByteString -> Cg (DVal ByteString, [DInstr ByteString])
 codeGenNLet a b c = do
@@ -91,7 +140,7 @@ codeGenNLet a b c = do
     ra <- bindFreshReg a -- currently disallows recursion
     let mov = DMov $ case rb of
                          DReg b'   -> ToFrom ra b'
-                         DLitInt{} -> error "TODO DLitInt"
+                         DLitInt i -> FromLitInt ra i
                          DLbl{}    -> error "TODO DLabel"
 
     (rc, cs) <- codeGenNexp c
@@ -153,7 +202,7 @@ codeGenIfThenElse _ pr tr fl = do
     pure (DReg fresh, instrs)
 
     where
-    genBranchLabels = do
+    genBranchLabels =
         (,,,) <$> freshBranchLabel "if_"
               <*> freshBranchLabel "then_"
               <*> freshBranchLabel "else_"
@@ -162,14 +211,12 @@ codeGenIfThenElse _ pr tr fl = do
 codeGenATerm :: Type ByteString -> Term ByteString -> Cg (DVal ByteString, [DInstr ByteString])
 codeGenATerm _ (LitInt i)  = pure (DLitInt (fromIntegral i), []) -- TODO: tame fromintegral
 codeGenATerm _ (LitBool b) = pure (DLitInt $ if b then 1 else 0, [])
-codeGenATerm _ (Var v) = do
-    mr <- getRegister v
-    case mr of
-        Just r ->
-            pure (DReg r, [])
-        Nothing -> -- Assuming lbl
-            pure (DLbl v, [])    
+codeGenATerm _ (Var v) =
+    getRegister v <&> \case
+        Just r  -> (DReg r, [])
+        Nothing -> (DLbl v, []) -- Assuming lbl
 codeGenATerm _ LitString{} = error "TODO LitString"
+codeGenATerm _ _ = error "codeGenATerm"
 
 codeGenUnPrimOp :: Type ByteString -> UnOp -> AExp ByteString -> Cg (DVal ByteString, [DInstr ByteString])
 codeGenUnPrimOp _ op a = do
@@ -179,7 +226,9 @@ codeGenUnPrimOp _ op a = do
     dest <- freshReg
 
     let mov = case ra of
-                  DReg r -> ToFrom dest r
+                  DLitInt{} -> error "DLitInt TODO"
+                  DReg r    -> ToFrom dest r
+                  DLbl{}    -> error "DLabel TODO"
 
     instr <- case op of
                  Negate -> pure [ DMov mov
