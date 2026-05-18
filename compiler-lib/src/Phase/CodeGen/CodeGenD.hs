@@ -88,46 +88,32 @@ codeGenCApp _ f xs = do
                   DReg r    -> CallReg r
                   DLbl l    -> CallLabel l
 
-    pure (DReg ret, concat [ [DComment "Begin codeGenCApp"]
-                           , fInstrs
+    pure (DReg ret, concat [ -- [DComment "Begin codeGenCApp"]
+                             fInstrs
                            , concat xsInstrs
                            , map DPush (reverse xs')
                            , [DCall f'']
                            , [DPop ret]
-                           , [DComment "End codeGenCApp"]
+                             -- [DComment "End codeGenCApp"]
                            ])
 
 codeGenALam :: Type ByteString -> [ByteString] -> NExp ByteString -> Cg (DVal ByteString, [DInstr ByteString])
 codeGenALam _ fvs body = do
 
-    ret <- freshReg
-
     -- Preserve lexical scope
     regMap <- saveRegisterMap
 
-    -- pop some fvs, forward order
-    pops <- forM fvs $ \fv -> do
-                r <- bindFreshReg fv
-                pure $ DPop r
+    pops <- forM fvs $ \fv ->
+                DPop <$> bindFreshReg fv
 
-    -- process body
-    (rb, bs) <- codeGenNexp body
-
-    -- Opportunity to return register directly here
-    let after = case rb of
-                    DLitInt{} -> error "TODO DLitInt"
-                    DReg r    -> DMov (ToFrom ret r)
-                    DLbl{}    -> error "TODO DLbl"
+    (rBody, body') <- codeGenNexp body
 
     -- Restore lexical scope
     restoreRegisterMap regMap    
 
-    pure (DReg ret, concat [ [DComment "Begin codeGenALam"]
-                           , pops
-                           , bs
-                           , [after]
-                           , [DComment "End codeGenALam"]
-                           ])
+    pure (rBody, concat [ pops
+                        , body'
+                        ])
 
 codeGenNLet :: ByteString -> NExp ByteString -> NExp ByteString -> Cg (DVal ByteString, [DInstr ByteString])
 codeGenNLet a b c = do
