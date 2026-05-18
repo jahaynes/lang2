@@ -70,7 +70,7 @@ class App extends React.Component {
 
   render() {
 
-    const numRows = 12;
+    const numRows = 24;
 
     return (
       <div className="App">
