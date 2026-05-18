@@ -46,8 +46,7 @@ class App extends React.Component {
     const closureConvertedPretty = this.getAndClearElement("closureConvertedPretty")
     const lambdaLiftedPretty     = this.getAndClearElement("lambdaLiftedPretty")
     const uncurriedPretty        = this.getAndClearElement("uncurriedPretty")
-    const codeGenA               = this.getAndClearElement("codeGenA")
-    const unclobberedA           = this.getAndClearElement("unclobberedA")
+    const codeGenD               = this.getAndClearElement("codeGenD")
 
     const req = { getInput: source.value }
 
@@ -65,8 +64,7 @@ class App extends React.Component {
         closureConvertedPretty.value = ts.closureConvertedPretty;
         lambdaLiftedPretty.value     = ts.lambdaLiftedPretty;
         uncurriedPretty.value        = ts.uncurriedPretty;
-        codeGenA.value               = ts.codeGenA;
-        unclobberedA.value           = ts.unclobberedA; })
+        codeGenD.value               = ts.codeGenD; })
       .catch(exception => console.log(exception));
   }
 
@@ -88,11 +86,14 @@ class App extends React.Component {
           </select>
         </div>
 
-        <label>Source / CodegenA </label>
+        <label>Source</label>
         <div>
-          <textarea id='text' className='editor' spellCheck='false' rows={numRows} onChange={e => this.lexAndParse()}></textarea>
-          <textarea id='codeGenA' className='editor' spellCheck='false' rows={numRows}></textarea>
-          <textarea id='unclobberedA' className='editor' spellCheck='false' rows={numRows}></textarea>
+          <textarea id='text' className='double editor' spellCheck='false' rows={numRows} onChange={e => this.lexAndParse()}></textarea>
+        </div>
+
+        <label>CodegenD</label>
+        <div>
+          <textarea id='codeGenD' className='double editor' spellCheck='false' rows={numRows}></textarea>
         </div>
 
         <div>
@@ -101,39 +102,39 @@ class App extends React.Component {
           <button id='stop' onClick={e => alert('stop')}>Stop All</button>
         </div>
         <div>
-          <textarea id='debugLog' className='editor' spellCheck='false' rows={numRows}></textarea>
-          <textarea id='output' className='editor' spellCheck='false' rows={numRows}></textarea>
+          <textarea id='debugLog' className='single editor' spellCheck='false' rows={numRows}></textarea>
+          <textarea id='output' className='single editor' spellCheck='false' rows={numRows}></textarea>
         </div>
 
         <label>Lambda Lifted / Uncurried</label>
         <div>
-          <textarea id='lambdaLiftedPretty' className='editor' spellCheck='false' rows={numRows}></textarea>
-          <textarea id='uncurriedPretty' className='editor' spellCheck='false' rows={numRows}></textarea>
+          <textarea id='lambdaLiftedPretty' className='single editor' spellCheck='false' rows={numRows}></textarea>
+          <textarea id='uncurriedPretty' className='single editor' spellCheck='false' rows={numRows}></textarea>
         </div>
 
         <label>Closure Converted / Examples </label>
         <div>
-          <textarea id='closureConvertedPretty' className='editor' spellCheck='false' rows={numRows}></textarea>
+          <textarea id='closureConvertedPretty' className='single editor' spellCheck='false' rows={numRows}></textarea>
         </div>
 
         <label>Anf Converted</label>
         <div>
-          <textarea id='anfPretty' className='editor' spellCheck='false' rows={numRows}></textarea>
+          <textarea id='anfPretty' className='single editor' spellCheck='false' rows={numRows}></textarea>
         </div>
 
         <label>Eta Expanded</label>
         <div>
-          <textarea id='etaExpanded' className='editor' spellCheck='false' rows={numRows}></textarea>
+          <textarea id='etaExpanded' className='single editor' spellCheck='false' rows={numRows}></textarea>
         </div>
 
         <label>Type Inference / Pretty</label>
         <div>
-          <textarea id='inferredPretty' className='editor' spellCheck='false' rows={numRows}></textarea>
+          <textarea id='inferredPretty' className='single editor' spellCheck='false' rows={numRows}></textarea>
         </div>
 
         <label>Tokens / Definitions</label>
         <div>
-          <textarea id='prettyDefns' className='editor' spellCheck='false' rows={numRows}></textarea>
+          <textarea id='prettyDefns' className='single editor' spellCheck='false' rows={numRows}></textarea>
         </div>
       </div>
     );
