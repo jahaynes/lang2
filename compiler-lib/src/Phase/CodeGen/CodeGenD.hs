@@ -88,13 +88,11 @@ codeGenCApp _ f xs = do
                   DReg r    -> CallReg r
                   DLbl l    -> CallLabel l
 
-    pure (DReg ret, concat [ -- [DComment "Begin codeGenCApp"]
-                             fInstrs
+    pure (DReg ret, concat [ fInstrs
                            , concat xsInstrs
                            , map DPush (reverse xs')
                            , [DCall f'']
                            , [DPop ret]
-                             -- [DComment "End codeGenCApp"]
                            ])
 
 codeGenALam :: Type ByteString -> [ByteString] -> NExp ByteString -> Cg (DVal ByteString, [DInstr ByteString])
