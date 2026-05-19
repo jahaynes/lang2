@@ -234,14 +234,6 @@ codeGenUnPrimOp _ op a = do
     pure (DReg dest, concat [ as
                             , instr ])
 
-{-
-    Confusion between labels and values in binops, see output for:
-
-    something = 3
-    mylabel = something
-    main = mylabel + mylabel
--}
-
 codeGenBinPrimOp :: Type ByteString -> BinOp -> AExp ByteString -> AExp ByteString -> Cg (DVal ByteString, [DInstr ByteString])
 codeGenBinPrimOp _ op a b = do
 
