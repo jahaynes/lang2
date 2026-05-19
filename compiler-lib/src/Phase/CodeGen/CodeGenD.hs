@@ -196,9 +196,20 @@ codeGenATerm :: Type ByteString -> Term ByteString -> Cg (DVal ByteString, [DIns
 codeGenATerm _ (LitInt i)  = pure (DLitInt (fromIntegral i), []) -- TODO: tame fromintegral
 codeGenATerm _ (LitBool b) = pure (DLitInt $ if b then 1 else 0, [])
 codeGenATerm _ (Var v) =
-    getRegister v <&> \case
-        Just r  -> (DReg r, [])
-        Nothing -> (DLbl v, []) -- Assuming lbl
+    getRegister v >>= \case
+        Just r  -> pure (DReg r, [])
+        Nothing -> do
+
+            -- TODO double-check it's actually a label.
+            -- Any constant folding attempt could start by looking here
+
+            ret <- freshReg
+
+            let instrs = [ DCall (CallLabel v)
+                         , DPop ret ]
+
+            pure (DReg ret, instrs)
+
 codeGenATerm _ LitString{} = error "TODO LitString"
 codeGenATerm _ _ = error "codeGenATerm"
 
