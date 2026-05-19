@@ -239,25 +239,24 @@ codeGenBinPrimOp _ op a b = do
 
     dest <- freshReg
 
-    -- TODO this can be smoothed out
-    let instr = case op of
-                    AddI    -> [DBin dest DPlus  ra rb]
-                    SubI    -> [DBin dest DMinus ra rb]
-                    MulI    -> [DBin dest DTimes ra rb]
-                    DivI    -> [DBin dest DDiv   ra rb]
-                    ModI    -> [DBin dest DMod   ra rb]
-                    EqA     -> [DBin dest DEq    ra rb]
+    let op' = case op of
+                    AddI    -> DPlus
+                    SubI    -> DMinus
+                    MulI    -> DTimes
+                    DivI    -> DDiv
+                    ModI    -> DMod
+                    EqA     -> DEq
                     LtEqI   -> error "TODO LtEqI"
-                    LtI     -> [DBin dest DLt    ra rb]
+                    LtI     -> DLt
                     GtEqI   -> error "TODO GtEqI"
                     GtI     -> error "TODO GtI"
-                    AndB    -> [DBin dest DAnd   ra rb]
-                    OrB     -> [DBin dest DOr    ra rb]
+                    AndB    -> DAnd
+                    OrB     -> DOr
                     ConcatS -> error "TODO ConcatS"
 
     pure (DReg dest, concat [ as
                             , bs
-                            , instr ])
+                            , [DBin dest op' ra rb] ])
 
 offsets :: [Int]
 offsets = map (*8) [0..]
