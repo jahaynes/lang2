@@ -22,6 +22,7 @@ import qualified Data.ByteString.Char8 as C8
 import           Data.Functor                ((<&>))
 import           Data.Map                    (Map)
 import qualified Data.Map as M
+import           Debug.Trace                 (trace)
 
 type Cg a =
     EitherT ByteString (
@@ -195,8 +196,15 @@ codeGenIfThenElse _ pr tr fl = do
 codeGenATerm :: Type ByteString -> Term ByteString -> Cg (DVal ByteString, [DInstr ByteString])
 codeGenATerm _ (LitInt i)  = pure (DLitInt (fromIntegral i), []) -- TODO: tame fromintegral
 codeGenATerm _ (LitBool b) = pure (DLitInt $ if b then 1 else 0, [])
-codeGenATerm _ (Var v) =
-    getRegister v >>= \case
+codeGenATerm t (Var v) = mode2
+    
+    where
+    mode2 = getRegister v <&> \case
+        Just r  -> (DReg r, [])
+        Nothing -> (DLbl v, []) -- Assuming lbl
+    -- Old way was better?
+{-
+    mode1 = getRegister v >>= \case
         Just r  -> pure (DReg r, [])
         Nothing -> do
 
@@ -208,7 +216,8 @@ codeGenATerm _ (Var v) =
             let instrs = [ DCall (CallLabel v)
                          , DPop ret ]
 
-            pure (DReg ret, instrs)
+            trace (show t ++ "\n" ++ show v ++ "\n") $ pure (DReg ret, instrs)
+-}
 
 codeGenATerm _ LitString{} = error "TODO LitString"
 codeGenATerm _ _ = error "codeGenATerm"
