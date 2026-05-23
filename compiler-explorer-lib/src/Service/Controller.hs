@@ -101,6 +101,15 @@ server ioref = setProgramState :<|> runCurrentProgramState :<|> getExample
               \main =\n\
               \  badfibs 4"
 
+    getExample "sumOfSquares" =
+        pure "sumOfSquares x y =\n\
+             \    let xx = x * x in\n\
+             \    let yy = y * y in\n\
+             \    xx + yy\n\
+             \\n\
+              \main =\n\
+              \  sumOfSquares 3 4"
+
     getExample _ =
         pure "unknown example"
 

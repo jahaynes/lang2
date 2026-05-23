@@ -70,7 +70,7 @@ class App extends React.Component {
 
   render() {
 
-    const numRows = 24;
+    const numRows = 16;
 
     return (
       <div className="App">
@@ -83,6 +83,7 @@ class App extends React.Component {
             <option id="summorial">summorial</option>
             <option id="pair">pair</option>
             <option id="reenter">reenter</option>
+            <option id="sum of squares">sumOfSquares</option>
           </select>
         </div>
 
