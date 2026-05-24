@@ -69,6 +69,7 @@ test-suite test-compiler-lib
                       Parse.LexerTest
                       Parse.LexAndParseTest
                       Phase.ClosureConvert.FreeVarsTest
+                      Phase.CodeGen.CodeGenDLifetimeTest
                       Phase.EtaExpandTest
                       TypeCheck.TypeCheckTest
     type:             exitcode-stdio-1.0

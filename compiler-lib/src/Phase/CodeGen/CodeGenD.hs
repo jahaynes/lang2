@@ -22,6 +22,7 @@ import qualified Data.ByteString.Char8 as C8
 import           Data.Functor                ((<&>))
 import           Data.Map                    (Map)
 import qualified Data.Map as M
+import           Data.List                   (sort)
 import           Debug.Trace                 (trace)
 
 type Cg a =
@@ -270,8 +271,6 @@ codeGenBinPrimOp _ op a b = do
                             , bs
                             , [DBin dest op' ra rb] ])
 
-offsets :: [Int]
-offsets = map (*8) [0..]
 
 getRegister :: ByteString -> Cg (Maybe R)
 getRegister v = lift $ do
@@ -305,3 +304,124 @@ freshReg = R <$> freshNum
 
 freshBranchLabel :: ByteString -> Cg ByteString
 freshBranchLabel pre = freshNum <&> \n -> pre <> C8.pack (show n)
+
+-- ---------------------------------------------------------------------------
+-- Virtual Register Lifetime Analysis
+-- ---------------------------------------------------------------------------
+
+-- | A live interval tracks the instruction range during which a virtual
+--   register holds a value that may be read.  Multiple intervals for the
+--   same register occur when the register is reused (re-defined).
+data LiveInterval =
+    LiveInterval { liRegister :: !R     -- ^ the virtual register
+                 , liStart    :: !Int   -- ^ instruction index of definition
+                 , liEnd      :: !Int   -- ^ instruction index of last use
+                 }
+    deriving (Show, Eq, Ord)
+
+-- | Extract the set of registers referenced inside a 'DVal'.
+regsOfDVal :: DVal s -> [R]
+regsOfDVal (DReg r) = [r]
+regsOfDVal _        = []
+
+-- | Registers defined (written) by a single instruction.
+instrDefs :: DInstr s -> [R]
+instrDefs (DPop r)                         = [r]
+instrDefs (DBin r _ _ _)                   = [r]
+instrDefs (DNeg r)                         = [r]
+instrDefs (DMov (ToFrom r _))              = [r]
+instrDefs (DMov (FromLitInt r _))          = [r]
+instrDefs (DMov (ToOffsetFrom r _ _))      = [r]
+instrDefs (DMov (ToFromOffset r _ _))      = [r]
+instrDefs _                                = []
+
+-- | Registers used (read) by a single instruction.
+instrUses :: DInstr s -> [R]
+instrUses (DPush dv)                       = regsOfDVal dv
+instrUses (DCall (CallReg r))              = [r]
+instrUses (DBin _ _ a b)                   = regsOfDVal a ++ regsOfDVal b
+instrUses (DNeg r)                         = [r]
+instrUses (DCmpB r)                        = [r]
+instrUses (DMov (ToFrom _ r))              = [r]
+instrUses (DMov (ToOffsetFrom _ _ dv))     = regsOfDVal dv
+instrUses (DMov (ToFromOffset _ r _))      = [r]
+instrUses (DRet dv)                        = regsOfDVal dv
+instrUses (DFun fvs _)                     = concatMap regsOfDVal fvs
+instrUses _                                = []
+
+-- | Compute live intervals for all virtual registers in an instruction
+--   list.  Returns a pair:
+--
+--   (1) intervals for the top-level instruction list, sorted by start
+--       position then by register;
+--   (2) a list of interval-sets, one per 'DFun' encountered, in
+--       left-to-right order.  Nested functions are analysed recursively.
+computeLifetimes :: [DInstr s] -> ([LiveInterval], [[LiveInterval]])
+computeLifetimes instrs =
+    run 0 instrs M.empty M.empty [] []
+  where
+
+    -- run :: idx -> remaining -> open -> lastUse -> closed -> nested -> result
+    run _ [] open lastUse closed nested =
+        let finalised = finalise open lastUse
+        in (sort (closed ++ finalised), reverse nested)
+
+    run i (inst : rest) open lastUse closed nested =
+        let -- 1. Record uses (extend lifetimes of live-in / open intervals)
+            --    IMPORTANT: uses are processed BEFORE defs. This ensures that
+            --    instructions that both read and write the same register (e.g.
+            --    'DNeg r') correctly close the old interval at position i
+            --    (including the read) and start a new interval at i (after the
+            --    write).
+            open'  = foldl' (recordUse i) open  (instrUses inst)
+            lu'    = foldl' (recordLastUse i) lastUse (instrUses inst)
+
+            -- 2. Record defs (close old intervals, start new ones)
+            (open'', lu'', closed') =
+                foldl' (applyDef i) (open', lu', closed) (instrDefs inst)
+
+            -- 3. Recurse into DFun bodies
+            nested' = case inst of
+                          DFun _ body ->
+                              let (inner, _innerNest) = computeLifetimes body
+                              in inner : nested
+                          _ -> nested
+        in run (i + 1) rest open'' lu'' closed' nested'
+
+    -- | If @r@ has an open interval, extend its last-use to @i@.
+    --   If @r@ is used with *no* open interval, treat it as live-in:
+    --   start a pseudo-interval at 0.
+    recordUse :: Int -> Map R Int -> R -> Map R Int
+    recordUse _ open r =
+        case M.lookup r open of
+            Just _  -> open        -- already tracked, lastUse handled separately
+            Nothing -> M.insert r 0 open   -- live-in: start at 0
+
+    -- | Record the last use position for a register.
+    recordLastUse :: Int -> Map R Int -> R -> Map R Int
+    recordLastUse i lu r = M.insert r i lu
+
+    -- | Process a definition of @r@ at index @i@:
+    --   close any existing open interval and start a new one.
+    applyDef :: Int
+             -> (Map R Int, Map R Int, [LiveInterval])
+             -> R
+             -> (Map R Int, Map R Int, [LiveInterval])
+    applyDef i (open, lu, closed) r =
+        let -- Close previous interval if it exists
+            closed' = case M.lookup r open of
+                          Nothing -> closed
+                          Just s  ->
+                              let e = M.findWithDefault s r lu
+                              in LiveInterval r s e : closed
+            -- Start new interval at i
+            open'  = M.insert r i open
+            -- Clear last-use for the new interval
+            lu'    = M.delete r lu
+        in (open', lu', closed')
+
+    -- | Close any intervals still open at the end of the instruction list.
+    finalise :: Map R Int -> Map R Int -> [LiveInterval]
+    finalise open lu =
+        [ LiveInterval r s (M.findWithDefault s r lu)
+        | (r, s) <- M.toList open ]
