@@ -7,7 +7,7 @@
 module Service.Controller (runController) where
 
 import Common.State
-import Runtimes.MachineA
+import Runtimes.MachineD    (runMachineD)
 import Service.ProgramState
 import Service.Service                       (pipe)
 
@@ -47,16 +47,16 @@ server ioref = setProgramState :<|> runCurrentProgramState :<|> getExample
 
     runCurrentProgramState :: Handler (Text, Text)
     runCurrentProgramState = liftIO $
-        readIORef ioref <&> \case
-            Nothing -> ("No stored program!", "No stored program!")
-            Just ps -> undefined
-               {- case getCodeGenD ps of
-                    Left e1 -> ("", decodeUtf8 e1)
+        readIORef ioref >>= \case
+            Nothing -> pure ("No stored program!", "No stored program!")
+            Just ps ->
+               case getCodeGenD ps of
+                    Left e1 -> pure ("", decodeUtf8 e1)
                     Right instrs ->
-                        case runMachineA (concat instrs) of
-                            (r1, r2) -> (decodeUtf8 r1, decodeUtf8 r2)
-                -}
-                
+                        runMachineD (concat instrs) <&> \case
+                            Left l  -> (decodeUtf8 l, "")
+                            Right r -> ("", decodeUtf8 r)
+
     getExample "closure" =
         pure "f x =\n\
              \  let xx = x * x in\n\

@@ -1,7 +1,7 @@
 module Common.StateT ( StateT (..)
-                     , gett
-                     , modifyt
-                     , putt
+                     , get
+                     , modify
+                     , put
                      ) where
 
 import Common.Trans
@@ -38,13 +38,13 @@ instance Trans (StateT s) where
         a <- ma
         pure (a, s)
 
-gett :: Applicative m => StateT s m s
-gett = StateT $ \s -> pure (s, s)
+get :: Applicative m => StateT s m s
+get = StateT $ \s -> pure (s, s)
 
-putt :: Applicative m => s -> StateT s m ()
-putt x = StateT $ const $ pure ((), x)
+put :: Applicative m => s -> StateT s m ()
+put x = StateT $ const $ pure ((), x)
 
-modifyt :: Monad m => (s -> s) -> StateT s m ()
-modifyt f = do
-    s <- gett
-    putt $! f s
+modify :: Monad m => (s -> s) -> StateT s m ()
+modify f = do
+    s <- get
+    put $! f s
