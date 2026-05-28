@@ -82,6 +82,8 @@ run = do
             err [i|Undefined: #{ci}|]
 
         DCmpB {} ->
+            -- TODO - compare {x86, arm, webasm}.  Find the best way to do it in common
+            --      - May need to go back to the generation / instruction set
             err [i|Undefined: #{ci}|]
 
         J {} ->
