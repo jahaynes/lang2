@@ -41,42 +41,26 @@ data DInstr s = DComment !s
               | Jne !s
 
               | DMov !(MovMode s)
-              | DErr !s
+         -- | DErr !s
 
---                  deriving Show
-
--- Hacky newtype for stripping excess quotes
-newtype Uq s =
-    Uq s
+newtype Uq s = Uq s -- Hacky newtype for stripping excess quotes
 
 instance Show s => Show (Uq s) where
-    show (Uq s) = init . tail . show $ s
+    show (Uq s) = reverse . drop 1 . reverse . drop 1 . show $ s
 
 instance Show s => Show (DInstr s) where
-
-    show (DComment c) = [i|// #{c}|]
-
-    show (DLabel l) = [i|#{Uq l}:|]
-
-    show (DPush v) = [i|push #{v}|]
-
-    show (DPop r) = [i|#{r} <- pop|]
-
-    show (DCall dst) = [i|call #{dst}|]
-
-    show (DRet v) = [i|ret #{v}|]
-
+    show (DComment c)      = [i|// #{c}|]
+    show (DLabel l)        = [i|#{Uq l}:|]
+    show (DPush v)         = [i|push #{v}|]
+    show (DPop r)          = [i|#{r} <- pop|]
+    show (DCall dst)       = [i|call #{dst}|]
+    show (DRet v)          = [i|ret #{v}|]
     show (DBin dst op a b) = [i|#{dst} <- #{a} #{op} #{b}|]
-
-    show (DNeg r) = [i|-#{r}|]
-
-    show (DCmpB r) = [i|cmp #{r}|]
-
-    show (J l) = [i|jmp #{l}|]
-
-    show (Jne l) = [i|jmpNe #{l}|]
-
-    show (DMov mode) = show mode
+    show (DNeg r)          = [i|-#{r}|]
+    show (DCmpB r)         = [i|cmp #{r}|]
+    show (J l)             = [i|jmp #{Uq l}|]
+    show (Jne l)           = [i|jmpNe #{Uq l}|]
+    show (DMov mode)       = show mode
 
 data DBinOp = DPlus
             | DMinus
@@ -103,19 +87,27 @@ instance Show DBinOp where
 
 data CallDest s = CallLabel !s
                 | CallReg !R                                      
-                    deriving Show
+
+instance Show s => Show (CallDest s) where
+    show (CallLabel s) = show (Uq s)
+    show (CallReg r) = show r
 
 data DVal s = DLitInt !Int
             | DReg !R
             | DLbl !s
 
 instance Show s => Show (DVal s) where
-    show (DLitInt i) = show i
+    show (DLitInt n) = show n
     show (DReg r)    = show r
     show (DLbl s)    = show (Uq s)
 
 data MovMode s = ToFrom !R !R
                | FromLitInt !R !Int
                | ToOffsetFrom !R !Int !(DVal s)
-               | ToFromOffset !R !R !Int -- 2nd reg is a pointer
-                   deriving Show
+          --     | ToFromOffset !R !R !Int -- 2nd reg is a pointer
+
+instance Show s => Show (MovMode s) where
+    show (ToFrom dst src)             = [i|#{dst} <- #{src}|]
+    show (FromLitInt dst n)           = [i|#{dst} <- #{n}|]
+    show (ToOffsetFrom rbase off src) = [i|#{rbase}[#{off} <- #{src}]|]
+  -- show (ToFromOffset !R !R !Int)            = -- 2nd reg is a pointer
