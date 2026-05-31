@@ -102,18 +102,19 @@ run = do
 
 err :: ByteString -> D m a
 err msg = do
-    env   <- lift ask
     state <- get
     let ip = getIp state
-    case getInstrs env !? ip of
-        Nothing -> lift . lift . left $ msg
-        Just instr -> lift . lift . left $ [i|At instr #{ip}\n#{instr}\n#{msg}|]
+    lift $ ask >>= \env ->
+        lift $ case getInstrs env !? ip of
+                   Nothing    -> left  msg
+                   Just instr -> left [i|At instr #{ip}\n#{instr}\n#{msg}|]
 
 next :: D m ()
 next = modify $ \ms -> ms { getIp = getIp ms + 1 }
 
 cmp :: R -> D m ()
 cmp r = err [i|Undefined cmp: #{r}|]
+    -- Just mv from reg to cmp here - it's already been translated
 
 push :: DVal ByteString -> D m ()
 push (DLitInt n) = modify $ \ms -> ms { getStack = n : getStack ms }
@@ -176,7 +177,7 @@ binOp dst DPlus a b = do
 binOp dst DEq a b = do
     a' <- asInt a       -- TODO non-int
     b' <- asInt b       -- TODO non-int
-    let c = if a' == b' then 1 else 0   -- bool-as-int here
+    let c = cmpCode (if a' == b' then DcTrue else DcFalse)
     modify $ \ms -> ms { getRegs = M.insert dst c (getRegs ms) }
 
 binOp   _ op _ _ = err [i|Undefined binop: #{op}|]
@@ -232,4 +233,11 @@ data MachineState =
                  , getCmp     :: !(Maybe DCmp)
                  }
 
-data DCmp = DcGt
+data DCmp = DcFalse
+          | DcTrue
+          | DcGt
+
+cmpCode :: DCmp -> Int
+cmpCode DcFalse = 0
+cmpCode DcTrue  = 1
+cmpCode DcGt    = 2
