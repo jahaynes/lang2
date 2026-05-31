@@ -111,6 +111,11 @@ next = modify $ \ms -> ms { getIp = getIp ms + 1 }
 
 push :: DVal ByteString -> D m ()
 push (DLitInt n) = modify $ \ms -> ms { getStack = n : getStack ms }
+push (DReg r) = do
+    regs <- getRegs <$> get
+    case M.lookup r regs of
+        Nothing -> err [i|Pushing unknown reg #{r}|]
+        Just r' -> modify $ \ms -> ms { getStack = r' : getStack ms }
 push v = err [i|Undefined push: #{v}|]
 
 ret :: DVal ByteString -> D m (Either () Int)
