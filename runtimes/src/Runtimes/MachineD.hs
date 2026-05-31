@@ -39,10 +39,11 @@ initAndRun = do
                              , getStack   = []
                              , getRegs    = mempty
                              , getCmp     = Nothing }
-    runStateT run state
+    runStateT (run 10000) state
 
-run :: D m ByteString
-run = do
+run :: Int -> D m ByteString
+run 0 = err [i|Out of instructions|]
+run n = do
 
     ci <- currentInstr
 
@@ -53,31 +54,31 @@ run = do
 
         DLabel {} -> do
             next
-            run
+            run (n-1)
 
         DPush v -> do
             push v
             next
-            run
+            run (n-1)
 
         DPop r -> do
             pop r
             next
-            run
+            run (n-1)
 
         DCall dst -> do
             call dst
-            run
+            run (n-1)
 
         DRet v ->
             ret v >>= \case
-                Left ()  -> run
+                Left ()  -> run (n-1)
                 Right v' -> pure [i|Success: #{v'}|]
 
         DBin dst op a b-> do
             binOp dst op a b
             next
-            run
+            run (n-1)
 
         DNeg{} ->
             err [i|Undefined: #{ci}|]
@@ -87,18 +88,19 @@ run = do
             --      - May need to go back to the generation / instruction set
             cmp r
             next
-            run
+            run (n-1)
 
         J {} ->
             err [i|Undefined: #{ci}|]
 
-        Jne {} ->
-            err [i|Undefined: #{ci}|]
+        Jne dst -> do
+            jne dst
+            run (n-1)
 
         DMov mode -> do
             move mode
             next
-            run
+            run (n-1)
 
 err :: ByteString -> D m a
 err msg = do
@@ -112,9 +114,29 @@ err msg = do
 next :: D m ()
 next = modify $ \ms -> ms { getIp = getIp ms + 1 }
 
+-- For now, just mv from reg to cmp here - it's already been translated
 cmp :: R -> D m ()
-cmp r = err [i|Undefined cmp: #{r}|]
-    -- Just mv from reg to cmp here - it's already been translated
+cmp r = get >>= \state ->
+    case M.lookup r (getRegs state) of
+        Nothing -> err "No"
+        Just r' -> put state { getCmp = Just $ unCmpCode r' }
+
+jne :: ByteString -> D m ()
+jne dst = do
+    state <- get
+    case getCmp state of
+        Nothing  -> err "jne called but CMP not set"
+        Just cmp ->
+            case cmp of
+                DcEq  -> 
+                    put state { getIp  = getIp state + 1
+                              , getCmp = Nothing } -- Cheating
+                DcNeq -> do
+                    dstAt <- lift $ findLabel dst
+                    lift . lift . lift $ putStrLn [i|Jumping to #{dst}/#{dstAt}|]
+                    put state { getIp = dstAt
+                              , getCmp = Nothing } -- Cheating
+                _ -> err [i|Unexpected jne cmp: #{cmp}|]
 
 push :: DVal ByteString -> D m ()
 push (DLitInt n) = modify $ \ms -> ms { getStack = n : getStack ms }
@@ -174,10 +196,18 @@ binOp dst DPlus a b = do
     b' <- asInt b
     modify $ \ms -> ms { getRegs = M.insert dst (a' + b') (getRegs ms) }
 
+binOp dst DMinus a b = do
+    a' <- asInt a
+    b' <- asInt b
+    modify $ \ms -> ms { getRegs = M.insert dst (a' - b') (getRegs ms) }
+
 binOp dst DEq a b = do
     a' <- asInt a       -- TODO non-int
     b' <- asInt b       -- TODO non-int
-    let c = cmpCode (if a' == b' then DcTrue else DcFalse)
+
+    lift . lift . lift $ putStrLn [i|#{a}/#{a'} ==? #{b}/#{b'}|]
+
+    let c = cmpCode (if a' == b' then DcEq else DcNeq) -- Not suitable for non-jump-booling?
     modify $ \ms -> ms { getRegs = M.insert dst c (getRegs ms) }
 
 binOp   _ op _ _ = err [i|Undefined binop: #{op}|]
@@ -235,9 +265,21 @@ data MachineState =
 
 data DCmp = DcFalse
           | DcTrue
+          | DcEq
+          | DcNeq
           | DcGt
+              deriving Show
 
 cmpCode :: DCmp -> Int
 cmpCode DcFalse = 0
 cmpCode DcTrue  = 1
-cmpCode DcGt    = 2
+cmpCode DcEq    = 2
+cmpCode DcNeq   = 3
+cmpCode DcGt    = 4
+
+unCmpCode :: Int -> DCmp
+unCmpCode 0 = DcFalse
+unCmpCode 1 = DcTrue
+unCmpCode 2 = DcEq
+unCmpCode 3 = DcNeq
+unCmpCode 4 = DcGt
