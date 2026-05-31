@@ -37,7 +37,8 @@ initAndRun = do
     let state = MachineState { getIp      = mainAt
                              , getIpStack = []
                              , getStack   = []
-                             , getRegs    = mempty }
+                             , getRegs    = mempty
+                             , getCmp     = Nothing }
     runStateT run state
 
 run :: D m ByteString
@@ -81,10 +82,12 @@ run = do
         DNeg{} ->
             err [i|Undefined: #{ci}|]
 
-        DCmpB {} ->
+        DCmpB r -> do
             -- TODO - compare {x86, arm, webasm}.  Find the best way to do it in common
             --      - May need to go back to the generation / instruction set
-            err [i|Undefined: #{ci}|]
+            cmp r
+            next
+            run
 
         J {} ->
             err [i|Undefined: #{ci}|]
@@ -108,6 +111,9 @@ err msg = do
 
 next :: D m ()
 next = modify $ \ms -> ms { getIp = getIp ms + 1 }
+
+cmp :: R -> D m ()
+cmp r = err [i|Undefined cmp: #{r}|]
 
 push :: DVal ByteString -> D m ()
 push (DLitInt n) = modify $ \ms -> ms { getStack = n : getStack ms }
@@ -167,6 +173,12 @@ binOp dst DPlus a b = do
     b' <- asInt b
     modify $ \ms -> ms { getRegs = M.insert dst (a' + b') (getRegs ms) }
 
+binOp dst DEq a b = do
+    a' <- asInt a       -- TODO non-int
+    b' <- asInt b       -- TODO non-int
+    let c = if a' == b' then 1 else 0   -- bool-as-int here
+    modify $ \ms -> ms { getRegs = M.insert dst c (getRegs ms) }
+
 binOp   _ op _ _ = err [i|Undefined binop: #{op}|]
 
 asInt :: DVal ByteString -> D m Int
@@ -217,4 +229,7 @@ data MachineState =
                  , getIpStack :: ![Int]
                  , getStack   :: ![Int]
                  , getRegs    :: !(Map R Int)
+                 , getCmp     :: !(Maybe DCmp)
                  }
+
+data DCmp = DcGt
