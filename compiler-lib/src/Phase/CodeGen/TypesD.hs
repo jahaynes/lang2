@@ -36,9 +36,11 @@ data DInstr s = DComment !s
               | DNeg !R -- negate a register
 
               | DCmpB !R
+              
+                -- Figure this out.  Unconditional?
               | J !s
-         --     | Je !s
-              | Jne !s
+              | JT !s    -- Not used yet?
+              | JF !s
 
               | DMov !(MovMode s)
          -- | DErr !s
@@ -59,14 +61,15 @@ instance Show s => Show (DInstr s) where
     show (DNeg r)          = [i|-#{r}|]
     show (DCmpB r)         = [i|cmp #{r}|]
     show (J l)             = [i|jmp #{Uq l}|]
-    show (Jne l)           = [i|jmpNe #{Uq l}|]
+    show (JT l)            = [i|jmpTrue #{Uq l}|]
+    show (JF l)            = [i|jmpFalse #{Uq l}|]
     show (DMov mode)       = show mode
 
 data DBinOp = DPlus
             | DMinus
             | DTimes
             | DDiv
-            | DMod 
+            | DMod
             | DEq
             | DAnd
             | DOr

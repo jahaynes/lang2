@@ -172,7 +172,7 @@ codeGenIfThenElse _ pr tr fl = do
                         ,  prInstrs
                         ,  is
                         , [DCmpB prr]
-                        , [Jne else_]
+                        , [JF else_]
 
                         , [DLabel then_]
                         ,  trInstrs

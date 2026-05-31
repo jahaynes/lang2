@@ -90,11 +90,12 @@ run n = do
             next
             run (n-1)
 
-        J {} ->
-            err [i|Undefined: #{ci}|]
+        J dst -> do
+            jmp dst
+            run (n-1)
 
-        Jne dst -> do
-            jne dst
+        JF dst -> do
+            jmpCmp (==False) dst
             run (n-1)
 
         DMov mode -> do
@@ -119,24 +120,29 @@ cmp :: R -> D m ()
 cmp r = get >>= \state ->
     case M.lookup r (getRegs state) of
         Nothing -> err "No"
-        Just r' -> put state { getCmp = Just $ unCmpCode r' }
+        Just 0  -> put state { getCmp = Just False }
+        Just 1  -> put state { getCmp = Just True }
+        Just _  -> err [i|bad bool|]
 
-jne :: ByteString -> D m ()
-jne dst = do
+jmp :: ByteString -> D m ()
+jmp dst = do
+    state <- get
+    dstAt <- lift $ findLabel dst
+    lift . lift . lift $ putStrLn [i|Jumping to #{dst}/#{dstAt}|]
+    put state { getIp = dstAt }
+
+jmpCmp :: (Bool -> Bool) -> ByteString -> D m ()
+jmpCmp pb dst = do
     state <- get
     case getCmp state of
         Nothing  -> err "jne called but CMP not set"
-        Just cmp ->
-            case cmp of
-                DcEq  -> 
-                    put state { getIp  = getIp state + 1
-                              , getCmp = Nothing } -- Cheating
-                DcNeq -> do
-                    dstAt <- lift $ findLabel dst
-                    lift . lift . lift $ putStrLn [i|Jumping to #{dst}/#{dstAt}|]
-                    put state { getIp = dstAt
-                              , getCmp = Nothing } -- Cheating
-                _ -> err [i|Unexpected jne cmp: #{cmp}|]
+        Just b'
+            | pb b' -> do
+                dstAt <- lift $ findLabel dst
+                lift . lift . lift $ putStrLn [i|Jumping to #{dst}/#{dstAt}|]
+                put state { getIp = dstAt }
+            | otherwise ->
+                put state { getIp  = getIp state + 1 }
 
 push :: DVal ByteString -> D m ()
 push (DLitInt n) = modify $ \ms -> ms { getStack = n : getStack ms }
@@ -174,6 +180,9 @@ move (ToFrom dst src) = do
         Nothing   -> err [i|No such src reg: #{src}|]
         Just src' -> put state { getRegs = M.insert dst src' (getRegs state) }
 
+move (FromLitInt dst src) =
+    modify $ \s -> s { getRegs = M.insert dst src (getRegs s) }
+
 move mode = err [i|Undefined move mode: #{mode}|]
 
 pop :: R -> D m ()
@@ -204,10 +213,13 @@ binOp dst DMinus a b = do
 binOp dst DEq a b = do
     a' <- asInt a       -- TODO non-int
     b' <- asInt b       -- TODO non-int
+    let c = if a' == b' then 1 else 0 -- Not suitable for non-jump-booling?
+    modify $ \ms -> ms { getRegs = M.insert dst c (getRegs ms) }
 
-    lift . lift . lift $ putStrLn [i|#{a}/#{a'} ==? #{b}/#{b'}|]
-
-    let c = cmpCode (if a' == b' then DcEq else DcNeq) -- Not suitable for non-jump-booling?
+binOp dst DLt a b = do
+    a' <- asInt a       -- TODO non-int
+    b' <- asInt b       -- TODO non-int
+    let c = if a' < b' then 1 else 0 -- Not suitable for non-jump-booling?
     modify $ \ms -> ms { getRegs = M.insert dst c (getRegs ms) }
 
 binOp   _ op _ _ = err [i|Undefined binop: #{op}|]
@@ -260,14 +272,18 @@ data MachineState =
                  , getIpStack :: ![Int]
                  , getStack   :: ![Int]
                  , getRegs    :: !(Map R Int)
-                 , getCmp     :: !(Maybe DCmp)
+                 , getCmp     :: !(Maybe Bool)
                  }
 
+{-
 data DCmp = DcFalse
           | DcTrue
           | DcEq
           | DcNeq
           | DcGt
+          | DcGEq
+          | DcLt
+          | DcLEq
               deriving Show
 
 cmpCode :: DCmp -> Int
@@ -276,6 +292,9 @@ cmpCode DcTrue  = 1
 cmpCode DcEq    = 2
 cmpCode DcNeq   = 3
 cmpCode DcGt    = 4
+cmpCode DcGEq   = 5
+cmpCode DcLt    = 6
+cmpCode DcLEq   = 7
 
 unCmpCode :: Int -> DCmp
 unCmpCode 0 = DcFalse
@@ -283,3 +302,7 @@ unCmpCode 1 = DcTrue
 unCmpCode 2 = DcEq
 unCmpCode 3 = DcNeq
 unCmpCode 4 = DcGt
+unCmpCode 5 = DcGEq
+unCmpCode 6 = DcLt
+unCmpCode 7 = DcLEq
+-}
