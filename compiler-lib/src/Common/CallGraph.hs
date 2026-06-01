@@ -1,106 +1,19 @@
 {-# LANGUAGE OverloadedStrings #-}
 
--- TODO clearer API
 module Common.CallGraph ( CallGraph (..)
-                        , buildGraph
-                        , buildGraph'
-                        , findCycles
-                        , planExcludingPretyped
+                        , createPlan
+                        , findCycles -- just for testing
                         ) where
-
-import Core.Expression
-import Core.Module
-import Core.Term
-import Core.Types (Untyped (..))
-import Phase.Anf.AnfExpression
-import Phase.Anf.AnfModule
 
 import           Data.ByteString.Char8 (ByteString, pack)
 import           Data.Map              (Map, (!))
 import qualified Data.Map as M
-import           Data.Set              (Set, (\\))
+import           Data.Set              (Set)
 import qualified Data.Set as S
 
 newtype CallGraph s =
     CallGraph (Map s (Set s))
         deriving (Eq, Show)
-
-buildGraph :: (Ord s, Show s) => Module t s -> CallGraph s
-buildGraph = buildGraph' . getFunDefns
-
--- TODO: pass in data definitions, and check for scope below in 'go'
-buildGraph' :: (Ord s, Show s) => [FunDefn t s] -> CallGraph s
-buildGraph' = CallGraph . M.unions . map go
-
-    where
-    go (FunDefn n _ e) = M.singleton n (fn (S.singleton n) e)
-
-        where
-        fn scope (Term _ (Var v))     = S.singleton v \\ scope
-        fn     _ (Term _ (DCons d))   = mempty -- S.singleton d \\ scope -- Guess
-        fn     _ (Term _       _)     = mempty
-        fn scope (Lam _ vs body)      = fn (foldr S.insert scope vs) body
-        fn scope (App _ f xs)         = mconcat $ map (fn scope) (f:xs)
-        fn scope (Let _ a b c)        = let scope' = S.insert a scope in fn scope' b <> fn scope' c
-        fn scope (UnPrimOp _ _ a)     = fn scope a
-        fn scope (BinPrimOp _ _ a b)  = fn scope a <> fn scope b
-        fn scope (IfThenElse _ p t f) = mconcat $ map (fn scope) [p, t, f]
-        fn scope (Case _ scrut ps)    = fn scope scrut <> mconcat (map (pt scope) ps)
-
-        pt scope (Pattern a b) = mempty -- TODO
-
-buildGraphAnf :: (Ord s, Show s) => AnfModule s -> CallGraph s
-buildGraphAnf = buildGraphAnf' . getFunDefAnfTs
-
-buildGraphAnf' :: (Ord s, Show s) => [FunDefAnfT s] -> CallGraph s
-buildGraphAnf' fundefns = CallGraph . M.unions $ map go fundefns
-
-    where
-    go (FunDefAnfT n _ e) = M.singleton n (fn e (S.singleton n))
-
-        where
-        fn (AExp aexp)  = fna aexp
-        fn (CExp cexp)  = fnc cexp
-        fn (NLet a b c) = fnl a b c
-
-        fna aexp scope =
-            case aexp of
-                ATerm _ (Var v)    -> S.singleton v \\ scope
-                ATerm _ DCons{}    -> error "dcons"
-                ATerm _       _    -> mempty
-                ALam _ vs body     -> fn body (foldr S.insert scope vs)
-                AClo _ fvs vs body -> fn body (foldr S.insert scope (fvs++vs))
-                ABinPrimOp _ _ a b -> fna a scope <> fna b scope
-
-        fnc cexp scope =
-            case cexp of
-                CApp _ f xs            -> mconcat $ map (`fna` scope) (f:xs)
-                CIfThenElse _ pr tr fl -> mconcat [ fna pr scope, fn tr scope, fn fl scope]
-
-        fnl a b c scope =
-            let scope' = S.insert a scope
-            in fn b scope' <> fn c scope'
-
--- Cleanup
--- use a Seq too
-findCycles :: Ord a => Map a (Set a) -> Set (Set a)
-findCycles graph = S.map S.fromList $ S.unions $ map (S.fromList . go []) $ M.keys graph
-
-    where
-    go path b
-        | b `elem` path = [dropWhile (/= b) path]
-        | otherwise =
-            case M.lookup b graph of
-                Nothing -> []
-                Just outs ->
-                    let path' = path ++ [b]
-                    in concatMap (go path') (S.toList outs)
-
--- TODO This only removes the depended-upon definitions.  Remove the dependers too?
-planExcludingPretyped :: (Ord s, Show s) => Module t s -> CallGraph s -> Either ByteString [Set s]
-planExcludingPretyped md (CallGraph cg) = do
-    let pretyped = S.fromList . map (\(TypeSig n _) -> n) $ getTypeSigs md
-    createPlan $ CallGraph (fmap (\\ pretyped) cg)
 
 createPlan :: (Ord s, Show s) => CallGraph s -> Either ByteString [Set s]
 createPlan (CallGraph cg) = go [] cg
@@ -119,6 +32,21 @@ createPlan (CallGraph cg) = go [] cg
                 else do
                     let graph' = graph `M.difference` soluble
                     go (M.keysSet soluble:solved) graph'
+
+-- Cleanup
+-- use a Seq too
+findCycles :: Ord a => Map a (Set a) -> Set (Set a)
+findCycles graph = S.map S.fromList $ S.unions $ map (S.fromList . go []) $ M.keys graph
+
+    where
+    go path b
+        | b `elem` path = [dropWhile (/= b) path]
+        | otherwise =
+            case M.lookup b graph of
+                Nothing -> []
+                Just outs ->
+                    let path' = path ++ [b]
+                    in concatMap (go path') (S.toList outs)
 
 findStandaloneCycle :: (Ord s, Show s) => Map s (Set s) -> [Set s] -> Either ByteString (Set s)
 findStandaloneCycle graph = go []

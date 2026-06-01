@@ -51,6 +51,7 @@ library
                     TypeSystem.InferOperator
                     TypeSystem.InferTerm
                     TypeSystem.TypeCheck
+                    TypeSystem.TypesCallGraph
   ghc-options:      -Wall -O2
   hs-source-dirs:   src
   default-language: Haskell2010
@@ -68,6 +69,7 @@ test-suite test-compiler-lib
                       Phase.ClosureConvert.FreeVarsTest
                       Phase.EtaExpandTest
                       TypeCheck.TypeCheckTest
+                      TypeCheck.TypesCallGraphTest
     type:             exitcode-stdio-1.0
     main-is:          Tests.hs
     build-depends:    base, containers, hedgehog, vector

@@ -8,6 +8,7 @@ import Parse.LexAndParseTest             (lexAndParseTests)
 import Phase.ClosureConvert.FreeVarsTest (freeVarsTests)
 import Phase.EtaExpandTest               (etaExpandTests)
 import TypeCheck.TypeCheckTest           (typeCheckTests)
+import TypeCheck.TypesCallGraphTest      (typesCallGraphTests)
 
 main :: IO ()
 main = mapM_ checkParallel [ callGraphTests
@@ -18,4 +19,5 @@ main = mapM_ checkParallel [ callGraphTests
                            , freeVarsTests
                            , typeCheckTests
                            , etaExpandTests
+                           , typesCallGraphTests
                            ]

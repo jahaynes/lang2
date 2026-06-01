@@ -2,7 +2,6 @@
 
 module TypeSystem.TypeCheck (inferModule) where
 
-import Common.CallGraph
 import Common.State
 import Core.Expression
 import Core.Module
@@ -10,11 +9,11 @@ import Core.Types
 import TypeCheck.ConstraintSolver
 import TypeSystem.Common
 import TypeSystem.InferExpression
+import TypeSystem.TypesCallGraph (buildGraph, planExcludingPretyped)
 
 import           Control.Monad   (forM)
 import           Data.ByteString.Char8 (ByteString, pack)
 import           Data.Functor    ((<&>))
-import           Data.List       (foldl')
 import           Data.Map        (Map)
 import           Data.Set        (Set)
 import qualified Data.Map as M
