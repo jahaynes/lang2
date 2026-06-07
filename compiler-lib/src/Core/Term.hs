@@ -3,6 +3,7 @@
 module Core.Term where
 
 data Term s = Var s
+           -- | TlVar s -- yeah? nah?
             | DCons s
             | LitInt Integer
             | LitBool Bool     

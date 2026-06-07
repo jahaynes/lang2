@@ -20,18 +20,19 @@ instance Show R where
 data DInstr s = DComment !s 
               | DLabel !s
 
-              | DPush !(DVal s)
+              | DPush !(DVal s) -- I've only called this with regs so far...
 
               | DPop !R
 
               | DCall !(CallDest s)
                 
-          --    | DFun ![DVal s] [DInstr s]
+              -- | DRet !(DVal s)      -- Experiment1 : try forcing this to be a reg
 
-              | DRet !(DVal s)
+              | DRet !R
 
               --    Dest Op A B
-              | DBin !R !DBinOp !(DVal s) !(DVal s)
+              -- | DBin !R !DBinOp !(DVal s) !(DVal s) -- Experiment2 : try forcing this to be a reg
+              | DBin !R !DBinOp !R !R
 
               | DNeg !R -- negate a register
 

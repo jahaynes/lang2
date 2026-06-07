@@ -15,6 +15,11 @@ newtype CallGraph s =
     CallGraph (Map s (Set s))
         deriving (Eq, Show)
 
+-- TODO - check this is a sensible instance
+instance Ord s => Semigroup (CallGraph s) where
+    CallGraph a <> CallGraph b =
+        CallGraph (M.unionWith S.union a b)
+
 createPlan :: (Ord s, Show s) => CallGraph s -> Either ByteString [Set s]
 createPlan (CallGraph cg) = go [] cg
     where

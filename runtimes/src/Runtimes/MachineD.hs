@@ -153,8 +153,8 @@ push (DReg r) = do
         Just r' -> modify $ \ms -> ms { getStack = r' : getStack ms }
 push v = err [i|Undefined push: #{v}|]
 
-ret :: DVal ByteString -> D m (Either () Int)
-ret (DReg r) = do   
+ret :: R -> D m (Either () Int)
+ret r = do
 
     state <- get
 
@@ -194,7 +194,7 @@ pop r = do
             put state { getStack = tack
                       , getRegs  = M.insert r s (getRegs state) }
 
-binOp :: R -> DBinOp -> DVal ByteString -> DVal ByteString -> D m ()
+binOp :: R -> DBinOp -> R -> R -> D m ()
 binOp dst DTimes a b = do
     a' <- asInt a
     b' <- asInt b
@@ -224,14 +224,14 @@ binOp dst DLt a b = do
 
 binOp   _ op _ _ = err [i|Undefined binop: #{op}|]
 
-asInt :: DVal ByteString -> D m Int
-asInt (DLitInt n) = pure n
-asInt (DReg r) = do
+asInt :: R -> D m Int
+-- asInt (DLitInt n) = pure n
+asInt r = do
     regs <- getRegs <$> get
     case M.lookup r regs of
         Nothing -> err [i|Register was not set: #{r}|]
         Just v -> pure v
-asInt x = err [i|Undefined asInt: #{x}|]
+--- asInt x = err [i|Undefined asInt: #{x}|]
 
 call :: CallDest ByteString -> D m ()
 call (CallLabel lbl) = do

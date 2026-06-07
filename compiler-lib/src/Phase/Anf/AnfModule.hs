@@ -1,4 +1,5 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE LambdaCase
+           , OverloadedStrings #-}
 
 module Phase.Anf.AnfModule ( AnfModule (..)
                            , FunDefAnfT (..)
@@ -13,46 +14,70 @@ import Core.Term
 import Core.Types
 import Phase.Anf.AnfExpression
 
-import Data.ByteString.Char8 (ByteString, pack)
+import           Data.ByteString.Char8   (ByteString, pack)
+import           Data.Functor            ((<&>))
+import           Data.Set                (Set)
+import qualified Data.Set as S
+
 
 data AnfModule s =
     AnfModule { getDataDefnAnfTs :: [DataDefn s]
               , getFunDefAnfTs   :: [FunDefAnfT s]
               } deriving Show
 
+data AnfState s =
+    AnfState { getNum    :: !Int
+             , symGen    :: !(State (AnfState s) s)
+             , localRefs :: !(Set s)
+             }
+
 type Anf s a =
     EitherT ByteString (
         State (AnfState s)) a
 
-anfModule :: Module (Type ByteString) ByteString
-          -> Either ByteString (AnfModule ByteString)
-anfModule md = AnfModule (getDataDefns md) <$> mapM anfFunDefT (getFunDefns md)
-
 data FunDefAnfT s =
-    FunDefAnfT s (Quant s) (NExp s)
+    FunDefAnfT s (Quant s) (NExp s) -- Maybe this should be forced into a Lambda
         deriving Show
 
-anfFunDefT :: FunDefn (Type ByteString) ByteString
-           -> Either ByteString (FunDefAnfT ByteString)
-anfFunDefT (FunDefn n pt expr) = FunDefAnfT n pt <$> evalState (runEitherT (norm expr)) (AnfState 0 genSym)
+anfModule :: Module (Type ByteString) ByteString
+          -> Either ByteString (AnfModule ByteString)
+anfModule modu = do
+    let funDefs = getFunDefns modu
+    funDefs' <- mapM anfFunDefT funDefs
+    pure $ AnfModule (getDataDefns modu) funDefs'
 
-data AnfState s =
-    AnfState { getNum :: Int
-             , symGen :: State (AnfState s) s
-             }
+    where
+    anfFunDefT (FunDefn n pt expr) = do
+        funDef' <- evalState' (AnfState 0 genSym mempty)
+                 . runEitherT
+                 $ norm expr
+        pure $ FunDefAnfT n pt funDef'
 
 genSym :: State (AnfState s) ByteString
 genSym = do
-    AnfState n sg <- get
-    put $! AnfState (n+1) sg
+    AnfState n sg lrs <- get
+    put $! AnfState (n+1) sg lrs
     pure . pack $ "anf_" <> show n
 
-norm :: Show s => Expr (Type s) s -> Anf s (NExp s)
+norm :: (Ord s, Show s) => Expr (Type s) s -> Anf s (NExp s)
 norm expr = normExpr expr pure
 
-normExpr :: Show s => Expr (Type s) s
-                   -> (NExp s -> Anf s (NExp s))
-                   -> Anf s (NExp s)
+trackingRefs :: (Ord s, Show s) => [s] -> Anf s a -> Anf s a
+trackingRefs vs f = do
+    refs <- preserveLocalReferences
+    registerReferences vs
+    y <- f
+    restoreLocalReferences refs
+    pure y
+
+    where
+    registerReferences vs = lift . modify' $ \s -> s { localRefs = S.union (localRefs s) (S.fromList vs)}
+    preserveLocalReferences =  lift $ localRefs <$> get
+    restoreLocalReferences refs = lift . modify' $ \s -> s { localRefs = refs }
+
+normExpr :: (Ord s, Show s) => Expr (Type s) s
+                            -> (NExp s -> Anf s (NExp s))
+                            -> Anf s (NExp s)
 normExpr expr k =
 
     case expr of
@@ -63,12 +88,13 @@ normExpr expr k =
                     k $ CExp $ CApp t f' xs'
 
         Lam t vs body -> do
-            body' <- norm body
+            body' <- trackingRefs vs (norm body)
             k $ AExp (ALam t vs body')
 
         Let _ a b c ->
+            -- I don't think 'a' is scoped in b (recursive-let)
             normExpr b $ \b' ->
-                NLet a b' <$> normExpr c k
+                NLet a b' <$> trackingRefs [a] (normExpr c k)
 
         IfThenElse t pr tr fl ->
             normAtom pr $ \pr' -> do
@@ -94,8 +120,17 @@ normExpr expr k =
         Term t (LitString s) ->
             k $ AExp $ ATerm t (LitString s)
 
-        Term t (Var v) ->
-            k $ AExp $ ATerm t $ Var v
+        Term t (Var v) -> do
+
+            let term' = ATerm t (Var v)
+
+            nexp <- isCallCandidate t v <&> \case
+                        -- Local vars remain as terms
+                        False -> AExp term'
+                        -- Top-levels turn into complex App nodes
+                        True -> CExp $ CApp t term' []
+
+            k nexp
 
         Term t (DCons d) ->
             k $ AExp $ ATerm t $ DCons d
@@ -106,9 +141,20 @@ normExpr expr k =
                 ps' <- mapM normPattern ps
                 k $ CExp $ CCase t scrut' ps'
 
+    where
+    -- Hacky (and duplicate way) to try to choose between local var and fun call
+    isCallCandidate t v = do
+        lrs <- lift $ localRefs <$> get
+        let isLocal = v `S.member` lrs
+        pure $ not isLocal && isSimple t
+
+        where
+        isSimple TyArr{} = False
+        isSimple       _ = True
+
 -- both parts necessary?
 -- assume lhs is already normed for now
-normPattern :: Show s => Pattern (Type s) s -> Anf s (PExp s)
+normPattern :: (Ord s, Show s) => Pattern (Type s) s -> Anf s (PExp s)
 normPattern (Pattern a b) =
     PExp <$> normLhs a <*> norm b
 
@@ -126,9 +172,9 @@ normLhs dc@(Term t DCons{}) = normLhs (App t dc [])
 expectDCons (Term _ (DCons dc)) = pure dc
 expectDCons x = left $ "Expected DCons: " <> pack (show x)
 
-normAtom :: Show s => Expr (Type s) s
-                   -> (AExp s -> Anf s (NExp s))
-                   -> Anf s (NExp s)
+normAtom :: (Ord s, Show s) => Expr (Type s) s
+                            -> (AExp s -> Anf s (NExp s))
+                            -> Anf s (NExp s)
 normAtom e k =
 
     case e of
@@ -186,14 +232,35 @@ normAtom e k =
             k $ ATerm t (LitString s)
 
         Term t (Var v) ->
-            k $ ATerm t (Var v)
+
+            let term' = ATerm t (Var v)
+
+            in isCallCandidate t v >>= \case
+
+                   False -> k term'
+
+                   True -> do
+                       v    <- lift (symGen =<< get)
+                       rest <- trackingRefs [v] (k $ ATerm t $ Var v)
+                       pure $ NLet v (CExp (CApp t term' [])) rest
 
         Term t (DCons d) ->
             k $ ATerm t (DCons d)
 
-normAtoms :: Show s => [Expr (Type s) s]
-                    -> ([AExp s] -> Anf s (NExp s))
-                    -> Anf s (NExp s)
+    where
+    -- Hacky (and duplicate way) to try to choose between local var and fun call
+    isCallCandidate t v = do
+        lrs <- lift $ localRefs <$> get
+        let isLocal = v `S.member` lrs
+        pure $ not isLocal && isSimple t
+
+        where
+        isSimple TyArr{} = False
+        isSimple       _ = True
+
+normAtoms :: (Ord s, Show s) => [Expr (Type s) s]
+                             -> ([AExp s] -> Anf s (NExp s))
+                             -> Anf s (NExp s)
 normAtoms [] k = k []
 normAtoms (e:es) k =
     normAtom e $ \e' ->
