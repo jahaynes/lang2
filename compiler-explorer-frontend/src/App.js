@@ -49,6 +49,7 @@ class App extends React.Component {
     const anfPretty              = this.getAndClearElement("anfPretty")
     const closureConvertedPretty = this.getAndClearElement("closureConvertedPretty")
     const lambdaLiftedPretty     = this.getAndClearElement("lambdaLiftedPretty")
+    const codeGenD               = this.getAndClearElement("codeGenD")
 
     const req = { getInput: source.value }
 
@@ -64,7 +65,8 @@ class App extends React.Component {
         etaExpanded.value            = ts.etaExpanded;
         anfPretty.value              = ts.anfPretty;
         closureConvertedPretty.value = ts.closureConvertedPretty;
-        lambdaLiftedPretty.value     = ts.lambdaLiftedPretty; })
+        lambdaLiftedPretty.value     = ts.lambdaLiftedPretty;
+        codeGenD.value               = ts.codeGenD; })
       .catch(exception => console.log(exception));
   }
 
@@ -85,6 +87,11 @@ class App extends React.Component {
           <textarea id='text' className='double editor' spellCheck='false' rows={numRows} onChange={e => this.lexAndParse()}></textarea>
         </div>
 
+        <label>CodegenD</label>
+        <div>
+          <textarea id='codeGenD' className='double editor' spellCheck='false' rows={numRows}></textarea>
+        </div>
+
         <div>
           <label>Output</label>
           <button id='exec' onClick={e => this.run()}>Run</button>
@@ -98,12 +105,20 @@ class App extends React.Component {
         <label>Lambda Lifted / Closure Converted</label>
         <div>
           <textarea id='lambdaLiftedPretty' className='single editor' spellCheck='false' rows={numRows}></textarea>
-          <textarea id='closureConvertedPretty' className='single editor' spellCheck='false' rows={numRows}></textarea>
         </div>
 
         <label>Anf Converted / Eta Expanded</label>
         <div>
+          <textarea id='closureConvertedPretty' className='single editor' spellCheck='false' rows={numRows}></textarea>
+        </div>
+
+        <label>Anf Converted</label>
+        <div>
           <textarea id='anfPretty' className='single editor' spellCheck='false' rows={numRows}></textarea>
+        </div>
+
+        <label>Eta Expanded</label>
+        <div>
           <textarea id='etaExpanded' className='single editor' spellCheck='false' rows={numRows}></textarea>
         </div>
 

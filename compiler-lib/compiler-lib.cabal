@@ -11,6 +11,7 @@ library
   build-depends:    base,
                     bytestring,
                     containers,
+                    string-interpolate,
                     vector,
                     vector-builder
   exposed-modules:  Common.CallGraph
@@ -33,6 +34,10 @@ library
                     Phase.Anf.AnfExpression
                     Phase.Anf.AnfModule
                     Phase.Anf.BetaReduce
+                    Phase.CodeGen.CodeGenD
+                    Phase.CodeGen.SizeInfo
+                    Phase.CodeGen.TagInfo
+                    Phase.CodeGen.TypesD
                     Phase.ClosureConvert.ClosureConvert
                     Phase.ClosureConvert.FreeVars
                     Phase.EtaExpand.EtaExpand

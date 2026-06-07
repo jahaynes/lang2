@@ -8,6 +8,7 @@ import Parse.Lexer
 import Parse.Module
 import Parse.Parser
 import Phase.Anf.AnfModule
+import Phase.CodeGen.CodeGenD
 import Phase.ClosureConvert.ClosureConvert
 import Phase.EtaExpand.EtaExpand
 import Phase.LambdaLift.LambdaLift
@@ -23,6 +24,7 @@ pipe = do
     phaseAnfConvert
     phaseClosureConvert
     phaseLambdaLift
+    phaseCodeGenD
 
     where
     phaseLexer :: State ProgramState ()
@@ -58,3 +60,7 @@ pipe = do
     phaseLambdaLift :: State ProgramState ()
     phaseLambdaLift = modify' $ \ps ->
         ps { getLambdaLifted = lambdaLift <$> getClosureConverted ps }
+
+    phaseCodeGenD :: State ProgramState ()
+    phaseCodeGenD = modify' $ \ps ->
+        ps { getCodeGenD = codeGenModuleD =<< getLambdaLifted ps }

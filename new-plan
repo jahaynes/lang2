@@ -1,0 +1,19 @@
+
+* Abstract machine codegen phase (Virtual registers):
+
+	- Make it more micropass-ish?
+
+	- Maybe the CCall inst could include the actual parameters/returns, rather than their counts
+
+* Virtual register phase
+
+	- no clobbering is possible with virtual registers, except for recursive calls!
+	- What to do about mutual recursion? Is that just solved by regular usage-analysis?
+
+* Real register-allocation phase
+
+	- Maybe defer all de-clobbering to this point?
+
+Todo:
+	
+	* decide on a virtual register set and ABI, to make it possible to practice allocating 'real' registers for other real architectures.  This will make it possible to compile to x86 and ARM
