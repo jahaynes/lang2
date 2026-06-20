@@ -16,11 +16,16 @@ import           Data.Aeson
 import           Data.Functor                ((<&>))
 import           Data.IORef
 import           Data.Text                   (Text)
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
 import           Data.Text.Encoding          (decodeUtf8)
 import           GHC.Generics                (Generic)
 import           Network.Wai.Handler.Warp    (run)
 import           Network.Wai.Middleware.Cors (CorsResourcePolicy (..), cors)
 import           Servant
+import           System.Directory            (listDirectory)
+import           Text.Printf                 (printf)
+import           UnliftIO.Exception          (tryAnyDeep)
 
 newtype Input =
     Input { getInput :: Text
@@ -33,10 +38,18 @@ type Api = "lexAndParse" :> ReqBody '[JSON] Input
 
       :<|> "run" :> Post '[JSON] (Text, Text)
 
+      :<|> "list-examples" :> Get '[JSON] [Text]
+
       :<|> "example" :> Capture "closure" Text :> Get '[JSON] Text
 
+examplesDir :: FilePath
+examplesDir = "./examples"
+
 server :: IORef (Maybe ProgramState) -> Server Api
-server ioref = setProgramState :<|> runCurrentProgramState :<|> getExample
+server ioref = setProgramState
+          :<|> runCurrentProgramState
+          :<|> listExamples
+          :<|> getExample
 
     where
     setProgramState input = liftIO $ do
@@ -56,52 +69,16 @@ server ioref = setProgramState :<|> runCurrentProgramState :<|> getExample
                         case runMachineA (concat instrs) of
                             (r1, r2) -> (decodeUtf8 r1, decodeUtf8 r2)
 
-    getExample "closure" =
-        pure "f x =\n\
-             \  let xx = x * x in\n\
-             \  (\\y. y + xx)\n\
-             \\n\
-             \main = (f 1) 2"
+    listExamples :: Handler [Text]
+    listExamples = liftIO $
+        map T.pack <$> listDirectory examplesDir
 
-    getExample "summorial" =
-        pure "summorial m =\n\
-             \   let go acc n =\n\
-             \       if n == 0\n\
-             \       then acc\n\
-             \       else go (acc + n) (n - 1) in\n\
-             \   go 0 m\n\
-             \\n\
-             \main = summorial 10"
-
-    getExample "pair" =
-        pure "Pair a b = MkPair a b\n\
-             \\n\
-             \main =\n\
-             \  let snd pair =\n\
-             \    case pair of\n\
-             \      MkPair a b -> b\n\
-             \  in\n\
-             \  snd (MkPair 1 2)"
-
-    getExample "reenter" =
-        pure "reenter x =\n\
-             \  if x == 0\n\
-             \    then 0\n\
-             \    else x + reenter (x - 1)\n\
-             \\n\
-             \main = reenter 5"
-
-    getExample "badfibs" =
-        pure  "badfibs n =\n\
-              \  if n < 2\n\
-              \    then n\n\
-              \    else badfibs (n-1) + badfibs (n-2)\n\
-              \\n\
-              \main =\n\
-              \  badfibs 4"
-
-    getExample _ =
-        pure "unknown example"
+    getExample :: Text -> Handler Text
+    getExample name =
+        let path = printf "%s/%s" examplesDir name
+        in liftIO (tryAnyDeep (T.readFile path)) <&> \case
+            Left e -> T.pack . show $ e
+            Right t -> t
 
 runController :: Int -> IO ()
 runController port = do

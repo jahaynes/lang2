@@ -1,0 +1,8 @@
+summorial m =
+    let go acc n =
+        if n == 0
+            then acc
+            else go (acc + n) (n - 1) in
+    go 0 m
+
+main = summorial 10

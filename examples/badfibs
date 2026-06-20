@@ -1,0 +1,7 @@
+badfibs n =
+    if n < 2
+        then n
+        else badfibs (n-1) + badfibs (n-2)
+
+main =
+    badfibs 4

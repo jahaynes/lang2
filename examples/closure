@@ -1,0 +1,5 @@
+f x =
+  let xx = x * x in
+  (\y. y + xx)
+             
+main = (f 1) 2

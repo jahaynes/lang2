@@ -2,6 +2,10 @@ import React from 'react';
 
 class App extends React.Component {
 
+  componentDidMount() {
+    this.populateExamples();
+  }
+
   getAndClearElement(elemId) {
     const elem = document.getElementById(elemId);
     elem.value = "";
@@ -78,13 +82,8 @@ class App extends React.Component {
       <div className="App">
 
         <div>
-          <select onChange={e => this.selectExample(e)}>
+          <select id='examples' onChange={e => this.selectExample(e)}>
             <option></option>
-            <option id="badfibs">badfibs</option>
-            <option id="closure">closure</option>
-            <option id="summorial">summorial</option>
-            <option id="pair">pair</option>
-            <option id="reenter">reenter</option>
           </select>
         </div>
 
@@ -138,6 +137,27 @@ class App extends React.Component {
       </div>
     );
   }
+
+  populateExamples() {
+    const select = document.getElementById('examples');
+
+    fetch("http://127.0.0.1:8080/list-examples", {  headers: { 'Accept': 'application/json'
+                                                             , 'Content-Type': 'application/json' } })
+        .then(resp => resp.json())
+        .then(examples => {
+          select.innerHTML = '';
+          const emptyOption = document.createElement('option');
+          select.appendChild(emptyOption);
+          examples.forEach(name => {
+            const option = document.createElement('option');
+            option.value = name;
+            option.textContent = name;
+            select.appendChild(option);
+          });
+        })
+        .catch(err => console.log('Failed to load examples:', err));
+  }
+
 }
 
 export default App;

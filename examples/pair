@@ -1,0 +1,7 @@
+Pair a b = MkPair a b
+
+main =
+    let snd pair =
+            case pair of
+                MkPair a b -> b in
+    snd (MkPair 1 2)
