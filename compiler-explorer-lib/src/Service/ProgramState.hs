@@ -7,7 +7,6 @@ import Core.Types
 import Parse.LexAndParse
 import Parse.Token
 import Phase.Anf.AnfModule
-import Phase.CodeGen.CodeGenA
 import Pretty.Anf2
 import Pretty.Module
 
@@ -30,8 +29,6 @@ data ProgramState =
                  , getClosureConverted :: !(Either ByteString (AnfModule ByteString))
                  , getLambdaLifted     :: !(Either ByteString (AnfModule ByteString))
                  , getUncurried        :: !(Either ByteString (AnfModule ByteString))
-                 , getCodeGenA         :: !(Either ByteString [[AInstr ByteString]])
-                 , getUnclobberedA     :: !(Either ByteString [[AInstr ByteString]])
                  , getOutput           :: !ByteString
                  }
 
@@ -53,8 +50,6 @@ instance ToJSON ProgramState where
             txtLambdaLiftedPretty     = either decodeUtf8 renderAnfModule (getLambdaLifted ps)
             txtUncurried              = either decodeUtf8 (\(AnfModule _ anfdefs) -> pack . unlines . map show $ anfdefs) (getUncurried ps)
             txtUncurriedPretty        = either decodeUtf8 renderAnfModule (getUncurried ps)
-            txtCodeGenA               = decodeUtf8 $ either id renderCodeGenA (concat <$> getCodeGenA ps)
-            txtUnclobberedA           = decodeUtf8 $ either id renderCodeGenA (concat <$> getUnclobberedA ps)
             txtOutput                 = decodeUtf8 $ getOutput ps
 
         object [ "tokens"                 .= String txtTokens
@@ -71,12 +66,10 @@ instance ToJSON ProgramState where
                , "lambdaLiftedPretty"     .= String txtLambdaLiftedPretty
                , "uncurried"              .= String txtUncurried
                , "uncurriedPretty"        .= String txtUncurriedPretty
-               , "codeGenA"               .= String txtCodeGenA
-               , "unclobberedA"           .= String txtUnclobberedA
                , "output"                 .= String txtOutput
                ]
 
 fromSource :: Text -> ProgramState
-fromSource txt = ProgramState (encodeUtf8 txt) na na na na na na na na na na na ""
+fromSource txt = ProgramState (encodeUtf8 txt) na na na na na na na na na ""
     where
     na = Left "Not Available"
