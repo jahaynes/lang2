@@ -7,6 +7,7 @@
 module Service.Controller (runController) where
 
 import Common.State
+import Runtimes.MachineA
 import Service.ProgramState
 import Service.Service                       (pipe)
 
@@ -17,6 +18,7 @@ import           Data.IORef
 import           Data.Text                   (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
+import           Data.Text.Encoding          (decodeUtf8)
 import           GHC.Generics                (Generic)
 import           Network.Wai.Handler.Warp    (run)
 import           Network.Wai.Middleware.Cors (CorsResourcePolicy (..), cors)
@@ -60,7 +62,12 @@ server ioref = setProgramState
     runCurrentProgramState = liftIO $
         readIORef ioref <&> \case
             Nothing -> ("No stored program!", "No stored program!")
-            Just ps -> ("Not implemented", "Not implemented")
+            Just ps -> 
+                case getUnclobberedA ps of
+                    Left e1 -> ("", decodeUtf8 e1)
+                    Right instrs ->
+                        case runMachineA (concat instrs) of
+                            (r1, r2) -> (decodeUtf8 r1, decodeUtf8 r2)
 
     listExamples :: Handler [Text]
     listExamples = liftIO $

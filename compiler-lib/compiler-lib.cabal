@@ -33,12 +33,17 @@ library
                     Phase.Anf.AnfExpression
                     Phase.Anf.AnfModule
                     Phase.Anf.BetaReduce
+                    Phase.CodeGen.CodeGenA
+                    Phase.CodeGen.SizeInfo
+                    Phase.CodeGen.TagInfo
+                    Phase.CodeGen.TypesA
                     Phase.ClosureConvert.ClosureConvert
                     Phase.ClosureConvert.FreeVars
                     Phase.EtaExpand.EtaExpand
                     Phase.EtaExpand.EtaSaturate
                     Phase.LambdaLift.Alpha
                     Phase.LambdaLift.LambdaLift
+                    Phase.Unclobber.UnclobberRecursiveRegisters
                     Phase.Uncurry.Uncurry
                     TypeCheck.ConstraintSolver
                     TypeSystem.Common
