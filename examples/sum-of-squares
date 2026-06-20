@@ -1,0 +1,7 @@
+sumOfSquares x y =
+    let xx = x * x in
+    let yy = y * y in
+    xx + yy
+
+main =
+    sumOfSquares 3 4
