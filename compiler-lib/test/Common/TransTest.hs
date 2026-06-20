@@ -27,11 +27,11 @@ test_statet_eithert_loses_state = unitTest $ do
 
     where
     successStep :: StateT Int (EitherT String Identity) ()
-    successStep = modifyt (+1)
+    successStep = modify (+1)
 
     failStep :: StateT Int (EitherT String Identity) ()
     failStep = do
-        modifyt (+1)
+        modify (+1)
         lift $ left "Foo"
 
 test_eithert_statet_doesnt_rollback :: Property
@@ -46,11 +46,11 @@ test_eithert_statet_doesnt_rollback = unitTest $ do
 
     where
     successStep :: EitherT String (StateT Int Identity) ()
-    successStep = lift $ modifyt (+1)
+    successStep = lift $ modify (+1)
 
     failStep :: EitherT String (StateT Int Identity) ()
     failStep = do
-        lift $ modifyt (+1)
+        lift $ modify (+1)
         left "Foo"
 
 unitTest :: PropertyT IO () -> Property

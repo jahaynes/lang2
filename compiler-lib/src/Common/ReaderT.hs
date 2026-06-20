@@ -1,4 +1,8 @@
-module Common.ReaderT where
+module Common.ReaderT ( ReaderT
+                      , ask
+                      , runReaderT
+                      , runReaderT'
+                      ) where
 
 import Common.Trans
 
@@ -32,3 +36,6 @@ instance Trans (ReaderT r) where
 
 ask :: Applicative m => ReaderT r m r
 ask = ReaderT pure
+
+runReaderT' :: r -> ReaderT r m a -> m a
+runReaderT' = flip runReaderT
