@@ -115,7 +115,7 @@ printCExp cexp =
         CApp _ f xs -> do
             f'  <- printAExp f
             xs' <- mapM (noIndent . printAExp) xs
-            pure $ TB.intercalate " " (f':xs')
+            pure $ f' <> "(" <> TB.intercalate "," xs' <> ")"
 
         CAppClo _ f cloEnv xs ->
             pure "cappclo"
