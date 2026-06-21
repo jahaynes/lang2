@@ -7,6 +7,8 @@ import Core.Types
 import Parse.LexAndParse
 import Parse.Token
 import Phase.Anf.AnfModule
+import Phase.CodeGen.CodeGenC
+import Phase.CodeGen.TypesC
 import Pretty.Anf2
 import Pretty.Module
 import Pretty.TypedModule
@@ -27,6 +29,8 @@ data ProgramState =
                  , getAnfConverted     :: !(Either ByteString (AnfModule ByteString))
                  , getClosureConverted :: !(Either ByteString (AnfModule ByteString))
                  , getLambdaLifted     :: !(Either ByteString (AnfModule ByteString))
+                 , getCodeGenC         :: !(Either ByteString [[CInstr ByteString]])
+                 , getUnclobberedC     :: !(Either ByteString [[CInstr ByteString]])
                  , getOutput           :: !ByteString
                  }
 
@@ -46,6 +50,8 @@ instance ToJSON ProgramState where
             txtClosureConvertedPretty = either decodeUtf8 renderAnfModule (getClosureConverted ps)
             txtLambdaLifted           = either decodeUtf8 (\(AnfModule _ anfdefs) -> pack . unlines . map show $ anfdefs) (getLambdaLifted ps)
             txtLambdaLiftedPretty     = either decodeUtf8 renderAnfModule (getLambdaLifted ps)
+            txtCodeGenC               = decodeUtf8 $ either id renderCodeGenC (concat <$> getCodeGenC ps)
+            txtUnclobberedC           = decodeUtf8 $ either id renderCodeGenC (concat <$> getUnclobberedC ps)
             txtOutput                 = decodeUtf8 $ getOutput ps
 
         object [ "tokens"                 .= String txtTokens
@@ -60,10 +66,12 @@ instance ToJSON ProgramState where
                , "closureConvertedPretty" .= String txtClosureConvertedPretty
                , "lambdaLifted"           .= String txtLambdaLifted
                , "lambdaLiftedPretty"     .= String txtLambdaLiftedPretty
+               , "codeGenC"               .= String txtCodeGenC
+               , "unclobberedC"           .= String txtUnclobberedC
                , "output"                 .= String txtOutput
                ]
 
 fromSource :: Text -> ProgramState
-fromSource txt = ProgramState (encodeUtf8 txt) na na na na na na na na ""
+fromSource txt = ProgramState (encodeUtf8 txt) na na na na na na na na na na ""
     where
     na = Left "Not Available"

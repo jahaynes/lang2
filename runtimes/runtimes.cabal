@@ -13,6 +13,7 @@ library
                     containers,
                     compiler-lib,
                     vector
+  exposed-modules:  Runtimes.MachineC
   ghc-options:      -Wall -O2
   hs-source-dirs:   src
   default-language: Haskell2010

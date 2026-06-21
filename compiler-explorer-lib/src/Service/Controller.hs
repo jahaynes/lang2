@@ -7,6 +7,7 @@
 module Service.Controller (runController) where
 
 import Common.State
+import Runtimes.MachineC
 import Service.ProgramState
 import Service.Service                       (pipe)
 
@@ -17,6 +18,7 @@ import           Data.IORef
 import           Data.Text                   (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
+import           Data.Text.Encoding          (decodeUtf8)
 import           GHC.Generics                (Generic)
 import           Network.Wai.Handler.Warp    (run)
 import           Network.Wai.Middleware.Cors (CorsResourcePolicy (..), cors)
@@ -56,11 +58,17 @@ server ioref = setProgramState
         writeIORef ioref (Just programState)
         pure programState
 
-    runCurrentProgramState :: Handler (Text, Text)
+    runCurrentProgramState :: Handler (Text, Text) -- Why 2?
     runCurrentProgramState = liftIO $
-        readIORef ioref <&> \case
-            Nothing -> ("No stored program!", "No stored program!")
-            Just ps -> ("Not implemented", "Not implemented")
+        readIORef ioref >>= \case
+            Nothing -> pure ("No stored program!", "No stored program!")
+            Just ps -> 
+                case getUnclobberedC ps of
+                    Left e1 -> pure ("", decodeUtf8 e1)
+                    Right instrs -> do
+                        x <- interpret . concat $ instrs
+                        let xt = T.pack (show x)
+                        pure (xt, xt)
 
     listExamples :: Handler [Text]
     listExamples = liftIO $

@@ -49,6 +49,8 @@ class App extends React.Component {
     const anfPretty              = this.getAndClearElement("anfPretty")
     const closureConvertedPretty = this.getAndClearElement("closureConvertedPretty")
     const lambdaLiftedPretty     = this.getAndClearElement("lambdaLiftedPretty")
+    const codeGenC               = this.getAndClearElement("codeGenC")
+    const unclobberedC           = this.getAndClearElement("unclobberedC")
 
     const req = { getInput: source.value }
 
@@ -64,7 +66,10 @@ class App extends React.Component {
         etaExpanded.value            = ts.etaExpanded;
         anfPretty.value              = ts.anfPretty;
         closureConvertedPretty.value = ts.closureConvertedPretty;
-        lambdaLiftedPretty.value     = ts.lambdaLiftedPretty; })
+        lambdaLiftedPretty.value     = ts.lambdaLiftedPretty;
+        codeGenC.value               = ts.codeGenC;
+        unclobberedC.value           = ts.unclobberedC;
+      })
       .catch(exception => console.log(exception));
   }
 
@@ -82,7 +87,9 @@ class App extends React.Component {
 
         <label>Source</label>
         <div>
-          <textarea id='text' className='double editor' spellCheck='false' rows={numRows} onChange={e => this.lexAndParse()}></textarea>
+          <textarea id='text' className='single editor' spellCheck='false' rows={numRows} onChange={e => this.lexAndParse()}></textarea>
+          <textarea id='codeGenC' className='single editor' spellCheck='false' rows={numRows}></textarea>
+          <textarea id='unclobberedC' className='single editor' spellCheck='false' rows={numRows}></textarea>
         </div>
 
         <div>

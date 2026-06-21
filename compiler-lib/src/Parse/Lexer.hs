@@ -139,6 +139,7 @@ parseToken = keyword
            <|> positioned TDollar   (string "$")
            <|> positioned TMul      (string "*")
            <|> positioned TDiv      (string "/")
+           <|> positioned TMod      (string "%")
            <|> positioned TLambda   (string "\\")
            <|> positioned TDot      (string ".")
            <|> positioned TLParen   (string "(")

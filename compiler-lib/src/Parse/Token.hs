@@ -40,6 +40,7 @@ data Token = TLet
            | TPlus
            | TMul
            | TDiv
+           | TMod
 
            | TDollar
 

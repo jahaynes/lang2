@@ -8,9 +8,11 @@ build-type:          Simple
 extra-source-files:  CHANGELOG.md
 
 library
+  default-extensions: BangPatterns, OverloadedStrings
   build-depends:    base,
                     bytestring,
                     containers,
+                    text,
                     vector,
                     vector-builder
   exposed-modules:  Common.CallGraph
@@ -33,12 +35,17 @@ library
                     Phase.Anf.AnfExpression
                     Phase.Anf.AnfModule
                     Phase.Anf.BetaReduce
+                    Phase.CodeGen.CodeGenC
+                    Phase.CodeGen.SizeInfo
+                    Phase.CodeGen.TagInfo
+                    Phase.CodeGen.TypesC
                     Phase.ClosureConvert.ClosureConvert
                     Phase.ClosureConvert.FreeVars
                     Phase.EtaExpand.EtaExpand
                     Phase.EtaExpand.EtaSaturate
                     Phase.LambdaLift.Alpha
                     Phase.LambdaLift.LambdaLift
+                    Phase.Unclobber.UnclobberRecursiveRegisters
                     TypeCheck.ConstraintSolver
                     TypeSystem.Common
                     TypeSystem.InferExpression
