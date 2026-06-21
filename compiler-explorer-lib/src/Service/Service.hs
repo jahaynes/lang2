@@ -11,7 +11,6 @@ import Phase.Anf.AnfModule
 import Phase.ClosureConvert.ClosureConvert
 import Phase.EtaExpand.EtaExpand
 import Phase.LambdaLift.LambdaLift
-import Phase.Uncurry.Uncurry
 import Service.ProgramState
 import TypeSystem.TypeCheck
 
@@ -24,7 +23,6 @@ pipe = do
     phaseAnfConvert
     phaseClosureConvert
     phaseLambdaLift
-    phaseUncurry
 
     where
     phaseLexer :: State ProgramState ()
@@ -60,7 +58,3 @@ pipe = do
     phaseLambdaLift :: State ProgramState ()
     phaseLambdaLift = modify' $ \ps ->
         ps { getLambdaLifted = lambdaLift <$> getClosureConverted ps }
-
-    phaseUncurry :: State ProgramState ()
-    phaseUncurry = modify' $ \ps ->
-        ps { getUncurried = uncurryModule =<< getLambdaLifted ps } -- TODO

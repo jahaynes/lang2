@@ -49,7 +49,6 @@ class App extends React.Component {
     const anfPretty              = this.getAndClearElement("anfPretty")
     const closureConvertedPretty = this.getAndClearElement("closureConvertedPretty")
     const lambdaLiftedPretty     = this.getAndClearElement("lambdaLiftedPretty")
-    const uncurriedPretty        = this.getAndClearElement("uncurriedPretty")
 
     const req = { getInput: source.value }
 
@@ -65,8 +64,7 @@ class App extends React.Component {
         etaExpanded.value            = ts.etaExpanded;
         anfPretty.value              = ts.anfPretty;
         closureConvertedPretty.value = ts.closureConvertedPretty;
-        lambdaLiftedPretty.value     = ts.lambdaLiftedPretty;
-        uncurriedPretty.value        = ts.uncurriedPretty; })
+        lambdaLiftedPretty.value     = ts.lambdaLiftedPretty; })
       .catch(exception => console.log(exception));
   }
 
@@ -98,10 +96,9 @@ class App extends React.Component {
           <textarea id='output' className='editor' spellCheck='false' rows={numRows}></textarea>
         </div>
 
-        <label>Lambda Lifted / Uncurried</label>
+        <label>Lambda Lifted</label>
         <div>
           <textarea id='lambdaLiftedPretty' className='editor' spellCheck='false' rows={numRows}></textarea>
-          <textarea id='uncurriedPretty' className='editor' spellCheck='false' rows={numRows}></textarea>
         </div>
 
         <label>Closure Converted / Examples </label>
