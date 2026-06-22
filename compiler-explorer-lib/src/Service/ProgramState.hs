@@ -6,8 +6,6 @@ import Core.Module
 import Core.Types
 import Parse.LexAndParse
 import Parse.Token
-import Phase.Anf.AnfModule
-import Pretty.Anf2
 import Pretty.Module
 import Pretty.TypedModule
 
@@ -24,9 +22,6 @@ data ProgramState =
                  , getModule           :: !(Either ByteString (Module Untyped ByteString))
                  , getInferred         :: !(Either ByteString (Module (Type ByteString) ByteString))
                  , getEtaExpanded      :: !(Either ByteString (Module (Type ByteString) ByteString))
-                 , getAnfConverted     :: !(Either ByteString (AnfModule ByteString))
-                 , getClosureConverted :: !(Either ByteString (AnfModule ByteString))
-                 , getLambdaLifted     :: !(Either ByteString (AnfModule ByteString))
                  , getOutput           :: !ByteString
                  }
 
@@ -40,12 +35,6 @@ instance ToJSON ProgramState where
             txtInferred               = either decodeUtf8 (\(Module _ _ tdefs) -> pack . unlines . map show $ tdefs) (getInferred ps)
             txtInferredPretty         = either decodeUtf8 renderTypedModule (getInferred ps)
             txtEtaExpanded            = either decodeUtf8 renderTypedModule (getEtaExpanded ps)
-            txtAnfConverted           = either decodeUtf8 (\(AnfModule _ anfdefs) -> pack . unlines . map show $ anfdefs) (getAnfConverted ps)
-            txtAnfPretty              = either decodeUtf8 renderAnfModule (getAnfConverted ps)
-            txtClosureConverted       = either decodeUtf8 (\(AnfModule _ anfdefs) -> pack . unlines . map show $ anfdefs) (getClosureConverted ps)
-            txtClosureConvertedPretty = either decodeUtf8 renderAnfModule (getClosureConverted ps)
-            txtLambdaLifted           = either decodeUtf8 (\(AnfModule _ anfdefs) -> pack . unlines . map show $ anfdefs) (getLambdaLifted ps)
-            txtLambdaLiftedPretty     = either decodeUtf8 renderAnfModule (getLambdaLifted ps)
             txtOutput                 = decodeUtf8 $ getOutput ps
 
         object [ "tokens"                 .= String txtTokens
@@ -54,16 +43,10 @@ instance ToJSON ProgramState where
                , "inferred"               .= String txtInferred
                , "inferredPretty"         .= String txtInferredPretty
                , "etaExpanded"            .= String txtEtaExpanded
-               , "anfConverted"           .= String txtAnfConverted
-               , "anfPretty"              .= String txtAnfPretty
-               , "closureConverted"       .= String txtClosureConverted
-               , "closureConvertedPretty" .= String txtClosureConvertedPretty
-               , "lambdaLifted"           .= String txtLambdaLifted
-               , "lambdaLiftedPretty"     .= String txtLambdaLiftedPretty
                , "output"                 .= String txtOutput
                ]
 
 fromSource :: Text -> ProgramState
-fromSource txt = ProgramState (encodeUtf8 txt) na na na na na na na na ""
+fromSource txt = ProgramState (encodeUtf8 txt) na na na na na ""
     where
     na = Left "Not Available"

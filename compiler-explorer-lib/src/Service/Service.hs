@@ -7,10 +7,7 @@ import Parse.LexAndParse
 import Parse.Lexer
 import Parse.Module
 import Parse.Parser
-import Phase.Anf.AnfModule
-import Phase.ClosureConvert.ClosureConvert
 import Phase.EtaExpand.EtaExpand
-import Phase.LambdaLift.LambdaLift
 import Service.ProgramState
 import TypeSystem.TypeCheck
 
@@ -20,9 +17,6 @@ pipe = do
     phaseParser
     phaseTypeCheck
     phaseEtaExpand
-    phaseAnfConvert
-    phaseClosureConvert
-    phaseLambdaLift
 
     where
     phaseLexer :: State ProgramState ()
@@ -47,14 +41,3 @@ pipe = do
     phaseEtaExpand = modify' $ \ps ->
         ps { getEtaExpanded = etaExpand <$> getInferred ps }
 
-    phaseAnfConvert :: State ProgramState ()
-    phaseAnfConvert = modify' $ \ps ->
-        ps { getAnfConverted = anfModule =<< getEtaExpanded ps }
-
-    phaseClosureConvert :: State ProgramState ()
-    phaseClosureConvert = modify' $ \ps ->
-        ps { getClosureConverted = closureConvert =<< getAnfConverted ps }
-
-    phaseLambdaLift :: State ProgramState ()
-    phaseLambdaLift = modify' $ \ps ->
-        ps { getLambdaLifted = lambdaLift <$> getClosureConverted ps }

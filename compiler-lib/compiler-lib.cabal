@@ -30,15 +30,8 @@ library
                     Parse.Module
                     Parse.Parser
                     Parse.Token
-                    Phase.Anf.AnfExpression
-                    Phase.Anf.AnfModule
-                    Phase.Anf.BetaReduce
-                    Phase.ClosureConvert.ClosureConvert
-                    Phase.ClosureConvert.FreeVars
                     Phase.EtaExpand.EtaExpand
                     Phase.EtaExpand.EtaSaturate
-                    Phase.LambdaLift.Alpha
-                    Phase.LambdaLift.LambdaLift
                     TypeCheck.ConstraintSolver
                     TypeSystem.Common
                     TypeSystem.InferExpression
@@ -60,7 +53,6 @@ test-suite test-compiler-lib
                       Parse.ExpressionTest
                       Parse.LexerTest
                       Parse.LexAndParseTest
-                      Phase.ClosureConvert.FreeVarsTest
                       Phase.EtaExpandTest
                       TypeCheck.TypeCheckTest
                       TypeCheck.TypesCallGraphTest

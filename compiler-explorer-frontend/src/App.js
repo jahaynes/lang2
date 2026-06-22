@@ -46,10 +46,7 @@ class App extends React.Component {
     const prettyDefns            = this.getAndClearElement("prettyDefns")
     const inferredPretty         = this.getAndClearElement("inferredPretty")
     const etaExpanded            = this.getAndClearElement("etaExpanded")
-    const anfPretty              = this.getAndClearElement("anfPretty")
-    const closureConvertedPretty = this.getAndClearElement("closureConvertedPretty")
-    const lambdaLiftedPretty     = this.getAndClearElement("lambdaLiftedPretty")
-
+    
     const req = { getInput: source.value }
 
     fetch("http://127.0.0.1:8080/lexAndParse", { method:  'POST'
@@ -61,10 +58,7 @@ class App extends React.Component {
       .then(ts => {
         prettyDefns.value            = ts.prettyDefns;
         inferredPretty.value         = ts.inferredPretty;
-        etaExpanded.value            = ts.etaExpanded;
-        anfPretty.value              = ts.anfPretty;
-        closureConvertedPretty.value = ts.closureConvertedPretty;
-        lambdaLiftedPretty.value     = ts.lambdaLiftedPretty; })
+        etaExpanded.value            = ts.etaExpanded; })
       .catch(exception => console.log(exception));
   }
 
@@ -95,15 +89,8 @@ class App extends React.Component {
           <textarea id='output' className='single editor' spellCheck='false' rows={numRows}></textarea>
         </div>
 
-        <label>Lambda Lifted / Closure Converted</label>
+        <label>Eta Expanded</label>
         <div>
-          <textarea id='lambdaLiftedPretty' className='single editor' spellCheck='false' rows={numRows}></textarea>
-          <textarea id='closureConvertedPretty' className='single editor' spellCheck='false' rows={numRows}></textarea>
-        </div>
-
-        <label>Anf Converted / Eta Expanded</label>
-        <div>
-          <textarea id='anfPretty' className='single editor' spellCheck='false' rows={numRows}></textarea>
           <textarea id='etaExpanded' className='single editor' spellCheck='false' rows={numRows}></textarea>
         </div>
 
