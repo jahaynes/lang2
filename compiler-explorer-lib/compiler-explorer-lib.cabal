@@ -17,6 +17,7 @@ library
                     unliftio,
                     runtimes,
                     servant-server,
+                    string-interpolate,
                     text,
                     text-builder,
                     vector,
