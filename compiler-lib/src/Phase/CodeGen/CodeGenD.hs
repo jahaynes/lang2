@@ -11,7 +11,7 @@ import Common.ReaderT             (runReaderT')
 import Common.StateT              (evalStateT')
 import Core.Operator
 import Core.Term                  (Term (..))
-import Phase.Anf.AnfExpression    (AExp (..), CExp (..), NExp (..), typeOf)
+import Phase.Anf.AnfExpression    (AExp (..), CExp (..), NExp (..))
 import Phase.Anf.AnfModule        (AnfModule (..), FunDefAnfT (..))
 import Phase.CodeGen.CodeGenDUtil (CgM, Env (..), St (..), bindFreshReg, err, freshReg, getRegister, register, restoreRegisterMap, saveRegisterMap)
 import Phase.CodeGen.TypesD
@@ -51,13 +51,14 @@ data Block s =
 
 -- Placeholder for when it gets real
 codeGenFuncDWhole :: Monad m => FunDefAnfT ByteString -> CgM m [DInstr ByteString]
-codeGenFuncDWhole f = do
-    f' <- codeGenFuncD f
+codeGenFuncDWhole (FunDefAnfT _name _ nexp) = do
+    Block _ is <- codeGenNexp nexp
     -- Clean up excessive intermediate vregs
     -- Then colour
     -- Then add prologue & epilogue to preserve real registers in accordance with ABI
-    pure f'
+    pure is
 
+{-
 codeGenFuncD :: Monad m => FunDefAnfT ByteString -> CgM m [DInstr ByteString]
 codeGenFuncD (FunDefAnfT name _ (AExp (ALam _ vs nexp))) = do
 
@@ -80,10 +81,8 @@ codeGenFuncD (FunDefAnfT name _ (AExp (ALam _ vs nexp))) = do
                   , instrs
                   , [DRet r] ]
 
--- Top-level non-lambdas become lambdas
--- let's see how this bites us when we want top-level constants
-codeGenFuncD (FunDefAnfT name q nexp) =
-    codeGenFuncD (FunDefAnfT name q (AExp (ALam (typeOf nexp) [] nexp)))
+codeGenFuncD x = err [i|Unsupported: #{x}|]
+-}
 
 codeGenNexp :: Monad m => NExp ByteString -> CgM m (Block ByteString)
 codeGenNexp (AExp aexp)  = codeGenAexp aexp
@@ -109,7 +108,28 @@ codeGenAexp (ATerm _ term) = codeGenTerm term
 
     codeGenTerm v = do err [i|codeGenTerm #{v}|]
 
-codeGenAexp ALam{} = err "Should not happen.  All lambdas already lifted"
+codeGenAexp (ALam _ vs nexp) = do
+
+    -- Preserve variables shadowed by 'vs'
+    regMap <- saveRegisterMap
+
+    -- Pop in forward order
+    pops <- forM vs $ \v ->
+                DPop <$> bindFreshReg v
+
+    -- First do the virtual register instructions
+    Block r instrs <- codeGenNexp nexp
+
+    -- Restore lexical scope (unshadow 'vs')
+    restoreRegisterMap regMap
+
+    pure $ Block r (pops ++ instrs)
+
+    -- This is just made up for now:
+   -- pure $ concat [ [DLabel "some func"]
+     --             , pops
+       --           , instrs
+         --         , [DRet r] ]
 
 codeGenAexp (ABinPrimOp _ op a b) = do
     Block ar ainstrs <- codeGenAexp a
