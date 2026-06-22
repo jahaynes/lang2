@@ -1,6 +1,14 @@
 {-# LANGUAGE DeriveFunctor #-}
 
-module Phase.Anf.AnfExpression where
+module Phase.Anf.AnfExpression ( AClosEnv (..)
+                               , AExp (..)
+                               , CExp (..)
+                               , NExp (..)
+                               , PExp (..)
+                               , PPat (..)
+                               , typeOf
+                               , typeOfAExp
+                               ) where
 
 import Core.Operator
 import Core.Term
