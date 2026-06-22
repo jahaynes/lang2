@@ -38,7 +38,7 @@ type Api = "lexAndParse" :> ReqBody '[JSON] Input
 
       :<|> "list-examples" :> Get '[JSON] [Text]
 
-      :<|> "example" :> Capture "closure" Text :> Get '[JSON] Text
+      :<|> "example" :> Capture "name" Text :> Get '[JSON] Text
 
 examplesDir :: FilePath
 examplesDir = "./examples"
