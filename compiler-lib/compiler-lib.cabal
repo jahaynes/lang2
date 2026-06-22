@@ -35,6 +35,7 @@ library
                     Phase.Anf.AnfModule
                     Phase.Anf.BetaReduce
                     Phase.CodeGen.CodeGenD
+                    Phase.CodeGen.CodeGenDUtil
                     Phase.CodeGen.SizeInfo
                     Phase.CodeGen.TagInfo
                     Phase.CodeGen.TypesD
