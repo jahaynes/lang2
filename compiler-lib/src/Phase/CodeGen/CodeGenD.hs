@@ -7,16 +7,12 @@ module Phase.CodeGen.CodeGenD ( codeGenModuleD
                               , renderCodeGenD
                               ) where
 
--- import Common.CallGraph
 import Common.EitherT          (EitherT (..), left)
 import Common.ReaderT          (ReaderT (..), ask, runReaderT')
--- import Common.State
 import Common.StateT           (StateT, evalStateT', get, modify, put)
 import Common.Trans            (lift)
---import Core.Module
 import Core.Operator
 import Core.Term               (Term (..))
---import Core.Types
 import Phase.Anf.AnfExpression (AExp (..), CExp (..), NExp (..), typeOf)
 import Phase.Anf.AnfModule     (AnfModule (..), FunDefAnfT (..))
 import Phase.CodeGen.TypesD
@@ -24,17 +20,13 @@ import Phase.CodeGen.TypesD
 import           Control.Monad               (forM, unless)
 import           Data.ByteString.Char8       (ByteString)
 import qualified Data.ByteString.Char8 as C8
--- import           Data.Functor                ((<&>))
 import           Data.Functor.Identity
 import           Data.Map                    (Map)
 import qualified Data.Map.Strict as M
 import           Data.Set                    (Set)
 import qualified Data.Set as S
-import           Data.String.Interpolate (i)
--- import           Debug.Trace                 (trace)
+import           Data.String.Interpolate     (i)
 
-err :: Monad m => ByteString -> CgM m a
-err msg = left msg
 
 
 renderCodeGenD :: [DInstr ByteString] -> ByteString
@@ -475,3 +467,6 @@ freshNum = lift . lift $ do
 
 --freshBranchLabel :: ByteString -> CgM m ByteString
 --freshBranchLabel pre = freshNum <&> \n -> pre <> C8.pack (show n)
+
+err :: Monad m => ByteString -> CgM m a
+err msg = left msg
