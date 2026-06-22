@@ -23,6 +23,7 @@ library
                     wai-cors,
                     warp
   exposed-modules:  Pretty.Common
+                    Pretty.Direct
                     Pretty.Expression
                     Pretty.Module
                     Pretty.Operator

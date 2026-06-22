@@ -7,6 +7,7 @@ import Parse.LexAndParse
 import Parse.Lexer
 import Parse.Module
 import Parse.Parser
+import Phase.CodeGen.Direct
 import Phase.EtaExpand.EtaExpand
 import Service.ProgramState
 import TypeSystem.TypeCheck
@@ -17,6 +18,7 @@ pipe = do
     phaseParser
     phaseTypeCheck
     phaseEtaExpand
+    phaseCodeGen
 
     where
     phaseLexer :: State ProgramState ()
@@ -41,3 +43,6 @@ pipe = do
     phaseEtaExpand = modify' $ \ps ->
         ps { getEtaExpanded = etaExpand <$> getInferred ps }
 
+    phaseCodeGen :: State ProgramState ()
+    phaseCodeGen = modify' $ \ps ->
+        ps { getCodeGen = codeGen =<< getEtaExpanded ps }

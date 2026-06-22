@@ -46,7 +46,8 @@ class App extends React.Component {
     const prettyDefns            = this.getAndClearElement("prettyDefns")
     const inferredPretty         = this.getAndClearElement("inferredPretty")
     const etaExpanded            = this.getAndClearElement("etaExpanded")
-    
+    const codeGen                = this.getAndClearElement("codeGen")
+
     const req = { getInput: source.value }
 
     fetch("http://127.0.0.1:8080/lexAndParse", { method:  'POST'
@@ -58,7 +59,8 @@ class App extends React.Component {
       .then(ts => {
         prettyDefns.value            = ts.prettyDefns;
         inferredPretty.value         = ts.inferredPretty;
-        etaExpanded.value            = ts.etaExpanded; })
+        etaExpanded.value            = ts.etaExpanded;
+        codeGen.value                = ts.codeGen; })
       .catch(exception => console.log(exception));
   }
 
@@ -77,6 +79,11 @@ class App extends React.Component {
         <label>Source</label>
         <div>
           <textarea id='text' className='double editor' spellCheck='false' rows={numRows} onChange={e => this.lexAndParse()}></textarea>
+        </div>
+
+        <label>CodeGen</label>
+        <div>
+          <textarea id='codeGen' className='double editor' spellCheck='false' rows={numRows} onChange={e => this.lexAndParse()}></textarea>
         </div>
 
         <div>
