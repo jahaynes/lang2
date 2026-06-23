@@ -47,6 +47,13 @@ expandDefn (FunDefn n q e) = do
                             -- TODO could prevent re-use of 'v' here (if alphabetisation needed)
                             tvd = map (\v -> (v, kt ! v)) vd
                         in st { getExtraParams = M.insert n tvd (getExtraParams st) }
+        -- e wasn't a Lam but e' became one (e.g. a variable reference eta-expanded to a lambda):
+        -- all of e''s bound variables are newly introduced extra parameters
+        (_, Lam _ vs' _) ->
+            modify' $ \st ->
+                let kt  = getKnownTypes st
+                    tvd = map (\v -> (v, kt ! v)) vs'
+                in st { getExtraParams = M.insert n tvd (getExtraParams st) }
         _ -> pure ()
 
     pure $ FunDefn n q e'
