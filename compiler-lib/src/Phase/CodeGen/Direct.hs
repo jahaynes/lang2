@@ -38,6 +38,9 @@ data Asm
     | MkClosure Label [ByteString] [ByteString]
         -- ^ build a closure capturing the named locals (2nd arg) and
         -- taking the listed formal parameters (3rd arg)
+    | RecClosure Label ByteString [ByteString] [ByteString]
+        -- ^ build a recursive closure: like MkClosure, but also captures
+        -- the given name as a self-reference pointing to the closure itself
     | Apply Int                     -- ^ apply the closure on the stack to N args
     | Call ByteString               -- ^ direct call to a top-level function (args on stack)
     | Ret                           -- ^ return from a function / closure
@@ -164,10 +167,23 @@ compileExpr (App _ f xs) = case f of
         argInstrs <- concat <$> mapM compileExpr xs
         pure (fInstrs ++ argInstrs ++ [Apply (length xs)])
 
-compileExpr (Let _ name bind body) = do
-    bindInstrs <- compileExpr bind
-    bodyInstrs <- compileExpr body
-    pure (bindInstrs ++ [Store name] ++ bodyInstrs)
+-- A recursive let (where the bound name appears in the lambda's free
+-- variables) uses 'RecClosure' to create a closure that captures itself,
+-- enabling recursive calls to find the closure in the environment.
+compileExpr (Let _ name bind body) = case bind of
+    Lam _ vs bodyExpr | name `elem` freeVarsExpr bind -> do
+        l          <- freshLabel
+        bodyInstrs <- compileExpr bodyExpr
+        addClosure l (bodyInstrs ++ [Ret])
+        let captured = nub (filter (/= name) (freeVarsExpr bodyExpr \\ vs))
+        bodyInstrs' <- compileExpr body
+        pure ([ RecClosure l name captured vs
+             , Store name
+             ] ++ bodyInstrs')
+    _ -> do
+        bindInstrs <- compileExpr bind
+        bodyInstrs <- compileExpr body
+        pure (bindInstrs ++ [Store name] ++ bodyInstrs)
 
 compileExpr (UnPrimOp _ op a) = do
     aInstrs <- compileExpr a

@@ -167,6 +167,12 @@ runCode' funs globals0 frame0 =
             MkClosure l captured params ->
                 let env = Map.restrictKeys (fLocs frame) (Set.fromList captured)
                 in go globals frame { fPc = pc, fStk = VClosure l env params : fStk frame }
+            RecClosure l self captured params ->
+                let env0 = Map.restrictKeys (fLocs frame) (Set.fromList captured)
+                    -- Create a temporary closure so we can capture it as self;
+                    -- the env incorporates the self-reference.
+                    selfClosure = VClosure l (Map.insert self selfClosure env0) params
+                in go globals frame { fPc = pc, fStk = selfClosure : fStk frame }
             Apply n         -> doApply globals frame pc n
             Call fn         -> doCall globals frame pc fn
             Ret             -> retFrom frame

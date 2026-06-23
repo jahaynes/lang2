@@ -21,7 +21,9 @@ library
 
 test-suite test-runtimes
     build-depends:    bytestring,
-                      runtimes
+                      runtimes,
+                      compiler-lib,
+                      text
     ghc-options:      -Wall -O2
     type:             exitcode-stdio-1.0
     main-is:          Tests.hs
