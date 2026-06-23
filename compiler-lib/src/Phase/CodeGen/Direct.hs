@@ -101,16 +101,18 @@ codeGen (Module _ _ funDefns) =
 -- Functions
 
 compileFunDefn :: FunDefn t ByteString -> Func
-compileFunDefn (FunDefn name quant body) =
-    let params       = quantParams quant
-        (instrs, st) = runState (compileExpr body) initGen
+compileFunDefn (FunDefn name _quant body) =
+    let (params, innerBody) = peelLams body
+        (instrs, st) = runState (compileExpr innerBody) initGen
         GenState _ cs = st
         lifted       = concatMap (\(l, b) -> MkLabel l : b) (reverse cs)
     in Func name params (instrs ++ [Ret] ++ lifted)
 
-quantParams :: Quant ByteString -> [ByteString]
-quantParams (Quant ps) = ps
-quantParams Unquant    = []
+-- | Extract the formal parameters from a chain of lambdas and return the
+-- inner (non-lambda) body.
+peelLams :: Expr t s -> ([s], Expr t s)
+peelLams (Lam _ vs body) = let (vs', body') = peelLams body in (vs ++ vs', body')
+peelLams body            = ([], body)
 
 --------------------------------------------------------------------------------
 -- Expressions
@@ -279,7 +281,7 @@ freeVarsPat :: Pattern t ByteString -> [ByteString]
 freeVarsPat (Pattern _ body) = freeVarsExpr body
 
 freeVarsTerm :: Term ByteString -> [ByteString]
-freeVarsTerm (Var _)       = []
+freeVarsTerm (Var s)       = [s]
 freeVarsTerm (DCons _)     = []
 freeVarsTerm (LitInt _)    = []
 freeVarsTerm (LitBool _)   = []
