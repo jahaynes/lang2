@@ -35,7 +35,9 @@ data Asm
     | Load ByteString               -- ^ load a named local onto the stack
     | Store ByteString              -- ^ pop the stack and store into a named local
     | Pop                           -- ^ discard the top of the stack
-    | MkClosure Label [ByteString]  -- ^ build a closure capturing the named locals
+    | MkClosure Label [ByteString] [ByteString]
+        -- ^ build a closure capturing the named locals (2nd arg) and
+        -- taking the listed formal parameters (3rd arg)
     | Apply Int                     -- ^ apply the closure on the stack to N args
     | Call ByteString               -- ^ direct call to a top-level function (args on stack)
     | Ret                           -- ^ return from a function / closure
@@ -132,7 +134,7 @@ compileExpr (Lam _ vs body) = do
     l         <- freshLabel
     bodyInstrs <- compileExpr body
     addClosure l (bodyInstrs ++ [Ret])
-    pure [MkClosure l captured]
+    pure [MkClosure l captured vs]
 
 -- A saturated constructor application packs its fields; a top-level
 -- function name is called directly; anything else is treated as a

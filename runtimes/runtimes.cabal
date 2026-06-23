@@ -12,6 +12,7 @@ library
                     bytestring,
                     containers,
                     compiler-lib,
+                    string-interpolate,
                     vector
   ghc-options:      -Wall -O2
   hs-source-dirs:   src

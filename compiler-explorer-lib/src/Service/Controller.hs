@@ -9,6 +9,7 @@ module Service.Controller (runController) where
 import Common.State
 import Service.ProgramState
 import Service.Service                       (pipe)
+import Runtimes.DirectMachine                (runMain, showValue)
 
 import           Control.Monad.IO.Class      (liftIO)
 import           Data.Aeson
@@ -17,6 +18,7 @@ import           Data.IORef
 import           Data.Text                   (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
+import           Data.Text.Encoding          (decodeUtf8)
 import           GHC.Generics                (Generic)
 import           Network.Wai.Handler.Warp    (run)
 import           Network.Wai.Middleware.Cors (CorsResourcePolicy (..), cors)
@@ -60,7 +62,11 @@ server ioref = setProgramState
     runCurrentProgramState = liftIO $
         readIORef ioref <&> \case
             Nothing -> ("No stored program!", "No stored program!")
-            Just ps -> ("Not implemented", "Not implemented")
+            Just ps -> case getCodeGen ps of
+                Left err  -> (decodeUtf8 err, "")
+                Right code -> case runMain code of
+                    Right val -> ("", decodeUtf8 $ showValue val)
+                    Left err  -> (T.pack err, "")
 
     listExamples :: Handler [Text]
     listExamples = liftIO $
