@@ -96,7 +96,7 @@ buildLabels :: [Asm] -> Map Label Int
 buildLabels = go 0 Map.empty
   where
     go _ acc []              = acc
-    go i acc (MkLabel l : _)  = Map.insert l i acc
+    go i acc (MkLabel l : rest) = go (i + 1) (Map.insert l i acc) rest
     go i acc (_ : rest)       = go (i + 1) acc rest
 
 -- | Look up a top-level function by name.
@@ -233,7 +233,7 @@ runCode' funs globals0 frame0 =
     jump globals frame l =
         case Map.lookup l (fLbls frame) of
             Just i  -> go globals frame { fPc = i }
-            Nothing -> Left "runtime error: jump to unknown label"
+            Nothing -> Left [i|runtime error: jump to unknown label: #{l}|]
 
     -- | Apply the callable on the stack to N arguments.  The args and the
     -- callable are popped; the callee is entered recursively; on return its
