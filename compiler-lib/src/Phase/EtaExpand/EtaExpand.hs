@@ -73,7 +73,7 @@ expandExpr e@(App t f xs) =
         TyArr{} -> do
             let tf = typeOf f
             (at, t', vs, args) <- underAppliedToLambda tf xs
-            pure $ Lam t' vs (App at f (xs ++ args))
+            pure $ Lam at vs (App t' f (xs ++ args))
         _       -> pure e
 
 expandExpr (Let t a b c) =
