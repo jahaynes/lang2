@@ -151,7 +151,9 @@ runCode' funs globals0 frame0 =
             Load n          ->
                 case Map.lookup n (fLocs frame) of
                     Just v  -> go globals frame { fPc = pc, fStk = v : fStk frame }
-                    Nothing -> Left ("runtime error: unbound local " ++ C8.unpack n)
+                    Nothing ->
+                        -- Not a local; try it as a top-level function reference
+                        go globals frame { fPc = pc, fStk = VFunc n : fStk frame }
             Store n         ->
                 case fStk frame of
                     (v : rest) -> go globals frame { fPc = pc
@@ -236,19 +238,43 @@ runCode' funs globals0 frame0 =
             Nothing -> Left [i|runtime error: jump to unknown label: #{l}|]
 
     -- | Apply the callable on the stack to N arguments.  The args and the
-    -- callable are popped; the callee is entered recursively; on return its
-    -- result is pushed onto the caller's (now truncated) stack and
-    -- execution continues at @pc@.
+    -- callable are popped; the callee is entered recursively.  If the
+    -- callable receives more arguments than its arity, the result is
+    -- itself applied to the remaining arguments (currying).
     doApply globals frame pc n =
         case popN (fStk frame) n of
             Nothing -> Left "runtime error: Apply underflow"
             Just (args, rest) ->
                 case rest of
-                    (f : rest') -> case dispatch globals f args of
-                                       Right callee -> do v <- go globals callee
-                                                          go globals frame { fPc = pc, fStk = v : rest' }
-                                       Left e       -> Left e
+                    (f : rest') -> applyValue globals frame pc rest' f args
                     [] -> Left "runtime error: Apply with no callable"
+
+    -- | Repeatedly apply a callable value to arguments, currying when there
+    -- are more arguments than the callable's arity.
+    applyValue globals frame pc rest f args = case f of
+        VFunc name ->
+            case lookupFunc funs name of
+                Just cc ->
+                    let arity = length (ccParams cc)
+                        (direct, restArgs) = splitAt arity args
+                    in if null restArgs
+                       then do v <- go globals (enterFunc cc direct)
+                               go globals frame { fPc = pc, fStk = v : rest }
+                       else do v <- go globals (enterFunc cc direct)
+                               applyValue globals frame pc rest v restArgs
+                Nothing -> Left ("runtime error: unknown function " ++ C8.unpack name)
+        VClosure l env params ->
+            let arity = length params
+                (direct, restArgs) = splitAt arity args
+            in case findClosureCode globals l of
+                Just cc ->
+                    if null restArgs
+                    then do v <- go globals (enterClosure cc l env params direct)
+                            go globals frame { fPc = pc, fStk = v : rest }
+                    else do v <- go globals (enterClosure cc l env params direct)
+                            applyValue globals frame pc rest v restArgs
+                Nothing -> Left "runtime error: closure label not found"
+        _ -> Left ("runtime error: cannot apply non-function value: " ++ show f)
 
     -- | Direct call to a named function.  The arguments are already on the
     -- stack; the callee is entered recursively and its result replaces the

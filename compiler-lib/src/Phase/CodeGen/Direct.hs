@@ -97,18 +97,25 @@ addClosure l body = modify' $ \(GenState n cs) -> GenState n ((l, body) : cs)
 -- phases); the type annotation @t@ is ignored.
 codeGen :: Module t ByteString -> Either ByteString Code
 codeGen (Module _ _ funDefns) =
-    Right (Code (map compileFunDefn funDefns) [])
+    Right (Code (fst (runState (compileAllDefns funDefns) initGen)) [])
+
+compileAllDefns :: [FunDefn t ByteString] -> Gen [Func]
+compileAllDefns = mapM compileFunDefn
 
 --------------------------------------------------------------------------------
 -- Functions
 
-compileFunDefn :: FunDefn t ByteString -> Func
-compileFunDefn (FunDefn name _quant body) =
+compileFunDefn :: FunDefn t ByteString -> Gen Func
+compileFunDefn (FunDefn name _quant body) = do
     let (params, innerBody) = peelLams body
-        (instrs, st) = runState (compileExpr innerBody) initGen
-        GenState _ cs = st
-        lifted       = concatMap (\(l, b) -> MkLabel l : b) (reverse cs)
-    in Func name params (instrs ++ [Ret] ++ lifted)
+    -- Reset the closure list for this function, but keep the label counter
+    -- so labels are globally unique across all compiled functions.
+    GenState n _ <- get
+    put (GenState n [])
+    instrs <- compileExpr innerBody
+    GenState _ cs <- get
+    let lifted = concatMap (\(l, b) -> MkLabel l : b) (reverse cs)
+    pure $ Func name params (instrs ++ [Ret] ++ lifted)
 
 -- | Extract the formal parameters from a chain of lambdas and return the
 -- inner (non-lambda) body.
@@ -137,15 +144,21 @@ compileExpr (Lam _ vs body) = do
     pure [MkClosure l captured vs]
 
 -- A saturated constructor application packs its fields; a top-level
--- function name is called directly; anything else is treated as a
--- closure value applied to its arguments.
+-- function name is pushed as a function reference; anything else is
+-- treated as a closure value applied to its arguments.  Using 'PushVar'
+-- + 'Apply' instead of 'Call' ensures that over-saturated calls
+-- (more arguments than the function's arity) are properly curried:
+-- the function is called with its arity and the result is then applied
+-- to any remaining arguments via 'dispatch' in the runtime.
 compileExpr (App _ f xs) = case f of
     Term _ (DCons c) -> do
         argInstrs <- concat <$> mapM compileExpr xs
         pure (argInstrs ++ [MkData c (length xs)])
     Term _ (Var fn)  -> do
+        -- Compile the function normally (Load from locals or globals)
+        fInstrs   <- compileExpr f
         argInstrs <- concat <$> mapM compileExpr xs
-        pure (argInstrs ++ [Call fn])
+        pure (fInstrs ++ argInstrs ++ [Apply (length xs)])
     _                -> do
         fInstrs   <- compileExpr f
         argInstrs <- concat <$> mapM compileExpr xs
