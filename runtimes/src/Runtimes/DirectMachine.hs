@@ -254,30 +254,43 @@ runCode' funs globals0 frame0 =
     -- stack; the callee is entered recursively and its result replaces the
     -- argument block on the caller's stack.
     doCall globals frame pc fn =
-        case resolveCallable globals (fLocs frame) fn of
-            Right (callee, argCount) ->
+        case callableArity globals (fLocs frame) fn of
+            Right argCount ->
                 case popN (fStk frame) argCount of
                     Nothing -> Left "runtime error: Call underflow"
-                    Just (args, rest) -> do v <- go globals callee
-                                            go globals frame { fPc = pc, fStk = v : rest }
+                    Just (args, rest) ->
+                        case buildCallee globals (fLocs frame) fn args of
+                            Right callee -> do v <- go globals callee
+                                               go globals frame { fPc = pc, fStk = v : rest }
+                            Left e       -> Left e
             Left e -> Left e
 
-    -- | Resolve a name to a callable and report how many arguments to pop.
-    -- A local binding that is itself a function/closure value is used
-    -- directly; otherwise we fall back to the global function table.
-    resolveCallable globals locs fn =
+    -- | Get the argument count for a callable by name.
+    callableArity globals locs fn =
+        case Map.lookup fn locs of
+            Just (VClosure _ _ params) -> Right (length params)
+            Just (VFunc name)          -> case lookupFunc funs name of
+                Just cc -> Right (length (ccParams cc))
+                Nothing -> Left ("runtime error: unknown function " ++ C8.unpack name)
+            _                          -> case lookupFunc funs fn of
+                Just cc -> Right (length (ccParams cc))
+                Nothing -> Left ("runtime error: unknown function " ++ C8.unpack fn)
+
+    -- | Build the callee frame for a named callable, binding the supplied
+    -- arguments to its formal parameters.
+    buildCallee globals locs fn args =
         case Map.lookup fn locs of
             Just (VClosure l env params) ->
                 case findClosureCode globals l of
-                    Just cc -> Right (enterClosure cc l env params [], length params)
+                    Just cc -> Right (enterClosure cc l env params args)
                     Nothing -> Left "runtime error: closure label not found"
             Just (VFunc name) ->
                 case lookupFunc funs name of
-                    Just cc -> Right (enterFunc cc [], length (ccParams cc))
+                    Just cc -> Right (enterFunc cc args)
                     Nothing -> Left ("runtime error: unknown function " ++ C8.unpack name)
             _ ->
                 case lookupFunc funs fn of
-                    Just cc -> Right (enterFunc cc [], length (ccParams cc))
+                    Just cc -> Right (enterFunc cc args)
                     Nothing -> Left ("runtime error: unknown function " ++ C8.unpack fn)
 
     -- | Dispatch a value-as-callable to its arguments.
