@@ -81,9 +81,10 @@ class App extends React.Component {
           <textarea id='text' className='double editor' spellCheck='false' rows={numRows} onChange={e => this.lexAndParse()}></textarea>
         </div>
 
-        <label>CodeGen</label>
+        <label>CodeGen / Eta Expanded</label>
         <div>
-          <textarea id='codeGen' className='double editor' spellCheck='false' rows={numRows} onChange={e => this.lexAndParse()}></textarea>
+          <textarea id='codeGen' className='single editor' spellCheck='false' rows={numRows} onChange={e => this.lexAndParse()}></textarea>
+          <textarea id='etaExpanded' className='single editor' spellCheck='false' rows={numRows}></textarea>
         </div>
 
         <div>
@@ -96,20 +97,12 @@ class App extends React.Component {
           <textarea id='output' className='single editor' spellCheck='false' rows={numRows}></textarea>
         </div>
 
-        <label>Eta Expanded</label>
+        <label>Definitions / Types</label>
         <div>
-          <textarea id='etaExpanded' className='single editor' spellCheck='false' rows={numRows}></textarea>
-        </div>
-
-        <label>Type Inference / Pretty</label>
-        <div>
+          <textarea id='prettyDefns' className='single editor' spellCheck='false' rows={numRows}></textarea>
           <textarea id='inferredPretty' className='single editor' spellCheck='false' rows={numRows}></textarea>
         </div>
 
-        <label>Tokens / Definitions</label>
-        <div>
-          <textarea id='prettyDefns' className='single editor' spellCheck='false' rows={numRows}></textarea>
-        </div>
       </div>
     );
   }
