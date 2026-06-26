@@ -1,0 +1,7 @@
+I should combine several phases into one:
+
+  ANF
+  Lambda Lifting
+  Closure Conversion?
+
+Such that the ANF-Expressions no longer have a Lam constructor
