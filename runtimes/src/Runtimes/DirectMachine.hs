@@ -124,8 +124,8 @@ enterClosure cc l captured params args =
 -- The interpreter loop
 
 -- | The main interpreter loop.  The machine's call stack is the Haskell
--- call stack: 'doCall'/'doApply' recurse into the callee, and 'retFrom'
--- returns a value to the caller (which is the caller of 'runCode').
+-- call stack: 'doApply' recurses into the callee, and 'retFrom' returns
+-- a value to the caller (which is the caller of 'runCode').
 runCode' :: [Func]
          -> Map ByteString ClosureCode
          -> Frame
@@ -144,10 +144,10 @@ runCode' funs globals0 frame0 =
     step globals frame asm =
         let pc = fPc frame + 1 in
         case asm of
-            PushInt n       -> go globals frame { fPc = pc, fStk = VInt n  : fStk frame }
-            PushBool b      -> go globals frame { fPc = pc, fStk = VBool b : fStk frame }
-            PushStr s       -> go globals frame { fPc = pc, fStk = VStr s   : fStk frame }
-            PushVar v       -> go globals frame { fPc = pc, fStk = VFunc v : fStk frame }
+            PushLit lit       -> case lit of
+                LInt n  -> go globals frame { fPc = pc, fStk = VInt n  : fStk frame }
+                LBool b -> go globals frame { fPc = pc, fStk = VBool b : fStk frame }
+                LStr s  -> go globals frame { fPc = pc, fStk = VStr s  : fStk frame }
             Load n          ->
                 case Map.lookup n (fLocs frame) of
                     Just v  -> go globals frame { fPc = pc, fStk = v : fStk frame }
@@ -164,17 +164,19 @@ runCode' funs globals0 frame0 =
                 case fStk frame of
                     (_ : rest) -> go globals frame { fPc = pc, fStk = rest }
                     []          -> Left "runtime error: Pop on empty stack"
-            MkClosure l captured params ->
-                let env = Map.restrictKeys (fLocs frame) (Set.fromList captured)
-                in go globals frame { fPc = pc, fStk = VClosure l env params : fStk frame }
-            RecClosure l self captured params ->
-                let env0 = Map.restrictKeys (fLocs frame) (Set.fromList captured)
-                    -- Create a temporary closure so we can capture it as self;
-                    -- the env incorporates the self-reference.
-                    selfClosure = VClosure l (Map.insert self selfClosure env0) params
-                in go globals frame { fPc = pc, fStk = selfClosure : fStk frame }
+            MkClosure l self captured params ->
+                case self of
+                    Nothing ->
+                        let env = Map.restrictKeys (fLocs frame) (Set.fromList captured)
+                        in go globals frame { fPc = pc, fStk = VClosure l env params : fStk frame }
+                    Just name ->
+                        let env0 = Map.restrictKeys (fLocs frame) (Set.fromList captured)
+                            -- Create a temporary closure so we can capture it as self;
+                            -- the env incorporates the self-reference.
+                            selfClosure = VClosure l (Map.insert name selfClosure env0) params
+                        in go globals frame { fPc = pc, fStk = selfClosure : fStk frame }
             Apply n         -> doApply globals frame pc n
-            Call fn         -> doCall globals frame pc fn
+            
             Ret             -> retFrom frame
             MkData c k      ->
                 case popN (fStk frame) k of
@@ -208,34 +210,35 @@ runCode' funs globals0 frame0 =
                              else jump globals frame { fStk = rest } l
                     (v : _) -> Left ("runtime error: JumpIfFalse on non-bool: " ++ show v)
                     []      -> Left "runtime error: JumpIfFalse on empty stack"
-            MatchCtor c l   ->
-                case fStk frame of
-                    (VData c' _ : _) -> if c == c'
-                                           then jump globals frame l
-                                           else go globals frame { fPc = pc }
-                    (_ : _) -> go globals frame { fPc = pc }
-                    []      -> Left "runtime error: MatchCtor on empty stack"
-            MatchInt n l    ->
-                case fStk frame of
-                    (VInt n' : _) -> if n == n'
-                                        then jump globals frame l
-                                        else go globals frame { fPc = pc }
-                    (_ : _) -> go globals frame { fPc = pc }
-                    []      -> Left "runtime error: MatchInt on empty stack"
-            MatchBool b l   ->
-                case fStk frame of
-                    (VBool b' : _) -> if b == b'
-                                         then jump globals frame l
-                                         else go globals frame { fPc = pc }
-                    (_ : _) -> go globals frame { fPc = pc }
-                    []      -> Left "runtime error: MatchBool on empty stack"
-            MatchStr s l    ->
-                case fStk frame of
-                    (VStr s' : _) -> if s == s'
-                                        then jump globals frame l
-                                        else go globals frame { fPc = pc }
-                    (_ : _) -> go globals frame { fPc = pc }
-                    []      -> Left "runtime error: MatchStr on empty stack"
+            Match test l     -> case test of
+                MCtor c ->
+                    case fStk frame of
+                        (VData c' _ : _) -> if c == c'
+                                               then jump globals frame l
+                                               else go globals frame { fPc = pc }
+                        (_ : _) -> go globals frame { fPc = pc }
+                        []      -> Left "runtime error: MatchCtor on empty stack"
+                MInt n  ->
+                    case fStk frame of
+                        (VInt n' : _) -> if n == n'
+                                            then jump globals frame l
+                                            else go globals frame { fPc = pc }
+                        (_ : _) -> go globals frame { fPc = pc }
+                        []      -> Left "runtime error: MatchInt on empty stack"
+                MBool b ->
+                    case fStk frame of
+                        (VBool b' : _) -> if b == b'
+                                             then jump globals frame l
+                                             else go globals frame { fPc = pc }
+                        (_ : _) -> go globals frame { fPc = pc }
+                        []      -> Left "runtime error: MatchBool on empty stack"
+                MStr s  ->
+                    case fStk frame of
+                        (VStr s' : _) -> if s == s'
+                                            then jump globals frame l
+                                            else go globals frame { fPc = pc }
+                        (_ : _) -> go globals frame { fPc = pc }
+                        []      -> Left "runtime error: MatchStr on empty stack"
             Halt             -> Left "runtime error: non-exhaustive patterns (Halt reached)"
 
     jump globals frame l =
@@ -280,61 +283,6 @@ runCode' funs globals0 frame0 =
                     else do v <- go globals (enterClosure cc l env params direct)
                             applyValue globals frame pc rest v restArgs
                 Nothing -> Left "runtime error: closure label not found"
-        _ -> Left ("runtime error: cannot apply non-function value: " ++ show f)
-
-    -- | Direct call to a named function.  The arguments are already on the
-    -- stack; the callee is entered recursively and its result replaces the
-    -- argument block on the caller's stack.
-    doCall globals frame pc fn =
-        case callableArity globals (fLocs frame) fn of
-            Right argCount ->
-                case popN (fStk frame) argCount of
-                    Nothing -> Left "runtime error: Call underflow"
-                    Just (args, rest) ->
-                        case buildCallee globals (fLocs frame) fn args of
-                            Right callee -> do v <- go globals callee
-                                               go globals frame { fPc = pc, fStk = v : rest }
-                            Left e       -> Left e
-            Left e -> Left e
-
-    -- | Get the argument count for a callable by name.
-    callableArity globals locs fn =
-        case Map.lookup fn locs of
-            Just (VClosure _ _ params) -> Right (length params)
-            Just (VFunc name)          -> case lookupFunc funs name of
-                Just cc -> Right (length (ccParams cc))
-                Nothing -> Left ("runtime error: unknown function " ++ C8.unpack name)
-            _                          -> case lookupFunc funs fn of
-                Just cc -> Right (length (ccParams cc))
-                Nothing -> Left ("runtime error: unknown function " ++ C8.unpack fn)
-
-    -- | Build the callee frame for a named callable, binding the supplied
-    -- arguments to its formal parameters.
-    buildCallee globals locs fn args =
-        case Map.lookup fn locs of
-            Just (VClosure l env params) ->
-                case findClosureCode globals l of
-                    Just cc -> Right (enterClosure cc l env params args)
-                    Nothing -> Left "runtime error: closure label not found"
-            Just (VFunc name) ->
-                case lookupFunc funs name of
-                    Just cc -> Right (enterFunc cc args)
-                    Nothing -> Left ("runtime error: unknown function " ++ C8.unpack name)
-            _ ->
-                case lookupFunc funs fn of
-                    Just cc -> Right (enterFunc cc args)
-                    Nothing -> Left ("runtime error: unknown function " ++ C8.unpack fn)
-
-    -- | Dispatch a value-as-callable to its arguments.
-    dispatch globals f args = case f of
-        VClosure l env params ->
-            case findClosureCode globals l of
-                Just cc -> Right (enterClosure cc l env params args)
-                Nothing -> Left "runtime error: closure label not found"
-        VFunc name ->
-            case lookupFunc funs name of
-                Just cc -> Right (enterFunc cc args)
-                Nothing -> Left ("runtime error: unknown function " ++ C8.unpack name)
         _ -> Left ("runtime error: cannot apply non-function value: " ++ show f)
 
     -- | Find the 'ClosureCode' (function body + label map) that contains a

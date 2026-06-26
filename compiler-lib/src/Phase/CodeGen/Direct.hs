@@ -4,6 +4,8 @@ module Phase.CodeGen.Direct ( Asm (..)
                             , Code (..)
                             , Func (..)
                             , Label (..)
+                            , LitValue (..)
+                            , MatchTest (..)
                             , codeGen
                             ) where
 
@@ -21,6 +23,20 @@ import           Data.List       (nub, (\\))
 data Label = Label Int
     deriving (Eq, Ord, Show)
 
+-- | A literal value that can be pushed onto the operand stack.
+data LitValue = LInt  !Integer
+              | LBool !Bool
+              | LStr  !ByteString
+    deriving (Eq, Show)
+
+-- | The test performed by a 'Match' instruction: peek the top of the
+-- stack and jump to the label if the value matches.
+data MatchTest = MCtor !ByteString
+               | MInt  !Integer
+               | MBool !Bool
+               | MStr  !ByteString
+    deriving (Eq, Show)
+
 -- | Simple, stack-machine style assembly-like instructions.
 --
 -- The model is a stack machine: an expression is compiled so that its
@@ -28,21 +44,16 @@ data Label = Label Int
 -- @let@-bound names, pattern variables) live in a named environment and
 -- are accessed with 'Store' \/ 'Load'.
 data Asm
-    = PushInt Integer               -- ^ push an integer literal
-    | PushBool Bool                 -- ^ push a boolean literal
-    | PushStr ByteString            -- ^ push a string literal
-    | PushVar ByteString            -- ^ push a global (top-level) reference
+    = PushLit LitValue              -- ^ push a literal value onto the stack
     | Load ByteString               -- ^ load a named local onto the stack
     | Store ByteString              -- ^ pop the stack and store into a named local
     | Pop                           -- ^ discard the top of the stack
-    | MkClosure Label [ByteString] [ByteString]
-        -- ^ build a closure capturing the named locals (2nd arg) and
-        -- taking the listed formal parameters (3rd arg)
-    | RecClosure Label ByteString [ByteString] [ByteString]
-        -- ^ build a recursive closure: like MkClosure, but also captures
-        -- the given name as a self-reference pointing to the closure itself
+    | MkClosure Label (Maybe ByteString) [ByteString] [ByteString]
+        -- ^ build a closure capturing the named locals (3rd arg) and
+        -- taking the listed formal parameters (4th arg).  The optional
+        -- 'ByteString' (2nd arg) is a self-reference name for recursive
+        -- closures ('Nothing' for non-recursive).
     | Apply Int                     -- ^ apply the closure on the stack to N args
-    | Call ByteString               -- ^ direct call to a top-level function (args on stack)
     | Ret                           -- ^ return from a function / closure
     | MkData ByteString Int         -- ^ pack N fields from the stack into a constructor
     | Unpack Int                    -- ^ pop a data value, push its N fields
@@ -51,10 +62,7 @@ data Asm
     | MkLabel Label                  -- ^ a code label (jump target)
     | Jump Label                    -- ^ unconditional jump
     | JumpIfFalse Label             -- ^ pop a bool, jump if it was false
-    | MatchCtor ByteString Label    -- ^ peek top; jump if it is the named constructor
-    | MatchInt Integer Label        -- ^ peek top; jump if it is the named integer
-    | MatchBool Bool Label          -- ^ peek top; jump if it is the named boolean
-    | MatchStr ByteString Label     -- ^ peek top; jump if it is the named string
+    | Match MatchTest Label         -- ^ peek top; jump if it matches the test
     | Halt                          -- ^ stop execution (e.g. no pattern matched)
         deriving (Eq, Show)
 
@@ -144,15 +152,14 @@ compileExpr (Lam _ vs body) = do
     l         <- freshLabel
     bodyInstrs <- compileExpr body
     addClosure l (bodyInstrs ++ [Ret])
-    pure [MkClosure l captured vs]
+    pure [MkClosure l Nothing captured vs]
 
 -- A saturated constructor application packs its fields; a top-level
--- function name is pushed as a function reference; anything else is
--- treated as a closure value applied to its arguments.  Using 'PushVar'
--- + 'Apply' instead of 'Call' ensures that over-saturated calls
--- (more arguments than the function's arity) are properly curried:
--- the function is called with its arity and the result is then applied
--- to any remaining arguments via 'dispatch' in the runtime.
+-- function name is loaded as a function reference; anything else is
+-- treated as a closure value applied to its arguments.  Using 'Load'
+-- + 'Apply' ensures that over-saturated calls (more arguments than the
+-- function's arity) are properly curried: the function is called with
+-- its arity and the result is then applied to any remaining arguments.
 compileExpr (App _ f xs) = case f of
     Term _ (DCons c) -> do
         argInstrs <- concat <$> mapM compileExpr xs
@@ -168,7 +175,7 @@ compileExpr (App _ f xs) = case f of
         pure (fInstrs ++ argInstrs ++ [Apply (length xs)])
 
 -- A recursive let (where the bound name appears in the lambda's free
--- variables) uses 'RecClosure' to create a closure that captures itself,
+-- variables) uses 'MkClosure' with a 'Just' self-reference name,
 -- enabling recursive calls to find the closure in the environment.
 compileExpr (Let _ name bind body) = case bind of
     Lam _ vs bodyExpr | name `elem` freeVarsExpr bind -> do
@@ -177,7 +184,7 @@ compileExpr (Let _ name bind body) = case bind of
         addClosure l (bodyInstrs ++ [Ret])
         let captured = nub (filter (/= name) (freeVarsExpr bodyExpr \\ vs))
         bodyInstrs' <- compileExpr body
-        pure ([ RecClosure l name captured vs
+        pure ([ MkClosure l (Just name) captured vs
              , Store name
              ] ++ bodyInstrs')
     _ -> do
@@ -263,15 +270,15 @@ compilePattern tmp lEnd (Pattern pat body) = do
 --     (so no trailing 'Pop' is needed).
 compilePatTest :: Expr t ByteString -> Label -> Gen ([Asm], [Asm], Bool)
 compilePatTest pat lBody = case pat of
-    Term _ (LitInt n)    -> pure ([MatchInt n lBody],    [Pop], False)
-    Term _ (LitBool b)   -> pure ([MatchBool b lBody],   [Pop], False)
-    Term _ (LitString s) -> pure ([MatchStr s lBody],    [Pop], False)
-    Term _ (Var v)       -> pure ([Store v, Jump lBody], [],   True)
-    Term _ (DCons c)     -> pure ([MatchCtor c lBody],   [Unpack 0], False)
+    Term _ (LitInt n)    -> pure ([Match (MInt n) lBody],  [Pop], False)
+    Term _ (LitBool b)   -> pure ([Match (MBool b) lBody], [Pop], False)
+    Term _ (LitString s) -> pure ([Match (MStr s) lBody],  [Pop], False)
+    Term _ (Var v)       -> pure ([Store v, Jump lBody],   [],   True)
+    Term _ (DCons c)     -> pure ([Match (MCtor c) lBody], [Unpack 0], False)
     App _ (Term _ (DCons c)) argTerms ->
         let arity      = length argTerms
             bindInstrs = concatMap bindField (reverse argTerms)
-        in pure ([MatchCtor c lBody], Unpack arity : bindInstrs, False)
+        in pure ([Match (MCtor c) lBody], Unpack arity : bindInstrs, False)
     -- Anything else is treated as a catch-all.
     _ -> pure ([Jump lBody], [Pop], True)
 
@@ -287,9 +294,9 @@ bindField _                = [Pop]
 compileTerm :: Term ByteString -> [Asm]
 compileTerm (Var s)       = [Load s]
 compileTerm (DCons c)     = [MkData c 0]
-compileTerm (LitInt n)    = [PushInt n]
-compileTerm (LitBool b)   = [PushBool b]
-compileTerm (LitString s) = [PushStr s]
+compileTerm (LitInt n)    = [PushLit (LInt n)]
+compileTerm (LitBool b)   = [PushLit (LBool b)]
+compileTerm (LitString s) = [PushLit (LStr s)]
 
 --------------------------------------------------------------------------------
 -- Free variables (for closure capture)
