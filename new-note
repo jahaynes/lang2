@@ -1,0 +1,5 @@
+It should be possible to generate arbitrary programs for testing, by keeping a few things in mind
+
+* STLC terminates
+* We can choose the types of the program such that it will normalise
+* As long as we rule out general recursion, or introduce fuel
