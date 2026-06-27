@@ -17,6 +17,21 @@ type Anf s a =
     EitherT ByteString (
         State (AnfState s)) a
 
+{-
+
+    main = let x = 3 in x + x + x
+
+
+main : some type
+main =
+  let anf_0 = x + x in
+  let x = 3 in
+  anf_0 + x
+
+
+-}
+
+
 -- May be able to make this infallible
 anfModule :: Module (Type ByteString) ByteString
           -> Either ByteString (AnfModule ByteString)
