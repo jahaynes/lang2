@@ -28,7 +28,7 @@ printAnfModule (AnfModule _ funDefns) = TB.intercalate "\n\n" (map printAnfFunDe
 printAnfFunDefn :: FunDefAnfT ByteString -> TextBuilder
 printAnfFunDefn (FunDefAnfT n (Quant qs) expr) =
 
-    let typ = error "TODO type" -- printPolyType (Forall qs (typeOf expr))
+    let typ = "some type" -- error "TODO type" -- printPolyType (Forall qs (typeOf expr))
         sig = bytestring n <> " : " <> typ
     in case expr of
 
@@ -93,15 +93,6 @@ printAExp aexp =
         --        vs'  = bytestring $ C8.intercalate " " vs
         --    pure $ mconcat ["(\\", vs', " {", fvs', "}.", body', ")"]
 
-        AUnPrimOp _ op a -> do
-            a' <- printAExp a
-            pure $ TB.intercalate " " [printUnOp op, a']
-
-        ABinPrimOp _ op a b -> do
-            a' <- printAExp a
-            b' <- noIndent $ printAExp b
-            pure $ TB.intercalate " " [a', printBinOp op, b']
-
         --AClosEnv evs -> do
         --    let evs' = bytestring $ C8.intercalate " " evs
         --    pure $ "{env " <> evs' <> "}"
@@ -118,6 +109,15 @@ printCExp cexp =
 
         CAppClo _ f cloEnv xs ->
             pure "cappclo"
+
+        CUnPrimOp _ op a -> do
+            a' <- printAExp a
+            pure $ TB.intercalate " " [printUnOp op, a']
+
+        CBinPrimOp _ op a b -> do
+            a' <- printAExp a
+            b' <- noIndent $ printAExp b
+            pure $ TB.intercalate " " [a', printBinOp op, b']
 
         -- TODO improve
         CIfThenElse _ pr tr fl -> do

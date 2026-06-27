@@ -65,12 +65,12 @@ asAnfExpr expr k =
 
         UnPrimOp t op a ->
             asAtomicExpr a $ \a' ->
-                k (AExp $ AUnPrimOp t op a')
+                k (CExp $ CUnPrimOp t op a')
 
         BinPrimOp t op a b ->
             asAtomicExpr a $ \a' ->
                 asAtomicExpr b $ \b' ->
-                    k (AExp $ ABinPrimOp t op a' b')
+                    k (CExp $ CBinPrimOp t op a' b')
 
         IfThenElse t pr tr fl ->
             asAtomicExpr pr $ \pr' ->
@@ -84,11 +84,38 @@ asAnfExpr expr k =
 asAtomicExpr :: Show s => Expr (Type s) s
                        -> (AExp s -> Anf s (NExp s))
                        -> Anf s (NExp s)
-asAtomicExpr expr _k =
+asAtomicExpr expr k =
 
     case expr of
 
-        _ -> left "atomics not done"
+        Term t term ->
+            k (ATerm t term)
+
+        Lam _t _vs _body ->
+            left "TODO: lift out lambda/closure"
+
+        App t f xs ->
+            left "TODO app"
+
+        Let t a b c ->
+            left "TODO let"
+
+        UnPrimOp t op a ->
+            left "TODO un"
+
+        BinPrimOp t op a b ->
+            asAtomicExpr a $ \a' ->
+                asAtomicExpr b $ \b' -> do
+
+                    g <- genSym
+
+                    k (CBinPrimOp t op a' b')
+
+        IfThenElse t pr tr fl ->
+            left "TODO if"
+
+        Case _t _scr _ps ->
+            left "TODO case"
 
 asAtomicExprs :: Show s => [Expr (Type s) s]
                         -> ([AExp s] -> Anf s (NExp s))

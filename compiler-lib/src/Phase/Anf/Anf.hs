@@ -22,17 +22,19 @@ data NExp s = AExp (AExp s)
                 deriving (Functor, Show)
 
 data AExp s = ATerm      (Type s) (Term s)
-        --    | ALam       (Type s) [s] (NExp s)
-        --    | AClo       (Type s) [s] [s] (NExp s)
-            | AUnPrimOp  (Type s) UnOp (AExp s)
-            | ABinPrimOp (Type s) BinOp (AExp s) (AExp s)
+            -- TODO - Data constructor?
                 deriving (Functor, Show)
 
-data CExp s = CIfThenElse (Type s) (AExp s) (NExp s) (NExp s)
+data CExp s = CUnPrimOp  (Type s) UnOp (AExp s)
+            | CBinPrimOp (Type s) BinOp (AExp s) (AExp s)
+            | CIfThenElse (Type s) (AExp s) (NExp s) (NExp s)
             | CApp        (Type s) (AExp s) [AExp s]
             | CAppClo     (Type s) (AExp s) (AClosEnv s) [AExp s]
             | CCase       (Type s) (AExp s) [PExp s]
                 deriving (Functor, Show)
+
+--         --    | ALam       (Type s) [s] (NExp s)
+        --    | AClo       (Type s) [s] [s] (NExp s)
 
 newtype AClosEnv s =
     AClosEnv [s]
