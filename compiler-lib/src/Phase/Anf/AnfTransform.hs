@@ -4,10 +4,10 @@ module Phase.Anf.AnfTransform where
 
 import Common.EitherT
 import Common.State
---import Common.Trans
+import Common.Trans
 import Core.Expression
 import Core.Module
---import Core.Term
+import Core.Term
 import Core.Types
 import Phase.Anf.Anf
 
@@ -106,13 +106,19 @@ asAtomicExpr expr k =
         BinPrimOp t op a b ->
             asAtomicExpr a $ \a' ->
                 asAtomicExpr b $ \b' -> do
-
-                    g <- genSym
-
-                    k (CBinPrimOp t op a' b')
+                    s    <- lift (symGen =<< get)
+                    rest <- k (ATerm t (Var s))
+                    pure $ NLet t s (CExp $ CBinPrimOp t op a' b') rest
 
         IfThenElse t pr tr fl ->
-            left "TODO if"
+            asAtomicExpr pr $ \pr' -> do
+                v    <- lift (symGen =<< get)
+                tr'  <- norm tr
+                fl'  <- norm fl
+                rest <- k $ ATerm t $ Var v
+                
+                -- This type is wrong!
+                pure $ NLet t v (CExp $ CIfThenElse t pr' tr' fl') rest
 
         Case _t _scr _ps ->
             left "TODO case"
