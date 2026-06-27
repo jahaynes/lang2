@@ -46,7 +46,8 @@ class App extends React.Component {
     const prettyDefns            = this.getAndClearElement("prettyDefns")
     const inferredPretty         = this.getAndClearElement("inferredPretty")
     const etaExpanded            = this.getAndClearElement("etaExpanded")
-    
+    const normalised             = this.getAndClearElement("normalised")
+
     const req = { getInput: source.value }
 
     fetch("http://127.0.0.1:8080/lexAndParse", { method:  'POST'
@@ -58,7 +59,8 @@ class App extends React.Component {
       .then(ts => {
         prettyDefns.value            = ts.prettyDefns;
         inferredPretty.value         = ts.inferredPretty;
-        etaExpanded.value            = ts.etaExpanded; })
+        etaExpanded.value            = ts.etaExpanded;
+        normalised.value             = ts.normalised; })
       .catch(exception => console.log(exception));
   }
 
@@ -92,6 +94,7 @@ class App extends React.Component {
         <label>Eta Expanded</label>
         <div>
           <textarea id='etaExpanded' className='single editor' spellCheck='false' rows={numRows}></textarea>
+          <textarea id='normalised' className='single editor' spellCheck='false' rows={numRows}></textarea>
         </div>
 
         <label>Type Inference / Pretty</label>

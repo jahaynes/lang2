@@ -30,6 +30,8 @@ library
                     Parse.Module
                     Parse.Parser
                     Parse.Token
+                    Phase.Anf.Anf
+                    Phase.Anf.AnfTransform
                     Phase.EtaExpand.EtaExpand
                     Phase.EtaExpand.EtaSaturate
                     TypeCheck.ConstraintSolver

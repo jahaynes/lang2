@@ -22,7 +22,8 @@ library
                     vector,
                     wai-cors,
                     warp
-  exposed-modules:  Pretty.Common
+  exposed-modules:  Pretty.Anf
+                    Pretty.Common
                     Pretty.Expression
                     Pretty.Module
                     Pretty.Operator

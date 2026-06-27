@@ -8,6 +8,7 @@ import Parse.Lexer
 import Parse.Module
 import Parse.Parser
 import Phase.EtaExpand.EtaExpand
+import Phase.Anf.AnfTransform
 import Service.ProgramState
 import TypeSystem.TypeCheck
 
@@ -17,6 +18,7 @@ pipe = do
     phaseParser
     phaseTypeCheck
     phaseEtaExpand
+    phaseNormalise
 
     where
     phaseLexer :: State ProgramState ()
@@ -41,3 +43,6 @@ pipe = do
     phaseEtaExpand = modify' $ \ps ->
         ps { getEtaExpanded = etaExpand <$> getInferred ps }
 
+    phaseNormalise :: State ProgramState ()
+    phaseNormalise = modify' $ \ps ->
+        ps { getNormalised = anfModule =<< getEtaExpanded ps }
