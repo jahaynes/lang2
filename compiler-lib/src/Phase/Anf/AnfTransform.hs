@@ -75,8 +75,7 @@ asAnfExpr expr k =
 
         Let t a b c ->
             asAnfExpr b $ \b' ->
-                asAnfExpr c $ \c' ->
-                    k (NLet t a b' c')
+                NLet t a b' <$> norm c
 
         UnPrimOp t op a ->
             asAtomicExpr a $ \a' ->
