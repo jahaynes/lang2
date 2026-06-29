@@ -75,7 +75,7 @@ asAnfExpr expr k =
 
         Let t a b c ->
             asAnfExpr b $ \b' ->
-                NLet t a b' <$> norm c
+                NLet t a b' <$> asAnfExpr c k
 
         UnPrimOp t op a ->
             asAtomicExpr a $ \a' ->
@@ -108,13 +108,15 @@ asAtomicExpr expr k =
         Lam _t _vs _body ->
             left "TODO: lift out lambda/closure"
 
-        App t f xs ->
+        App _t _f _xs ->
             left "TODO app"
 
         Let t a b c ->
-            left "TODO let"
 
-        UnPrimOp t op a ->
+            asAnfExpr b $ \b' ->
+                NLet t a b' <$> asAtomicExpr c k
+
+        UnPrimOp _t _op _a ->
             left "TODO un"
 
         BinPrimOp t op a b ->
