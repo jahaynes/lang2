@@ -39,18 +39,19 @@ anfModule md = AnfModule (getDataDefns md) <$> mapM anfFunDefT (getFunDefns md)
 
 anfFunDefT :: FunDefn (Type ByteString) ByteString
            -> Either ByteString (FunDefAnfT ByteString)
-anfFunDefT (FunDefn n pt expr) = FunDefAnfT n pt <$> evalState (runEitherT (norm expr)) (AnfState 0 genSym)
+anfFunDefT (FunDefn n pt expr) = FunDefAnfT n pt <$> evalState (runEitherT (norm expr)) (AnfState 0 (genSym "anf_") (genSym "ll_"))
 
 data AnfState s =
     AnfState { getNum :: Int
-             , symGen :: State (AnfState s) s
+             , genAnf :: State (AnfState s) s
+             , genLam :: State (AnfState s) s
              }
 
-genSym :: State (AnfState s) ByteString
-genSym = do
-    AnfState n sg <- get
-    put $! AnfState (n+1) sg
-    pure . pack $ "anf_" <> show n
+genSym :: ByteString -> State (AnfState s) ByteString
+genSym pre = do
+    AnfState n sg lg <- get
+    put $! AnfState (n+1) sg lg
+    pure (pre <> (pack $ show n))
 
 norm :: Show s => Expr (Type s) s -> Anf s (NExp s)
 norm expr = asAnfExpr expr pure
@@ -65,8 +66,11 @@ asAnfExpr expr k =
         Term t term ->
             k (AExp $ ATerm t term)
 
-        Lam _t _vs _body ->
-            left "TODO: lift out lambda/closure"
+        Lam t _vs _body -> do
+            -- left "TODO: lift out lambda/closure"
+            ll <- lift (genLam =<< get) -- pretend lifting
+            k (AExp $  ATerm t (Var ll))
+
 
         App t f xs ->
             asAtomicExpr f $ \f' ->
@@ -105,8 +109,10 @@ asAtomicExpr expr k =
         Term t term ->
             k (ATerm t term)
 
-        Lam _t _vs _body ->
-            left "TODO: lift out lambda/closure"
+        Lam t _vs _body -> do
+            -- left "TODO: lift out lambda/closure"
+            ll <- lift (genLam =<< get) -- pretend lifting
+            k (ATerm t (Var ll))
 
         App _t _f _xs ->
             left "TODO app"
@@ -122,13 +128,13 @@ asAtomicExpr expr k =
         BinPrimOp t op a b ->
             asAtomicExpr a $ \a' ->
                 asAtomicExpr b $ \b' -> do
-                    s    <- lift (symGen =<< get)
+                    s    <- lift (genAnf =<< get)
                     rest <- k (ATerm t (Var s))
                     pure $ NLet t s (CExp $ CBinPrimOp t op a' b') rest
 
         IfThenElse t pr tr fl ->
             asAtomicExpr pr $ \pr' -> do
-                v    <- lift (symGen =<< get)
+                v    <- lift (genAnf =<< get)
                 tr'  <- norm tr
                 fl'  <- norm fl
                 rest <- k $ ATerm t $ Var v
