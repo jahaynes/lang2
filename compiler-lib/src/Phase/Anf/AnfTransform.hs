@@ -71,7 +71,6 @@ asAnfExpr expr k =
             ll <- lift (genLam =<< get) -- pretend lifting
             k (AExp $  ATerm t (Var ll))
 
-
         App t f xs ->
             asAtomicExpr f $ \f' ->
                 asAtomicExprs xs $ \xs' ->
@@ -114,8 +113,11 @@ asAtomicExpr expr k =
             ll <- lift (genLam =<< get) -- pretend lifting
             k (ATerm t (Var ll))
 
-        App _t _f _xs ->
-            left "TODO app"
+        App t f xs ->
+            asAtomicExpr f $ \f' ->
+                asAtomicExprs xs $ \xs' -> do
+                    s <- lift (genAnf =<< get)
+                    NLet t s (CExp $ CApp t f' xs') <$> k (ATerm t (Var s))
 
         Let t a b c ->
 
