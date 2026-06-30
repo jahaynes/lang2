@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Phase.Anf.AnfTransform where
+module Phase.Anf.AnfTransform ( anfModule ) where
 
 import Common.StateT
 import Common.Trans
