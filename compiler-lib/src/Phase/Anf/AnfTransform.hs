@@ -17,21 +17,6 @@ type Anf s a =
     EitherT ByteString (
         State (AnfState s)) a
 
-{-
-
-    main = let x = 3 in x + x + x
-
-
-main : some type
-main =
-  let anf_0 = x + x in
-  let x = 3 in
-  anf_0 + x
-
-
--}
-
-
 -- May be able to make this infallible
 anfModule :: Module (Type ByteString) ByteString
           -> Either ByteString (AnfModule ByteString)
@@ -39,18 +24,33 @@ anfModule md = AnfModule (getDataDefns md) <$> mapM anfFunDefT (getFunDefns md)
 
 anfFunDefT :: FunDefn (Type ByteString) ByteString
            -> Either ByteString (FunDefAnfT ByteString)
-anfFunDefT (FunDefn n pt expr) = FunDefAnfT n pt <$> evalState (runEitherT (norm expr)) (AnfState 0 (genSym "anf_") (genSym "ll_"))
+anfFunDefT (FunDefn n pt expr) =
+
+    let state = AnfState { getNum = 0
+                         , genAnf = genSym "anf_"
+                         , genLam = genSym "ll_"
+                         , lifted = []
+                         } in
+
+    FunDefAnfT n pt <$> evalState (runEitherT (norm expr)) state
+
+{-
+data FunDefAnfT s =
+    FunDefAnfT s (Quant s) (NExp s)
+        deriving Show
+-}
 
 data AnfState s =
     AnfState { getNum :: Int
              , genAnf :: State (AnfState s) s
              , genLam :: State (AnfState s) s
+             , lifted :: [FunDefAnfT s]
              }
 
 genSym :: ByteString -> State (AnfState s) ByteString
 genSym pre = do
-    AnfState n sg lg <- get
-    put $! AnfState (n+1) sg lg
+    AnfState n sg lg ll <- get
+    put $! AnfState (n+1) sg lg ll
     pure (pre <> (pack $ show n))
 
 norm :: Show s => Expr (Type s) s -> Anf s (NExp s)
