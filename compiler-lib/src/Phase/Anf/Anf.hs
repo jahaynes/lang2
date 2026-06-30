@@ -13,7 +13,7 @@ data AnfModule s =
               } deriving Show
 
 data FunDefAnfT s =
-    FunDefAnfT s (Quant s) (NExp s)
+    FunDefAnfT s (Quant s) [s] (NExp s) -- name, quantifier, vars, body
         deriving Show
 
 data NExp s = AExp (AExp s)

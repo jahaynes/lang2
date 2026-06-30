@@ -2,8 +2,7 @@
 
 module Phase.Anf.AnfTransform where
 
-import Common.EitherT
-import Common.State
+import Common.StateT
 import Common.Trans
 import Core.Expression
 import Core.Module
@@ -13,52 +12,53 @@ import Phase.Anf.Anf
 
 import Data.ByteString.Char8 (ByteString, pack)
 
-type Anf s a =
-    EitherT ByteString (
-        State (AnfState s)) a
+type Anf a =
+    StateT (AnfState ByteString) (
+        Either ByteString) a
 
 -- May be able to make this infallible
 anfModule :: Module (Type ByteString) ByteString
           -> Either ByteString (AnfModule ByteString)
-anfModule md = AnfModule (getDataDefns md) <$> mapM anfFunDefT (getFunDefns md)
+anfModule md = do
+
+    -- Each top-level lambda may yield additional lifted functions
+    fundefs <- concat <$> mapM anfFunDefT (getFunDefns md)
+
+    pure $ AnfModule (getDataDefns md) fundefs
 
 anfFunDefT :: FunDefn (Type ByteString) ByteString
-           -> Either ByteString (FunDefAnfT ByteString)
-anfFunDefT (FunDefn n pt expr) =
-
+           -> Either ByteString [FunDefAnfT ByteString]
+anfFunDefT (FunDefn n pt expr) = do
     let state = AnfState { getNum = 0
-                         , genAnf = genSym "anf_"
-                         , genLam = genSym "ll_"
                          , lifted = []
-                         } in
-
-    FunDefAnfT n pt <$> evalState (runEitherT (norm expr)) state
-
-{-
-data FunDefAnfT s =
-    FunDefAnfT s (Quant s) (NExp s)
-        deriving Show
--}
+                         }
+    (expr', state') <- runStateT (norm expr) state
+    let fundef = FunDefAnfT n pt [] expr'   -- TODO q vars
+    pure $ lifted state' <> [fundef]
 
 data AnfState s =
     AnfState { getNum :: Int
-             , genAnf :: State (AnfState s) s
-             , genLam :: State (AnfState s) s
              , lifted :: [FunDefAnfT s]
              }
 
-genSym :: ByteString -> State (AnfState s) ByteString
+genAnf :: Anf ByteString
+genAnf = genSym "anf_"
+
+genLam ::  Anf ByteString
+genLam = genSym "ll_"
+
+genSym :: ByteString -> Anf ByteString
 genSym pre = do
-    AnfState n sg lg ll <- get
-    put $! AnfState (n+1) sg lg ll
+    AnfState n sg <- get
+    put $! AnfState (n+1) sg
     pure (pre <> (pack $ show n))
 
-norm :: Show s => Expr (Type s) s -> Anf s (NExp s)
+norm :: Expr (Type ByteString) ByteString -> Anf (NExp ByteString)
 norm expr = asAnfExpr expr pure
 
-asAnfExpr :: Show s => Expr (Type s) s
-                    -> (NExp s -> Anf s (NExp s))
-                    -> Anf s (NExp s)
+asAnfExpr :: Expr (Type ByteString) ByteString
+          -> (NExp ByteString -> Anf (NExp ByteString))
+          -> Anf (NExp ByteString)
 asAnfExpr expr k =
 
     case expr of
@@ -66,10 +66,11 @@ asAnfExpr expr k =
         Term t term ->
             k (AExp $ ATerm t term)
 
-        Lam t _vs _body -> do
-            -- left "TODO: lift out lambda/closure"
-            ll <- lift (genLam =<< get) -- pretend lifting
-            k (AExp $  ATerm t (Var ll))
+        Lam t vs body -> do
+            name  <- genLam
+            body' <- norm body
+            modify $ \s -> s { lifted = FunDefAnfT name QTodo vs body' : lifted s }
+            k (AExp $  ATerm t (Var name))
 
         App t f xs ->
             asAtomicExpr f $ \f' ->
@@ -96,11 +97,11 @@ asAnfExpr expr k =
                         k (CExp $ CIfThenElse t pr' tr' fl')
 
         Case _t _scr _ps ->
-            undefined
+            lift $ Left "TODO case"
 
-asAtomicExpr :: Show s => Expr (Type s) s
-                       -> (AExp s -> Anf s (NExp s))
-                       -> Anf s (NExp s)
+asAtomicExpr :: Expr (Type ByteString) ByteString
+             -> (AExp ByteString -> Anf (NExp ByteString))
+             -> Anf (NExp ByteString)
 asAtomicExpr expr k =
 
     case expr of
@@ -110,13 +111,13 @@ asAtomicExpr expr k =
 
         Lam t _vs _body -> do
             -- left "TODO: lift out lambda/closure"
-            ll <- lift (genLam =<< get) -- pretend lifting
+            ll <- genLam
             k (ATerm t (Var ll))
 
         App t f xs ->
             asAtomicExpr f $ \f' ->
                 asAtomicExprs xs $ \xs' -> do
-                    s <- lift (genAnf =<< get)
+                    s <- genAnf
                     NLet t s (CExp $ CApp t f' xs') <$> k (ATerm t (Var s))
 
         Let t a b c ->
@@ -125,18 +126,18 @@ asAtomicExpr expr k =
                 NLet t a b' <$> asAtomicExpr c k
 
         UnPrimOp _t _op _a ->
-            left "TODO un"
+            lift $ Left "TODO un"
 
         BinPrimOp t op a b ->
             asAtomicExpr a $ \a' ->
                 asAtomicExpr b $ \b' -> do
-                    s    <- lift (genAnf =<< get)
+                    s    <- genAnf
                     rest <- k (ATerm t (Var s))
                     pure $ NLet t s (CExp $ CBinPrimOp t op a' b') rest
 
         IfThenElse t pr tr fl ->
             asAtomicExpr pr $ \pr' -> do
-                v    <- lift (genAnf =<< get)
+                v    <- genAnf
                 tr'  <- norm tr
                 fl'  <- norm fl
                 rest <- k $ ATerm t $ Var v
@@ -145,11 +146,11 @@ asAtomicExpr expr k =
                 pure $ NLet t v (CExp $ CIfThenElse t pr' tr' fl') rest
 
         Case _t _scr _ps ->
-            left "TODO case"
+            lift $ Left "TODO case"
 
-asAtomicExprs :: Show s => [Expr (Type s) s]
-                        -> ([AExp s] -> Anf s (NExp s))
-                        -> Anf s (NExp s)
+asAtomicExprs :: [Expr (Type ByteString) ByteString]
+              -> ([AExp ByteString] -> Anf  (NExp ByteString))
+              -> Anf (NExp ByteString)
 asAtomicExprs [] k = k []
 asAtomicExprs (e:es) k =
     asAtomicExpr e $ \e' ->

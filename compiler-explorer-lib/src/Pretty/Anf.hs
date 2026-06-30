@@ -26,10 +26,12 @@ printAnfModule :: AnfModule ByteString -> TextBuilder
 printAnfModule (AnfModule _ funDefns) = TB.intercalate "\n\n" (map printAnfFunDefn funDefns)
 
 printAnfFunDefn :: FunDefAnfT ByteString -> TextBuilder
-printAnfFunDefn (FunDefAnfT n (Quant qs) expr) =
+printAnfFunDefn (FunDefAnfT n qtodo vs expr) =
 
     let typ = "some type" -- error "TODO type" -- printPolyType (Forall qs (typeOf expr))
         sig = bytestring n <> " : " <> typ
+        vars = TB.intercalate " " $ map bytestring vs -- TODO stray space
+
     in case expr of
 
         --AExp (ALam _ vs body) ->
@@ -42,7 +44,7 @@ printAnfFunDefn (FunDefAnfT n (Quant qs) expr) =
         _ ->
             let impl = evalState (printNExp expr) 2
             in TB.intercalate "\n" [ sig
-                                   , bytestring n <> " ="
+                                   , bytestring n <> " " <> vars <> " ="
                                    , impl ]
 
 withIndent :: State Int TextBuilder -> State Int TextBuilder

@@ -38,6 +38,7 @@ data TypeSig s =
 
 data Quant s = Quant ![s]
              | Unquant
+             | QTodo    -- TODO Don't know what I'm doing here yet
         deriving (Eq, Ord, Show, Functor)
 
 data FunDefn t s =
