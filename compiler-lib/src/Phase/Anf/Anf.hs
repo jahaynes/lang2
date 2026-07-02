@@ -47,22 +47,20 @@ data PPat s = PVar s                     -- just vars for now
 data PExp s =
     PExp (PPat s) (NExp s)
         deriving (Functor, Show)
-{-
+
+-- Only for printing? Should not need these
 typeOf :: NExp s -> Type s
 typeOf (AExp aexp)  = typeOfAExp aexp
 typeOf (CExp cexp)  = typeOfCExp cexp
-typeOf (NLet _ _ c) = typeOf c
+typeOf (NLet t _ _ _) = t -- ?
 
 typeOfAExp :: AExp s -> Type s
 typeOfAExp (ATerm t _)          = t
-typeOfAExp (ALam t _ _)         = t
-typeOfAExp (AClo t _ _ _)       = t
-typeOfAExp (AUnPrimOp t _ _)    = t
-typeOfAExp (ABinPrimOp t _ _ _) = t
 
 typeOfCExp :: CExp s -> Type s
+typeOfCExp (CUnPrimOp t _ _)    = t
+typeOfCExp (CBinPrimOp t _ _ _) = t
 typeOfCExp (CIfThenElse t _ _ _) = t
 typeOfCExp (CApp t _ _)          = t
 typeOfCExp (CAppClo t _ _ _)     = t
 typeOfCExp (CCase t _ _)         = t
--}

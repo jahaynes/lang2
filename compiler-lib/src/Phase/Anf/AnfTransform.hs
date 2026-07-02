@@ -11,25 +11,24 @@ import Core.Types
 import Phase.Anf.Anf
 
 {-
-    Bug - excessive lifting
+    Bugs:
+        - excessive lifting
+        - Wrong ll_0 type
 
     f x y = x + y
     main = f 1 2
 
-
-    ll_0 : some type
+    ll_0 : ("Int")
     ll_0 x y =
     x + y
 
-    f : some type
+    f : (("Int") -> (("Int") -> ("Int")))
     f  =
     ll_0
 
-    main : some type
+    main : ("Int")
     main  =
     f(1,2)
-
-
 -}
 
 import Data.ByteString.Char8 (ByteString, pack)
