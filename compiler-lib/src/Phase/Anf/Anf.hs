@@ -40,6 +40,11 @@ newtype AClosEnv s =
     AClosEnv [s]
         deriving (Functor, Show)
 
+{-
+    Probably need to re-think the pattern language,
+    to dissolve some of the complexity
+-}
+                                         -- TODO Lits
 data PPat s = PVar s                     -- just vars for now
             | PApp s (Type s) [Term s]   -- fully applied dcons
                 deriving (Functor, Show)
