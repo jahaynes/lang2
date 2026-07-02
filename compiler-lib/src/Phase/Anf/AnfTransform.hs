@@ -120,10 +120,11 @@ asAtomicExpr expr k =
         Term t term ->
             k (ATerm t term)
 
-        Lam t _vs _body -> do
-            -- left "TODO: lift out lambda/closure"
-            ll <- genLam
-            k (ATerm t (Var ll))
+        Lam t vs body -> do
+            name  <- genLam
+            body' <- norm body
+            modify $ \s -> s { lifted = FunDefAnfT name QTodo t vs body' : lifted s }
+            k (ATerm t (Var name))
 
         App t f xs ->
             asAtomicExpr f $ \f' ->
@@ -132,7 +133,6 @@ asAtomicExpr expr k =
                     NLet t s (CExp $ CApp t f' xs') <$> k (ATerm t (Var s))
 
         Let t a b c ->
-
             asAnfExpr b $ \b' ->
                 NLet t a b' <$> asAtomicExpr c k
 
