@@ -136,8 +136,11 @@ asAtomicExpr expr k =
             asAnfExpr b $ \b' ->
                 NLet t a b' <$> asAtomicExpr c k
 
-        UnPrimOp _t _op _a ->
-            lift $ Left "TODO un"
+        UnPrimOp t op a ->
+            asAtomicExpr a $ \a' -> do
+                s    <- genAnf
+                rest <- k (ATerm t (Var s))
+                pure $ NLet t s (CExp $ CUnPrimOp t op a') rest
 
         BinPrimOp t op a b ->
             asAtomicExpr a $ \a' ->
