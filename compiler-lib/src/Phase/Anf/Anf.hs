@@ -13,7 +13,7 @@ data AnfModule s =
               } deriving Show
 
 data FunDefAnfT s =
-    FunDefAnfT s (Quant s) [s] (NExp s) -- name, quantifier, vars, body
+    FunDefAnfT s (Quant s) (Type s) [s] (NExp s) -- name, quantifier, type, vars, body
         deriving Show
 
 data NExp s = AExp (AExp s)
@@ -48,6 +48,7 @@ data PExp s =
     PExp (PPat s) (NExp s)
         deriving (Functor, Show)
 
+{-
 -- Only for printing? Should not need these
 typeOf :: NExp s -> Type s
 typeOf (AExp aexp)  = typeOfAExp aexp
@@ -64,3 +65,4 @@ typeOfCExp (CIfThenElse t _ _ _) = t
 typeOfCExp (CApp t _ _)          = t
 typeOfCExp (CAppClo t _ _ _)     = t
 typeOfCExp (CCase t _ _)         = t
+-}

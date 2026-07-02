@@ -26,9 +26,9 @@ printAnfModule :: AnfModule ByteString -> TextBuilder
 printAnfModule (AnfModule _ funDefns) = TB.intercalate "\n\n" (map printAnfFunDefn funDefns)
 
 printAnfFunDefn :: FunDefAnfT ByteString -> TextBuilder
-printAnfFunDefn (FunDefAnfT n qtodo vs expr) =
+printAnfFunDefn (FunDefAnfT n qtodo t vs expr) =
 
-    let typ = TB.string . show $ typeOf expr -- "some type" -- error "TODO type" -- printPolyType (Forall qs (typeOf expr))
+    let typ = TB.string . show $ t -- "some type" -- error "TODO type" -- printPolyType (Forall qs (typeOf expr))
         sig = bytestring n <> " : " <> typ
         vars = TB.intercalate " " $ map bytestring vs -- TODO stray space
 
