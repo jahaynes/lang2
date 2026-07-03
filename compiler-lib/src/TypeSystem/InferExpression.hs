@@ -140,6 +140,9 @@ labelLeftFreshVars a =
         Term Untyped (Var v) ->
             M.singleton v <$> freshTVar
 
+        -- TODO - forbid BinPrimOp and others from here?
+        -- Need an EitherT for this?
+
 -- TODO dedupe?
 varsFrom :: Show s => [Expr Untyped s] -> [s]
 varsFrom = go []
