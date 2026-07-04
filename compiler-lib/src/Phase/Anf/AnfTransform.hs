@@ -41,12 +41,12 @@ anfFunDefT (FunDefn n pt expr) =
         -- Avoid lambda-lifting functions already on the top-level
         Lam t vs body -> do
             (body', state') <- runStateT (norm body) state
-            let fundef = FunDefAnfT n pt t vs body'   -- TODO q vars
+            let fundef = FunDefAnfT n pt t [] vs body'   -- TODO q vars
             pure $ lifted state' <> [fundef]
 
         _nonlambda -> do
             (expr', state') <- runStateT (norm expr) state
-            let fundef = FunDefAnfT n pt (typeOf expr) [] expr'   -- TODO q vars
+            let fundef = FunDefAnfT n pt (typeOf expr) [] [] expr'   -- TODO q vars
             pure $ lifted state' <> [fundef]
 
 data AnfState s =
@@ -82,7 +82,7 @@ asAnfExpr expr k =
         Lam t vs body -> do
             name  <- genLam
             body' <- norm body
-            modify $ \s -> s { lifted = FunDefAnfT name QTodo t vs body' : lifted s }
+            modify $ \s -> s { lifted = FunDefAnfT name QTodo t [] vs body' : lifted s }
             k (AExp $ ATerm t (Var name))
 
         App t f xs ->
@@ -145,7 +145,7 @@ asAtomicExpr expr k =
         Lam t vs body -> do
             name  <- genLam
             body' <- norm body
-            modify $ \s -> s { lifted = FunDefAnfT name QTodo t vs body' : lifted s }
+            modify $ \s -> s { lifted = FunDefAnfT name QTodo t [] vs body' : lifted s }
             k (ATerm t (Var name))
 
         App t f xs ->
