@@ -102,46 +102,17 @@ asAnfExpr expr k =
                 asAtomicExpr b $ \b' ->
                     k (CExp $ CBinPrimOp t op a' b')
 
-        -- Does this application of k to the *outside* blow everything up?
-        -- Better to use a var of the result of either branch, and k(var)?
-        -- Same with Case below
         IfThenElse t pr tr fl ->
-            asAtomicExpr pr $ \pr' ->
-                asAnfExpr tr $ \tr' ->
-                    asAnfExpr fl $ \fl' ->
-                        k (CExp $ CIfThenElse t pr' tr' fl')
+            asAtomicExpr pr $ \pr' -> do
+                v    <- genAnf
+                tr'  <- norm tr
+                fl'  <- norm fl
+                rest <- k (AExp $ ATerm t $ Var v)
+                pure $ NLet t v (CExp $ CIfThenElse t pr' tr' fl') rest
 
         Case t scr ps ->
             asAtomicExpr scr $ \scr' -> do
-                ps' <- mapM anfPattern ps
-                k (CExp $ CCase t scr' ps')
-
--- TODO what is admissable in lhs?
-anfPattern :: Pattern (Type ByteString) ByteString
-           -> Anf (PExp ByteString)
-anfPattern (Pattern lhs rhs) = do
-
-    -- return bind vars here so they can top the rhs
-    lhs' <- norm lhs >>= \case
-
-                AExp (ATerm _t (Var v)) ->
-                    -- A var as a pattern probably means just bind this v to the scrutinee in the rhs
-                    -- Check type.  Hopefully it's always atomic too
-                    pure $ PVar v
-
-                AExp (ATerm _ (DCons dc)) ->
-                    lift . Left . pack $ show dc
-
-                -- The type system seems to only unify if this app has right number of args
-                CExp (CApp _ (ATerm _ (DCons dc)) xs) ->
-                    lift . Left . pack $ show ("app", dc, xs)
-
-                other ->
-                    lift $ Left "Unrecognised pattern form"
-
-    rhs' <- norm rhs
-
-    pure $ PExp lhs' rhs'
+                undefined
 
 asAtomicExpr :: Expr (Type ByteString) ByteString
              -> (AExp ByteString -> Anf (NExp ByteString))
@@ -187,9 +158,7 @@ asAtomicExpr expr k =
                 v    <- genAnf
                 tr'  <- norm tr
                 fl'  <- norm fl
-                rest <- k $ ATerm t $ Var v
-                
-                -- This type is wrong!
+                rest <- k (ATerm t $ Var v)
                 pure $ NLet t v (CExp $ CIfThenElse t pr' tr' fl') rest
 
         -- TODO
