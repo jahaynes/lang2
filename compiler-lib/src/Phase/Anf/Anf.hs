@@ -48,6 +48,8 @@ newtype AClosEnv s =
 data PPat s = PVar s                     -- just vars for now
             | PApp s (Type s) [Term s]   -- fully applied dcons
                 deriving (Functor, Show)
+            -- TODO - push this definition back into the core pattern type?
+
 
 data PExp s =
     PExp (PPat s) (NExp s)

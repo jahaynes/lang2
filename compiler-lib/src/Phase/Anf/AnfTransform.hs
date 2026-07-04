@@ -11,6 +11,7 @@ import Core.Term
 import Core.Types
 import Phase.Anf.Anf
 
+import Control.Monad         (forM)
 import Data.ByteString.Char8 (ByteString, pack)
 
 type Anf a =
@@ -112,7 +113,24 @@ asAnfExpr expr k =
 
         Case t scr ps ->
             asAtomicExpr scr $ \scr' -> do
-                undefined
+                v   <- genAnf
+                ps' <- forM ps $ \(Pattern pat rhs) -> do
+                    rhs' <- norm rhs
+                    pure (PExp (check pat) rhs')
+                rest <- k (AExp $ ATerm t $ Var v)
+                pure $ NLet t v (CExp $ CCase t scr' ps') rest
+
+-- Crap:
+--check :: Expr (Type s) s -> PPat s
+check e =
+    case e of
+        Term t (Var v) -> PVar v
+        App t f xs -> PApp (c1 f) t (map c2 xs)
+
+    where
+    c1 (Term t (Var v) ) = v
+    c1 (Term t (DCons dc)) = dc
+    c2 (Term t v ) = v
 
 asAtomicExpr :: Expr (Type ByteString) ByteString
              -> (AExp ByteString -> Anf (NExp ByteString))
@@ -161,11 +179,13 @@ asAtomicExpr expr k =
                 rest <- k (ATerm t $ Var v)
                 pure $ NLet t v (CExp $ CIfThenElse t pr' tr' fl') rest
 
-        -- TODO
-        Case _t scr ps -> do
-            --ps' <- mapM anfPattern ps
-            lift $ Left . pack $ show (scr, ps)
-
+        Case t scr ps ->
+            asAtomicExpr scr $ \scr' -> do
+                ps' <- forM ps $ \(Pattern pat rhs) ->
+                    PExp (check pat) <$> asAnfExpr rhs pure
+                v    <- genAnf
+                rest <- k (ATerm t (Var v))
+                pure $ NLet t v (CExp $ CCase t scr' ps') rest
 
 asAtomicExprs :: [Expr (Type ByteString) ByteString]
               -> ([AExp ByteString] -> Anf  (NExp ByteString))
