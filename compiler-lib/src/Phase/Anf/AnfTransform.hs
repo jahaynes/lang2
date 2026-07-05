@@ -14,6 +14,7 @@ import Phase.Anf.FreeVars
 
 import Control.Monad         (forM)
 import Data.ByteString.Char8 (ByteString, pack)
+import qualified Data.Set as S
 
 type Anf a =
     StateT (AnfState ByteString) (
@@ -83,8 +84,23 @@ asAnfExpr expr k =
         Lam t vs body -> do
             name  <- genLam
             body' <- norm body
-            modify $ \s -> s { lifted = FunDefAnfT name QTodo t [] vs body' : lifted s }
-            k (AExp $ ATerm t (Var name))
+
+            let free = S.toList $ functionFreeVars vs body'
+
+            if null free
+
+                then do
+                    -- This is a lambda
+                    let ll = FunDefAnfT name QTodo t [] vs body'
+                    modify $ \s -> s { lifted = ll : lifted s }
+                    k (AExp $ ATerm t (Var name))
+                else do
+                    -- This is a closure
+                    --lift . Left . pack $ "Free are: " ++ show free
+                    let ll = FunDefAnfT name QTodo t free vs body'
+                    modify $ \s -> s { lifted = ll : lifted s }
+                    k (AExp $ ATerm t (Var name))
+
 
         App t f xs ->
             asAtomicExpr f $ \f' ->

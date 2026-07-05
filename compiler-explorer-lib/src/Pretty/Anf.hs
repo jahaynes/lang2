@@ -36,7 +36,7 @@ printAnfFunDefn (FunDefAnfT n qtodo t evs vs expr) =
 
         evars = case evs of
                    [] -> ""
-                   _  -> bytestring " {" <> (TB.intercalate " " $ map bytestring vs) <> bytestring "} "
+                   _  -> bytestring " {" <> (TB.intercalate " " $ map bytestring evs) <> bytestring "} "
 
     in case expr of
 

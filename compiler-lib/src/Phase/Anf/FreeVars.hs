@@ -1,10 +1,13 @@
-module Phase.Anf.FreeVars where
+module Phase.Anf.FreeVars ( functionFreeVars ) where
 
 import           Data.Set ((\\), Set, fromList, union, unions)
 import qualified Data.Set as S
 
 import Core.Term     (Term (..))
 import Phase.Anf.Anf
+
+functionFreeVars :: Ord s => [s] -> NExp s -> Set s
+functionFreeVars vs body = fvs body \\ fromList vs
 
 class FreeVars f where
     fvs :: Ord v => f v -> Set v
