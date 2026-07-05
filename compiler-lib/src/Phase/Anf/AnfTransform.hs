@@ -10,6 +10,7 @@ import Core.Module
 import Core.Term
 import Core.Types
 import Phase.Anf.Anf
+import Phase.Anf.FreeVars
 
 import Control.Monad         (forM)
 import Data.ByteString.Char8 (ByteString, pack)
