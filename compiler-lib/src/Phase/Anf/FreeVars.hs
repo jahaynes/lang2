@@ -37,7 +37,7 @@ instance FreeVars PExp where
     fvs (PExp pat body) = fvs body \\ boundVarsOf pat
 
 instance FreeVars PPat where
-    fvs _ = S.empty
+    fvs _ = S.empty -- TODO check this
 
 instance FreeVars AClosEnv where
     fvs (AClosEnv vs) = fromList vs
