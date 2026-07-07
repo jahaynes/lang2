@@ -14,6 +14,8 @@ import Phase.Anf.FreeVars
 
 import Control.Monad         (forM)
 import Data.ByteString.Char8 (ByteString, pack)
+import           Data.Map (Map)
+import qualified Data.Map.Strict as M
 import qualified Data.Set as S
 
 type Anf a =
@@ -35,7 +37,7 @@ anfFunDefT :: FunDefn (Type ByteString) ByteString
 anfFunDefT (FunDefn n pt expr) =
 
     let state = AnfState { getNum = 0
-                         , lifted = []
+                         , lifted = mempty
                          }
 
     in case expr of
@@ -44,16 +46,16 @@ anfFunDefT (FunDefn n pt expr) =
         Lam t vs body -> do
             (body', state') <- runStateT (norm body) state
             let fundef = FunDefAnfT n pt t [] vs body'   -- TODO q vars
-            pure $ lifted state' <> [fundef]
+            pure $ (map snd . M.toList $ lifted state') <> [fundef]
 
         _nonlambda -> do
             (expr', state') <- runStateT (norm expr) state
             let fundef = FunDefAnfT n pt (typeOf expr) [] [] expr'   -- TODO q vars
-            pure $ lifted state' <> [fundef]
+            pure $ (map snd . M.toList $ lifted state') <> [fundef]
 
 data AnfState s =
-    AnfState { getNum :: Int
-             , lifted :: [FunDefAnfT s]
+    AnfState { getNum :: !Int
+             , lifted :: !(Map s (FunDefAnfT s))
              }
 
 genAnf :: Anf ByteString
@@ -92,13 +94,13 @@ asAnfExpr expr k =
                 then do
                     -- This is a lambda
                     let ll = FunDefAnfT name QTodo t [] vs body'
-                    modify $ \s -> s { lifted = ll : lifted s }
+                    modify $ \s -> s { lifted = M.insert name ll (lifted s) }
                     k (AExp $ ATerm t (Var name))
                 else do
                     -- This is a closure
                     --lift . Left . pack $ "Free are: " ++ show free
                     let ll = FunDefAnfT name QTodo t free vs body'
-                    modify $ \s -> s { lifted = ll : lifted s }
+                    modify $ \s -> s { lifted = M.insert name ll (lifted s) }
                     k (AExp $ ATerm t (Var name))
 
 
@@ -162,7 +164,8 @@ asAtomicExpr expr k =
         Lam t vs body -> do
             name  <- genLam
             body' <- norm body
-            modify $ \s -> s { lifted = FunDefAnfT name QTodo t [] vs body' : lifted s }
+            let ll = FunDefAnfT name QTodo t [] vs body'
+            modify $ \s -> s { lifted = M.insert name ll (lifted s) }
             k (ATerm t (Var name))
 
         App t f xs ->
