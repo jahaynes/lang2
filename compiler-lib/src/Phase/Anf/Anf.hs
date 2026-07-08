@@ -33,9 +33,6 @@ data CExp s = CUnPrimOp  (Type s) UnOp (AExp s)
             | CCase       (Type s) (AExp s) [PExp s]
                 deriving (Functor, Show)
 
---         --    | ALam       (Type s) [s] (NExp s)
-        --    | AClo       (Type s) [s] [s] (NExp s)
-
 newtype AClosEnv s =
     AClosEnv [s]
         deriving (Functor, Show)
@@ -50,26 +47,6 @@ data PPat s = PVar s                     -- just vars for now
                 deriving (Functor, Show)
             -- TODO - push this definition back into the core pattern type?
 
-
 data PExp s =
     PExp (PPat s) (NExp s)
         deriving (Functor, Show)
-
-{-
--- Only for printing? Should not need these
-typeOf :: NExp s -> Type s
-typeOf (AExp aexp)  = typeOfAExp aexp
-typeOf (CExp cexp)  = typeOfCExp cexp
-typeOf (NLet t _ _ _) = t -- ?
-
-typeOfAExp :: AExp s -> Type s
-typeOfAExp (ATerm t _)          = t
-
-typeOfCExp :: CExp s -> Type s
-typeOfCExp (CUnPrimOp t _ _)    = t
-typeOfCExp (CBinPrimOp t _ _ _) = t
-typeOfCExp (CIfThenElse t _ _ _) = t
-typeOfCExp (CApp t _ _)          = t
-typeOfCExp (CAppClo t _ _ _)     = t
-typeOfCExp (CCase t _ _)         = t
--}
