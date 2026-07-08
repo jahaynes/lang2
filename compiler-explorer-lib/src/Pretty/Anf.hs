@@ -3,12 +3,10 @@
 module Pretty.Anf where
 
 import Common.State
-import Core.Module
 import Core.Term
 import Phase.Anf.Anf
 import Pretty.Common
 import Pretty.Operator
-
 
 import           Data.ByteString       (ByteString)
 import           Data.Functor          ((<&>))
@@ -24,7 +22,7 @@ printAnfModule :: AnfModule ByteString -> TextBuilder
 printAnfModule (AnfModule _ funDefns) = TB.intercalate "\n\n" (map printAnfFunDefn funDefns)
 
 printAnfFunDefn :: FunDefAnfT ByteString -> TextBuilder
-printAnfFunDefn (FunDefAnfT n qtodo t evs vs expr) =
+printAnfFunDefn (FunDefAnfT n _qtodo t evs vs expr) =
 
     let typ = TB.string . show $ t -- "some type" -- error "TODO type" -- printPolyType (Forall qs (typeOf expr))
         sig = bytestring n <> " : " <> typ
@@ -36,20 +34,11 @@ printAnfFunDefn (FunDefAnfT n qtodo t evs vs expr) =
                    [] -> ""
                    _  -> bytestring " {" <> (TB.intercalate " " $ map bytestring evs) <> bytestring "} "
 
-    in case expr of
+        impl = evalState (printNExp expr) 2
 
-        --AExp (ALam _ vs body) ->
-        --    let vs' = TB.intercalate " " $ map bytestring vs
-        --        impl = evalState (printNExp body) 2
-        --    in TB.intercalate "\n" [ sig
-        --                           , TB.intercalate " " [bytestring n, vs', "="]
-        --                           , impl ]
-
-        _ ->
-            let impl = evalState (printNExp expr) 2
-            in TB.intercalate "\n" [ sig
-                                   , bytestring n <> evars <> vars <> " ="
-                                   , impl ]
+    in TB.intercalate "\n" [ sig
+                           , bytestring n <> evars <> vars <> " ="
+                           , impl ]
 
 withIndent :: State Int TextBuilder -> State Int TextBuilder
 withIndent sf = State $ \i -> (evalState sf (i+2), i)
@@ -87,21 +76,6 @@ printAExp aexp =
 
         ATerm _ term ->
             printTerm term
-
-        --ALam _ vs body -> do
-        --    body' <- printNExp body
-        --    let vs' = bytestring $ C8.intercalate " " vs
-        --    pure $ mconcat ["(\\", vs', ".", body', ")"]
-
-        --AClo _ fvs vs body -> do
-        --    body' <- printNExp body
-        --    let fvs' = bytestring $ C8.intercalate " " fvs
-        --        vs'  = bytestring $ C8.intercalate " " vs
-        --    pure $ mconcat ["(\\", vs', " {", fvs', "}.", body', ")"]
-
-        --AClosEnv evs -> do
-        --    let evs' = bytestring $ C8.intercalate " " evs
-        --    pure $ "{env " <> evs' <> "}"
 
 printCExp :: CExp ByteString -> State Int TextBuilder
 printCExp cexp =

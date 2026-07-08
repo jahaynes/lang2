@@ -91,7 +91,7 @@ class App extends React.Component {
           <textarea id='output' className='single editor' spellCheck='false' rows={numRows}></textarea>
         </div>
 
-        <label>Eta Expanded</label>
+        <label>Eta Expanded / Normalised</label>
         <div>
           <textarea id='etaExpanded' className='single editor' spellCheck='false' rows={numRows}></textarea>
           <textarea id='normalised' className='single editor' spellCheck='false' rows={numRows}></textarea>
