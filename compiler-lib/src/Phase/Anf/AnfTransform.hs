@@ -110,37 +110,25 @@ asAnfExpr expr k =
 
 
         App t f xs ->
-            case f of
-                Lam lam_t vs body -> do
-                    name  <- genLam
-                    body' <- norm body
-                    let free = S.toList $ functionFreeVars vs body'
-                    let ll = FunDefAnfT name QTodo lam_t free vs body'
-                    modify $ \s -> s { lifted = M.insert name ll (lifted s) }
-                    asAtomicExprs xs $ \xs' ->
-                        if null free
-                            then k (CExp $ CApp t (ATerm lam_t (Var name)) xs')
-                            else k (CExp $ CAppClo t (ATerm lam_t (Var name)) (AClosEnv free) xs')
-                _ ->
-                    asAtomicExpr f $ \f' ->
-                        case f' of
-                            ATerm _ (Var name) -> do
-                                AnfState _ liftedMap cloTrackerMap <- get
-                                case M.lookup name liftedMap of
-                                    Just (FunDefAnfT _ _ _ env _ _) | not (null env) ->
-                                        asAtomicExprs xs $ \xs' ->
-                                            k (CExp $ CAppClo t f' (AClosEnv env) xs')
-                                    _ ->
-                                        case M.lookup name cloTrackerMap of
-                                            Just (funcName, cloEnv) ->
-                                                asAtomicExprs xs $ \xs' ->
-                                                    k (CExp $ CAppClo t (ATerm t (Var funcName)) cloEnv xs')
-                                            Nothing ->
-                                                asAtomicExprs xs $ \xs' ->
-                                                    k (CExp $ CApp t f' xs')
-                            _ ->
+            asAtomicExpr f $ \f' ->
+                case f' of
+                    ATerm _ (Var name) -> do
+                        AnfState _ liftedMap cloTrackerMap <- get
+                        case M.lookup name liftedMap of
+                            Just (FunDefAnfT _ _ _ env _ _) | not (null env) ->
                                 asAtomicExprs xs $ \xs' ->
-                                    k (CExp $ CApp t f' xs')
+                                    k (CExp $ CAppClo t f' (AClosEnv env) xs')
+                            _ ->
+                                case M.lookup name cloTrackerMap of
+                                    Just (funcName, cloEnv) ->
+                                        asAtomicExprs xs $ \xs' ->
+                                            k (CExp $ CAppClo t (ATerm t (Var funcName)) cloEnv xs')
+                                    Nothing ->
+                                        asAtomicExprs xs $ \xs' ->
+                                            k (CExp $ CApp t f' xs')
+                    _ ->
+                        asAtomicExprs xs $ \xs' ->
+                            k (CExp $ CApp t f' xs')
 
         Let t a b c ->
             asAnfExpr b $ \b' ->
@@ -214,43 +202,29 @@ asAtomicExpr expr k =
                     NLet t s (CExp $ CAppClo t (ATerm t (Var name)) cloEnv []) <$> k (ATerm t (Var s))
 
         App t f xs ->
-            case f of
-                Lam lam_t vs body -> do
-                    name  <- genLam
-                    body' <- norm body
-                    let free = S.toList $ functionFreeVars vs body'
-                    let ll = FunDefAnfT name QTodo lam_t free vs body'
-                    modify $ \s -> s { lifted = M.insert name ll (lifted s) }
-                    asAtomicExprs xs $ \xs' -> do
-                        s <- genAnf
-                        let app = if null free
-                                    then CExp $ CApp t (ATerm lam_t (Var name)) xs'
-                                    else CExp $ CAppClo t (ATerm lam_t (Var name)) (AClosEnv free) xs'
-                        NLet t s app <$> k (ATerm t (Var s))
-                _ ->
-                    asAtomicExpr f $ \f' ->
-                        case f' of
-                            ATerm _ (Var name) -> do
-                                AnfState _ liftedMap cloTrackerMap <- get
-                                case M.lookup name liftedMap of
-                                    Just (FunDefAnfT _ _ _ env _ _) | not (null env) ->
-                                        asAtomicExprs xs $ \xs' -> do
-                                            s <- genAnf
-                                            NLet t s (CExp $ CAppClo t f' (AClosEnv env) xs') <$> k (ATerm t (Var s))
-                                    _ ->
-                                        case M.lookup name cloTrackerMap of
-                                            Just (funcName, cloEnv) ->
-                                                asAtomicExprs xs $ \xs' -> do
-                                                    s <- genAnf
-                                                    NLet t s (CExp $ CAppClo t (ATerm t (Var funcName)) cloEnv xs') <$> k (ATerm t (Var s))
-                                            Nothing ->
-                                                asAtomicExprs xs $ \xs' -> do
-                                                    s <- genAnf
-                                                    NLet t s (CExp $ CApp t f' xs') <$> k (ATerm t (Var s))
-                            _ ->
+            asAtomicExpr f $ \f' ->
+                case f' of
+                    ATerm _ (Var name) -> do
+                        AnfState _ liftedMap cloTrackerMap <- get
+                        case M.lookup name liftedMap of
+                            Just (FunDefAnfT _ _ _ env _ _) | not (null env) ->
                                 asAtomicExprs xs $ \xs' -> do
                                     s <- genAnf
-                                    NLet t s (CExp $ CApp t f' xs') <$> k (ATerm t (Var s))
+                                    NLet t s (CExp $ CAppClo t f' (AClosEnv env) xs') <$> k (ATerm t (Var s))
+                            _ ->
+                                case M.lookup name cloTrackerMap of
+                                    Just (funcName, cloEnv) ->
+                                        asAtomicExprs xs $ \xs' -> do
+                                            s <- genAnf
+                                            NLet t s (CExp $ CAppClo t (ATerm t (Var funcName)) cloEnv xs') <$> k (ATerm t (Var s))
+                                    Nothing ->
+                                        asAtomicExprs xs $ \xs' -> do
+                                            s <- genAnf
+                                            NLet t s (CExp $ CApp t f' xs') <$> k (ATerm t (Var s))
+                    _ ->
+                        asAtomicExprs xs $ \xs' -> do
+                            s <- genAnf
+                            NLet t s (CExp $ CApp t f' xs') <$> k (ATerm t (Var s))
 
         Let t a b c ->
             asAnfExpr b $ \b' ->
