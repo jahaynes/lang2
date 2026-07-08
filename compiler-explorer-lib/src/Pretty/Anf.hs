@@ -5,14 +5,12 @@ module Pretty.Anf where
 import Common.State
 import Core.Module
 import Core.Term
-import Core.Types
 import Phase.Anf.Anf
 import Pretty.Common
 import Pretty.Operator
-import Pretty.Type
+
 
 import           Data.ByteString       (ByteString)
-import qualified Data.ByteString.Char8 as C8
 import           Data.Functor          ((<&>))
 import           Data.Text             (Text)
 import qualified Data.Text as T
@@ -115,8 +113,11 @@ printCExp cexp =
             xs' <- mapM (noIndent . printAExp) xs
             pure $ f' <> "(" <> TB.intercalate "," xs' <> ")"
 
-        CAppClo _ f cloEnv xs ->
-            pure "cappclo"
+        CAppClo _ f (AClosEnv cloEnv) xs -> do
+            f'    <- printAExp f
+            env'  <- pure $ "{" <> TB.intercalate " " (map bytestring cloEnv) <> "}"
+            xs'   <- mapM (noIndent . printAExp) xs
+            pure $ f' <> env' <> "(" <> TB.intercalate "," xs' <> ")"
 
         CUnPrimOp _ op a -> do
             a' <- printAExp a
@@ -150,6 +151,7 @@ printPExp (PExp lhs rhs) = do
     rhs' <- noIndent $ printNExp rhs
     pure $ TB.intercalate " " [lhs', "->", rhs']
 
+printPPat :: PPat ByteString -> State Int TextBuilder
 printPPat (PVar v) = pure $ bytestring v
 printPPat (PApp dc _ ts) = do
     ts' <- mapM printTerm ts
