@@ -27,32 +27,33 @@ anfModule :: Module (Type ByteString) ByteString
           -> Either ByteString (AnfModule ByteString)
 anfModule md = do
 
-    -- Each top-level lambda may yield additional lifted functions
-    fundefs <- concat <$> mapM anfFunDefT (getFunDefns md)
-
-    pure $ AnfModule (getDataDefns md) fundefs
-
-anfFunDefT :: FunDefn (Type ByteString) ByteString
-           -> Either ByteString [FunDefAnfT ByteString]
-anfFunDefT (FunDefn n pt expr) =
-
+    -- Each top-level lambda may yield additional lifted functions.
+    -- Use a single state across all function definitions so that
+    -- generated labels (ll_0, anf_1, …) are globally unique.
     let state = AnfState { getNum = 0
                          , lifted = mempty
                          , cloTracker = mempty
                          }
+    (fundefs, finalState) <- runStateT (mapM anfFunDefT (getFunDefns md)) state
 
-    in case expr of
+    -- Collect all lifted functions accumulated during the transform.
+    let liftedFundefs = map snd . M.toList $ lifted finalState
+    pure $ AnfModule (getDataDefns md) (liftedFundefs <> fundefs)
+
+anfFunDefT :: FunDefn (Type ByteString) ByteString
+           -> Anf (FunDefAnfT ByteString)
+anfFunDefT (FunDefn n pt expr) =
+
+    case expr of
 
         -- Avoid lambda-lifting functions already on the top-level
         Lam t vs body -> do
-            (body', state') <- runStateT (norm body) state
-            let fundef = FunDefAnfT n pt t [] vs body'   -- TODO q vars
-            pure $ (map snd . M.toList $ lifted state') <> [fundef]
+            body' <- norm body
+            pure $ FunDefAnfT n pt t [] vs body'   -- TODO q vars
 
         _nonlambda -> do
-            (expr', state') <- runStateT (norm expr) state
-            let fundef = FunDefAnfT n pt (typeOf expr) [] [] expr'   -- TODO q vars
-            pure $ (map snd . M.toList $ lifted state') <> [fundef]
+            expr' <- norm expr
+            pure $ FunDefAnfT n pt (typeOf expr) [] [] expr'   -- TODO q vars
 
 data AnfState s =
     AnfState { getNum :: !Int
