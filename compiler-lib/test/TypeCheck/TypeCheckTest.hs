@@ -23,6 +23,7 @@ typeCheckTests =
                       , ("test_mutual_recursion", test_mutual_recursion)
                       , ("datatypes",             test_simple_datatype)
                       , ("recursive_datatypes",   test_recursive_datatype)
+                      , ("lambda_body",           test_lambda_body)
                       ]
 
 
@@ -179,6 +180,26 @@ test_recursive_datatype = unitTest $ do
             map getPolyType $ getFunDefns inferredModule
 
     inferredFunTypes === [Forall [] (TyCon "List" [TyCon "Int" []])]
+
+{-
+    f x = \y. y + x
+-}
+test_lambda_body :: Property
+test_lambda_body = unitTest $ do
+
+    let fundefn =
+          FunDefn "f" Unquant $
+              Lam Untyped ["x"] $
+                  Lam Untyped ["y"] $
+                      BinPrimOp Untyped AddI (Term Untyped (Var "y")) (Term Untyped (Var "x"))
+
+    let md = Module { getDataDefns = []
+                    , getTypeSigs  = []
+                    , getFunDefns  = [ fundefn ] }
+
+    let r = map getPolyType . getFunDefns <$> inferModule md
+
+    r === Right [Forall [] (TyCon "Int" [] ->> (TyCon "Int" [] ->> TyCon "Int" []))]
 
 unitTest :: PropertyT IO () -> Property
 unitTest = withTests 1 . property
