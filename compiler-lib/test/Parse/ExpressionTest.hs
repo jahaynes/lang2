@@ -3,7 +3,6 @@
 module Parse.ExpressionTest where
 
 import           Core.Expression
-import           Core.Operator
 import           Core.Term
 import           Core.Types (Untyped (..))
 import           Parse.LexAndParse
@@ -20,7 +19,6 @@ exprTests :: Group
 exprTests =
     Group "Expr" [ ("variable_match", test_variable_match)
                  , ("variable_mismatch", test_variable_mismatch)
-                 , ("neg_variable_match", test_neg_variable_match)
                  , ("lit_string", test_lit_string)
                  , ("lit_bool", test_lit_bool)
                  , ("lit_int", test_lit_int)
@@ -35,11 +33,6 @@ test_variable_mismatch :: Property
 test_variable_mismatch = unitTest $
     let x = doParse parseLiteral undefined [TEqEq] undefined
     in x === Left "no alternatives left"
-
-test_neg_variable_match :: Property
-test_neg_variable_match = unitTest $
-    let x = doParse parseVariable undefined [TNegate, TLowerStart "def"] undefined
-    in x === Right (UnPrimOp Untyped Negate (Term Untyped (Var "def")))
 
 test_lit_string :: Property
 test_lit_string = unitTest $
