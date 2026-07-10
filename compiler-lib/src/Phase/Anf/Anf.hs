@@ -39,7 +39,7 @@ newtype AClosEnv s =
 
                                          -- TODO Lits
 data PPat s = PVar s                     -- just vars for now
-            | PApp s (Type s) [Term s]   -- fully applied dcons
+            | PApp s (Type s) [PPat s]   -- fully applied dcons (recursive for nested patterns)
                 deriving (Functor, Show)
 
 data PExp s =

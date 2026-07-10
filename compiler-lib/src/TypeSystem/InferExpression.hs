@@ -108,24 +108,30 @@ inferPattern env (Pattern a b) = do
          , Pattern a' b')
 
 inferPatLhs :: Map ByteString (Polytype ByteString)
-            -> PatLhs Untyped ByteString
+            -> PatLhsExpr Untyped ByteString
             -> State (GroupState ByteString) ( [Constraint ByteString]
-                                             , PatLhs (Type ByteString) ByteString )
+                                             , PatLhsExpr (Type ByteString) ByteString )
 inferPatLhs env pat =
     case pat of
-        PVar v ->
-            pure ([], PVar v)
+        PVar _ v -> do
+            case M.lookup v env of
+                Nothing -> error $ "unbound variable in pattern: " ++ show v
+                Just pt -> do
+                    t <- instantiate pt
+                    pure ([], PVar t v)
 
-        PApp dc Untyped args -> do
+        PDCons Untyped dc pats -> do
             dcType <- case M.lookup dc env of
                 Nothing -> error $ "unbound data constructor: " ++ show dc
                 Just pt -> instantiate pt
-            typedArgs <- mapM (inferTerm env) args
-            tv        <- freshTVar
-            let argTypes = map typeOf typedArgs
-            let expected = foldr TyArr tv argTypes
-            pure ( [Constraint dcType expected]
-                 , PApp dc tv args )
+            (pcs, typedPats) <- unzip <$> mapM (inferPatLhs env) pats
+            tv <- freshTVar
+            let patTypes = map patType typedPats
+                patType (PVar t _)     = t
+                patType (PDCons t _ _) = t
+            let expected = foldr TyArr tv patTypes
+            pure ( Constraint dcType expected : concat pcs
+                 , PDCons tv dc typedPats )
 
 (<!>) :: (Ord k, Show v, Eq v) => Map k v -> Map k v -> Map k v
 m1 <!> m2 = M.unionWith same m1 m2
@@ -134,21 +140,15 @@ m1 <!> m2 = M.unionWith same m1 m2
              | otherwise = error $ "intersection!: " ++ show (a, b)
 
 
-labelLeftFreshVars :: PatLhs Untyped ByteString
+labelLeftFreshVars :: PatLhsExpr Untyped ByteString
                    -> State (GroupState ByteString) (Map ByteString (Type ByteString))
 labelLeftFreshVars pat =
     case pat of
-        PVar v ->
+        PVar _ v ->
             M.singleton v <$> freshTVar
 
-        PApp _ _ args ->
-            mconcat <$> mapM labelLeftFreshVarsTerm args
-
-    where
-    labelLeftFreshVarsTerm :: Term ByteString
-                           -> State (GroupState ByteString) (Map ByteString (Type ByteString))
-    labelLeftFreshVarsTerm (Var v) = M.singleton v <$> freshTVar
-    labelLeftFreshVarsTerm _       = pure mempty
+        PDCons _ _ pats ->
+            mconcat <$> mapM labelLeftFreshVars pats
 
 -- TODO dedupe?
 varsFrom :: Show s => [Expr Untyped s] -> [s]

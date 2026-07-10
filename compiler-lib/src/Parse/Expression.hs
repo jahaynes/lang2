@@ -110,30 +110,20 @@ parseApply = parseCase <|> parseApp
             b <- parseExpr
             pure $ Pattern a b
 
-        {-
-            BUG: DCons of DCons in Pattern LHS don't work:
-
-            Pair a b = Pair a b
-            triple a b c = Pair a (Pair b c)
-            main = case triple 1 2 3 of
-                       Pair a (Pair b c) -> c
-        -}
-
-        parsePatLhs :: Parser ParseState (PatLhs Untyped ByteString)
-        parsePatLhs = parsePApp <|> parsePVar
+        parsePatLhs :: Parser ParseState (PatLhsExpr Untyped ByteString)
+        parsePatLhs = parsePDCons <|> parsePVar
             where
-            parsePVar = PVar <$> parseLowerStart
+            parsePVar = PVar Untyped <$> parseLowerStart
 
-            parsePApp = do
+            parsePDCons = do
                 dc   <- parseUpperStart
                 args <- parseWhileColumns MoreRight parsePatArg
-                pure $ PApp dc Untyped args
+                pure $ PDCons Untyped dc args
 
-            parsePatArg :: Parser ParseState (Term ByteString)
-            parsePatArg = parseLitString
-                      <|> parseLitBool
-                      <|> parseLitInt
-                      <|> (Var <$> parseLowerStart)
+            parsePatArg :: Parser ParseState (PatLhsExpr Untyped ByteString)
+            parsePatArg = parsePDCons <|> parsePVar <|> parsePatParen
+
+            parsePatParen = token TLParen *> parsePatLhs <* token TRParen
 
     parseApp = do
         (f, xs) <- parseWhileColumns1 MoreRight parseNonApply

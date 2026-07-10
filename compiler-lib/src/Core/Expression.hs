@@ -2,7 +2,7 @@
 
 module Core.Expression ( Expr (..)
                        , Pattern (..)
-                       , PatLhs (..)
+                       , PatLhsExpr (..)
                        , mapType
                        , patLhsType
                        , typeOf
@@ -22,12 +22,12 @@ data Expr t s = Term       t (Term s)
                   deriving (Eq, Functor, Ord, Show)
 
 data Pattern t s =
-    Pattern (PatLhs t s) (Expr t s)
+    Pattern (PatLhsExpr t s) (Expr t s)
         deriving (Eq, Functor, Ord, Show)
 
-data PatLhs t s = PVar s
-                | PApp s t [Term s]
-                    deriving (Eq, Functor, Ord, Show)
+data PatLhsExpr t s = PVar t s
+                    | PDCons t s [PatLhsExpr t s]
+                        deriving (Eq, Functor, Ord, Show)
 
 mapType :: (t -> t)
         -> Expr t s
@@ -44,14 +44,14 @@ mapType f expr =
         Case t scrut ps       -> Case (f t) (mapType f scrut) (map mapType' ps)
 
     where
-    mapType' (Pattern a b) = Pattern (mapType'' f a) (mapType f b)
+    mapType' (Pattern a b) = Pattern (mapType'' a) (mapType f b)
 
-    mapType'' f (PVar v)     = PVar v
-    mapType'' f (PApp n t a) = PApp n (f t) a
+    mapType'' (PVar t v)       = PVar (f t) v
+    mapType'' (PDCons t n pats) = PDCons (f t) n (map mapType'' pats)
 
-patLhsType :: PatLhs t s -> Maybe t
-patLhsType (PVar _)     = Nothing
-patLhsType (PApp _ t _) = Just t
+patLhsType :: PatLhsExpr t s -> Maybe t
+patLhsType (PVar _ _)     = Nothing
+patLhsType (PDCons t _ _) = Just t
 
 typeOf :: Expr t s -> t
 typeOf expr =

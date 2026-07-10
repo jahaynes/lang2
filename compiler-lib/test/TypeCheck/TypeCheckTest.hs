@@ -223,7 +223,7 @@ test_pattern_matching = unitTest $ do
             Let Untyped "snd"
                 (Lam Untyped ["pair"]
                     (Case Untyped (Term Untyped (Var "pair"))
-                        [ Pattern (PApp "MkPair" Untyped [Var "a", Var "b"])
+                        [ Pattern (PDCons Untyped "MkPair" [PVar Untyped "a", PVar Untyped "b"])
                                   (Term Untyped (Var "b")) ]))
                 (App Untyped (Term Untyped (Var "snd"))
                     [ App Untyped (Term Untyped (DCons "MkPair"))

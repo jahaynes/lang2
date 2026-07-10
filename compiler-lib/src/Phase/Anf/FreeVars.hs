@@ -17,8 +17,8 @@ termFvs (Var v) = S.singleton v
 termFvs _       = S.empty
 
 boundVarsOf :: Ord v => PPat v -> Set v
-boundVarsOf (PVar v)      = S.singleton v
-boundVarsOf (PApp _ _ ts) = fromList [v | Var v <- ts]   -- TODO check this
+boundVarsOf (PVar v)        = S.singleton v
+boundVarsOf (PApp _ _ pats) = S.unions $ map boundVarsOf pats
 
 instance FreeVars AExp where
     fvs (ATerm _ t) = termFvs t

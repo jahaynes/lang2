@@ -43,5 +43,5 @@ buildGraph' = CallGraph . M.unions . map go
 
         pt scope (Pattern a b) = fn (addPatVars scope a) b
 
-        addPatVars s (PVar v)        = S.insert v s
-        addPatVars s (PApp _ _ args) = S.fromList [v | Var v <- args] `S.union` s
+        addPatVars s (PVar _ v)        = S.insert v s
+        addPatVars s (PDCons _ _ pats) = S.unions (s : map (addPatVars S.empty) pats)

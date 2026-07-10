@@ -102,7 +102,7 @@ printPattern ind (Pattern lhs rhs) =
             , " -> "
             , printTypedExpression ind rhs ]
 
-printPatLhs :: PatLhs (Type ByteString) ByteString -> TextBuilder
-printPatLhs (PVar v) = bytestring v
-printPatLhs (PApp dc _ args) =
-    TB.intercalate " " (bytestring dc : map (printTerm . fmap decodeUtf8) args)
+printPatLhs :: PatLhsExpr (Type ByteString) ByteString -> TextBuilder
+printPatLhs (PVar _ v) = bytestring v
+printPatLhs (PDCons _ dc args) =
+    TB.intercalate " " (bytestring dc : map printPatLhs args)

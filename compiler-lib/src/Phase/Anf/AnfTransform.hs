@@ -157,9 +157,9 @@ asAnfExpr expr k =
                 rest <- k (AExp $ ATerm t $ Var v)
                 pure $ NLet t v (CExp $ CCase t scr' ps') rest
 
-asAnfLhs :: PatLhs (Type ByteString) ByteString -> Anf.PPat ByteString
-asAnfLhs (PVar v)         = Anf.PVar v
-asAnfLhs (PApp dc t args) = Anf.PApp dc t args
+asAnfLhs :: PatLhsExpr (Type ByteString) ByteString -> Anf.PPat ByteString
+asAnfLhs (PVar _ v)                = Anf.PVar v
+asAnfLhs (PDCons ty dc pats)       = Anf.PApp dc ty (map asAnfLhs pats)
 
 asAtomicExpr :: Expr (Type ByteString) ByteString
              -> (AExp ByteString -> Anf (NExp ByteString))

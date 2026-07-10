@@ -127,9 +127,9 @@ printPExp (PExp lhs rhs) = do
 
 printPPat :: PPat ByteString -> State Int TextBuilder
 printPPat (PVar v) = pure $ bytestring v
-printPPat (PApp dc _ ts) = do
-    ts' <- mapM printTerm ts
-    pure $ TB.intercalate " " (bytestring dc:ts')
+printPPat (PApp dc _ ps) = do
+    ps' <- mapM printPPat ps
+    pure $ TB.intercalate " " (bytestring dc:ps')
 
 printTerm :: Term ByteString -> State Int TextBuilder
 printTerm term =
