@@ -95,7 +95,7 @@ typeVars'' :: Ord s => Pattern (Type s) s -> Set s
 typeVars'' (Pattern a b) = patLhsTypeVars a <> typeVars b
 
 patLhsTypeVars :: Ord s => PatLhsExpr (Type s) s -> Set s
-patLhsTypeVars (PVar _ _)       = mempty
+patLhsTypeVars (PVar ty _)      = typeVars' ty
 patLhsTypeVars (PDCons ty _ _)  = typeVars' ty
 
 typeVars' :: Ord s => Type s -> Set s

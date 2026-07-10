@@ -87,8 +87,7 @@ inferExpr env expr =
             let (lts, rts) = unzip $ map (\(Pattern a b) -> (patLhsType a, typeOf b)) ps'
 
             -- the left-side of each pattern must match the scrutinee
-            -- TODO: pvars are currently skipped
-            let lhs = [Constraint (typeOf scrut') t | Just t <- lts]
+            let lhs = map (Constraint (typeOf scrut')) lts
 
             -- the right-side of each pattern must match the whole type
             let rhs = map (Constraint tv) rts

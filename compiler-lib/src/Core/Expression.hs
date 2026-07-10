@@ -49,9 +49,9 @@ mapType f expr =
     mapType'' (PVar t v)       = PVar (f t) v
     mapType'' (PDCons t n pats) = PDCons (f t) n (map mapType'' pats)
 
-patLhsType :: PatLhsExpr t s -> Maybe t
-patLhsType (PVar _ _)     = Nothing
-patLhsType (PDCons t _ _) = Just t
+patLhsType :: PatLhsExpr t s -> t
+patLhsType (PVar t _)     = t
+patLhsType (PDCons t _ _) = t
 
 typeOf :: Expr t s -> t
 typeOf expr =
