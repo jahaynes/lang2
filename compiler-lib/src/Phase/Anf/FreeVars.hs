@@ -32,9 +32,9 @@ instance FreeVars CExp where
     fvs (CCase _ s ps)        = fvs s `union` unions (map fvs ps)
 
 instance FreeVars NExp where
-    fvs (AExp a)        = fvs a
-    fvs (CExp c)        = fvs c
-    fvs (NLet _ v b c)  = fvs b `union` S.delete v (fvs c)
+    fvs (AExp a)       = fvs a
+    fvs (CExp c)       = fvs c
+    fvs (NLet _ v b c) = fvs b `union` S.delete v (fvs c)
 
 instance FreeVars PExp where
     fvs (PExp pat body) = fvs body \\ boundVarsOf pat

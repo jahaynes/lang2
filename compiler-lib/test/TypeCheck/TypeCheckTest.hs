@@ -16,14 +16,14 @@ import Hedgehog hiding (Var)
 
 typeCheckTests :: Group
 typeCheckTests =
-    Group "Typecheck" [ ("primitives",            test_primitives)
-                      , ("generalisations",       test_generalisations)
-                      , ("top_level_recursion",   test_top_level_recursion)
-                      , ("nested_recursion",      test_nested_recursion)
-                      , ("test_mutual_recursion", test_mutual_recursion)
-                      , ("datatypes",             test_simple_datatype)
-                      , ("recursive_datatypes",   test_recursive_datatype)
-                      , ("lambda_body",           test_lambda_body)
+    Group "Typecheck" [ ("primitives",             test_primitives)
+                      , ("generalisations",        test_generalisations)
+                      , ("top_level_recursion",    test_top_level_recursion)
+                      , ("nested_recursion",       test_nested_recursion)
+                      , ("test_mutual_recursion",  test_mutual_recursion)
+                      , ("datatypes",              test_simple_datatype)
+                      , ("recursive_datatypes",    test_recursive_datatype)
+                      , ("lambda_body",            test_lambda_body)
                       , ("pattern_match_datatype", test_pattern_matching)
                       ]
 

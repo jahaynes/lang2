@@ -28,16 +28,12 @@ anfModule :: Module (Type ByteString) ByteString
           -> Either ByteString (AnfModule ByteString)
 anfModule md = do
 
-    -- Each top-level lambda may yield additional lifted functions.
-    -- Use a single state across all function definitions so that
-    -- generated labels (ll_0, anf_1, …) are globally unique.
     let state = AnfState { getNum = 0
                          , lifted = mempty
                          , cloTracker = mempty
                          }
     (fundefs, finalState) <- runStateT (mapM anfFunDefT (getFunDefns md)) state
 
-    -- Collect all lifted functions accumulated during the transform.
     let liftedFundefs = map snd . M.toList $ lifted finalState
     pure $ AnfModule (getDataDefns md) (liftedFundefs <> fundefs)
 

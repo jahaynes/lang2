@@ -131,9 +131,9 @@ parseApply = parseCase <|> parseApp
 
             parsePatArg :: Parser ParseState (Term ByteString)
             parsePatArg = parseLitString
-                     <|> parseLitBool
-                     <|> parseLitInt
-                     <|> (Var <$> parseLowerStart)
+                      <|> parseLitBool
+                      <|> parseLitInt
+                      <|> (Var <$> parseLowerStart)
 
     parseApp = do
         (f, xs) <- parseWhileColumns1 MoreRight parseNonApply
