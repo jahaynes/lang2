@@ -24,6 +24,7 @@ typeCheckTests =
                       , ("datatypes",             test_simple_datatype)
                       , ("recursive_datatypes",   test_recursive_datatype)
                       , ("lambda_body",           test_lambda_body)
+                      , ("pattern_match_datatype", test_pattern_matching)
                       ]
 
 
@@ -200,6 +201,50 @@ test_lambda_body = unitTest $ do
     let r = map getPolyType . getFunDefns <$> inferModule md
 
     r === Right [Forall [] (TyCon "Int" [] ->> (TyCon "Int" [] ->> TyCon "Int" []))]
+
+{-
+    Pair a b = MkPair a b
+
+    main =
+        let snd pair =
+                case pair of
+                    MkPair a b -> b in
+        snd (MkPair 1 2)
+-}
+test_pattern_matching :: Property
+test_pattern_matching = unitTest $ do
+
+    -- Datatype: Pair a b = MkPair a b
+    let dcMkPair = DataCon "MkPair" [MemberVar "a", MemberVar "b"]
+        pair     = DataDefn "Pair" ["a", "b"] [dcMkPair]
+
+    -- main = let snd pair = case pair of MkPair a b -> b in snd (MkPair 1 2)
+    let mainExpr =
+            Let Untyped "snd"
+                (Lam Untyped ["pair"]
+                    (Case Untyped (Term Untyped (Var "pair"))
+                        [ Pattern (PApp "MkPair" Untyped [Var "a", Var "b"])
+                                  (Term Untyped (Var "b")) ]))
+                (App Untyped (Term Untyped (Var "snd"))
+                    [ App Untyped (Term Untyped (DCons "MkPair"))
+                                 [ Term Untyped (LitInt 1)
+                                 , Term Untyped (LitInt 2) ]])
+
+    let md = Module { getDataDefns = [pair]
+                    , getTypeSigs  = []
+                    , getFunDefns  = [FunDefn "main" Unquant mainExpr]
+                    }
+
+    let result = inferModule md :: Either ByteString (Module (Type ByteString) ByteString)
+
+    case result of
+        Left err -> do
+            footnote $ "Error: " <> show err
+            failure
+        Right inferredModule -> do
+            let inferredFunTypes =
+                    map getPolyType $ getFunDefns inferredModule
+            inferredFunTypes === [Forall [] (TyCon "Int" [])]
 
 unitTest :: PropertyT IO () -> Property
 unitTest = withTests 1 . property

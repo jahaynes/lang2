@@ -101,7 +101,7 @@ expandExpr (Case t scrut ps) =
 expandPat :: Pattern (Type ByteString) ByteString
           -> State EtaState (Pattern (Type ByteString) ByteString)
 expandPat (Pattern a b) =
-    Pattern <$> expandExpr a <*> expandExpr b
+    Pattern a <$> expandExpr b
 
 underAppliedToLambda :: Type ByteString
                      -> [Expr (Type ByteString) ByteString]

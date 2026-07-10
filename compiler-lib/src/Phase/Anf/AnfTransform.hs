@@ -9,7 +9,8 @@ import Core.Expression
 import Core.Module
 import Core.Term
 import Core.Types
-import Phase.Anf.Anf
+import           Phase.Anf.Anf hiding (PPat(..))
+import qualified Phase.Anf.Anf as Anf (PPat(..))
 import Phase.Anf.FreeVars
 
 import Control.Monad         (forM)
@@ -156,21 +157,13 @@ asAnfExpr expr k =
                 v   <- genAnf
                 ps' <- forM ps $ \(Pattern pat rhs) -> do
                     rhs' <- norm rhs
-                    pure (PExp (check pat) rhs')
+                    pure (PExp (asAnfLhs pat) rhs')
                 rest <- k (AExp $ ATerm t $ Var v)
                 pure $ NLet t v (CExp $ CCase t scr' ps') rest
 
--- Crap:
---check :: Expr (Type s) s -> PPat s
-check e =
-    case e of
-        Term t (Var v) -> PVar v
-        App t f xs -> PApp (c1 f) t (map c2 xs)
-
-    where
-    c1 (Term t (Var v) ) = v
-    c1 (Term t (DCons dc)) = dc
-    c2 (Term t v ) = v
+asAnfLhs :: PatLhs (Type ByteString) ByteString -> Anf.PPat ByteString
+asAnfLhs (PVar v)         = Anf.PVar v
+asAnfLhs (PApp dc t args) = Anf.PApp dc t args
 
 asAtomicExpr :: Expr (Type ByteString) ByteString
              -> (AExp ByteString -> Anf (NExp ByteString))
@@ -254,7 +247,7 @@ asAtomicExpr expr k =
         Case t scr ps ->
             asAtomicExpr scr $ \scr' -> do
                 ps' <- forM ps $ \(Pattern pat rhs) ->
-                    PExp (check pat) <$> asAnfExpr rhs pure
+                    PExp (asAnfLhs pat) <$> asAnfExpr rhs pure
                 v    <- genAnf
                 rest <- k (ATerm t (Var v))
                 pure $ NLet t v (CExp $ CCase t scr' ps') rest

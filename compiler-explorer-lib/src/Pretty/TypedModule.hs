@@ -98,6 +98,11 @@ printPattern :: Int
              -> TextBuilder
 printPattern ind (Pattern lhs rhs) =
     mconcat [ indent ind
-            , printTypedExpression ind lhs
+            , printPatLhs lhs
             , " -> "
             , printTypedExpression ind rhs ]
+
+printPatLhs :: PatLhs (Type ByteString) ByteString -> TextBuilder
+printPatLhs (PVar v) = bytestring v
+printPatLhs (PApp dc _ args) =
+    TB.intercalate " " (bytestring dc : map (printTerm . fmap decodeUtf8) args)

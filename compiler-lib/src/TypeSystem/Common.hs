@@ -92,7 +92,11 @@ typeVars e =
             typeVars' t <> typeVars scrut <> mconcat (map typeVars'' ps)
 
 typeVars'' :: Ord s => Pattern (Type s) s -> Set s
-typeVars'' (Pattern a b) = typeVars a <> typeVars b
+typeVars'' (Pattern a b) = patLhsTypeVars a <> typeVars b
+
+patLhsTypeVars :: Ord s => PatLhs (Type s) s -> Set s
+patLhsTypeVars (PVar _)     = mempty
+patLhsTypeVars (PApp _ t _) = typeVars' t
 
 typeVars' :: Ord s => Type s -> Set s
 typeVars' (TyCon _ ts) = mconcat $ map typeVars' ts

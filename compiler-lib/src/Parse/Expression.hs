@@ -105,10 +105,35 @@ parseApply = parseCase <|> parseApp
         where
         parsePattern :: Parser ParseState (Pattern Untyped ByteString)
         parsePattern = do
-            a <- parseApp
+            a <- parsePatLhs
             _ <- token TArr
             b <- parseExpr
             pure $ Pattern a b
+
+        {-
+            BUG: DCons of DCons in Pattern LHS don't work:
+
+            Pair a b = Pair a b
+            triple a b c = Pair a (Pair b c)
+            main = case triple 1 2 3 of
+                       Pair a (Pair b c) -> c
+        -}
+
+        parsePatLhs :: Parser ParseState (PatLhs Untyped ByteString)
+        parsePatLhs = parsePApp <|> parsePVar
+            where
+            parsePVar = PVar <$> parseLowerStart
+
+            parsePApp = do
+                dc   <- parseUpperStart
+                args <- parseWhileColumns MoreRight parsePatArg
+                pure $ PApp dc Untyped args
+
+            parsePatArg :: Parser ParseState (Term ByteString)
+            parsePatArg = parseLitString
+                     <|> parseLitBool
+                     <|> parseLitInt
+                     <|> (Var <$> parseLowerStart)
 
     parseApp = do
         (f, xs) <- parseWhileColumns1 MoreRight parseNonApply
@@ -171,8 +196,8 @@ parseTerm = parseDataConstructor <|> parseLiteral <|> parseVariable
 
 parseLiteral :: Parser ParseState (Expr Untyped ByteString)
 parseLiteral = Term Untyped <$> parseLitString
-                             <|> parseLitBool
-                             <|> parseLitInt
+                            <|> parseLitBool
+                            <|> parseLitInt
 
 parseLitString :: Parser ParseState (Term ByteString)
 parseLitString = parseSatisfy "string" f
@@ -202,10 +227,7 @@ parseLitInt = pos <|> neg
     isInt           _ = Nothing
 
 parseVariable :: Parser ParseState (Expr Untyped ByteString)
-parseVariable = pos <|> neg
-    where
-    pos = Term Untyped . Var <$> parseLowerStart
-    neg = UnPrimOp Untyped Negate . Term Untyped . Var <$> (parseNegate *> parseLowerStart)
+parseVariable = Term Untyped . Var <$> parseLowerStart
 
 parseDataConstructor :: Parser ParseState (Expr Untyped ByteString)
 parseDataConstructor = Term Untyped . DCons <$> parseUpperStart

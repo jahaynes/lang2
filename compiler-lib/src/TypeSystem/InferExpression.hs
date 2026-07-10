@@ -84,10 +84,11 @@ inferExpr env expr =
             (pcs, ps')   <- unzip <$> mapM (inferPattern env) ps
 
             -- get left and right hand types
-            let (lts, rts) = unzip $ map (\(Pattern a b) -> (typeOf a, typeOf b)) ps'
+            let (lts, rts) = unzip $ map (\(Pattern a b) -> (patLhsType a, typeOf b)) ps'
 
             -- the left-side of each pattern must match the scrutinee
-            let lhs = map (Constraint (typeOf scrut')) lts
+            -- TODO: pvars are currently skipped
+            let lhs = [Constraint (typeOf scrut') t | Just t <- lts]
 
             -- the right-side of each pattern must match the whole type
             let rhs = map (Constraint tv) rts
@@ -100,12 +101,31 @@ inferPattern :: Map ByteString (Polytype ByteString)
              -> State (GroupState ByteString) ( [Constraint ByteString]
                                               , Pattern (Type ByteString) ByteString )
 inferPattern env (Pattern a b) = do
-    -- TODO: should probably enforce arity of LHS data constructions
-    lhsVars <- fmap (Forall []) <$> labelLeftFreshVars a -- Guess
-    (acs, a') <- inferExpr (env <!> lhsVars) a
+    lhsVars <- fmap (Forall []) <$> labelLeftFreshVars a
+    (acs, a') <- inferPatLhs (env <!> lhsVars) a
     (bcs, b') <- inferExpr (env <!> lhsVars) b
     pure ( acs <> bcs
          , Pattern a' b')
+
+inferPatLhs :: Map ByteString (Polytype ByteString)
+            -> PatLhs Untyped ByteString
+            -> State (GroupState ByteString) ( [Constraint ByteString]
+                                             , PatLhs (Type ByteString) ByteString )
+inferPatLhs env pat =
+    case pat of
+        PVar v ->
+            pure ([], PVar v)
+
+        PApp dc Untyped args -> do
+            dcType <- case M.lookup dc env of
+                Nothing -> error $ "unbound data constructor: " ++ show dc
+                Just pt -> instantiate pt
+            typedArgs <- mapM (inferTerm env) args
+            tv        <- freshTVar
+            let argTypes = map typeOf typedArgs
+            let expected = foldr TyArr tv argTypes
+            pure ( [Constraint dcType expected]
+                 , PApp dc tv args )
 
 (<!>) :: (Ord k, Show v, Eq v) => Map k v -> Map k v -> Map k v
 m1 <!> m2 = M.unionWith same m1 m2
@@ -114,34 +134,21 @@ m1 <!> m2 = M.unionWith same m1 m2
              | otherwise = error $ "intersection!: " ++ show (a, b)
 
 
-labelLeftFreshVars :: Expr Untyped ByteString
+labelLeftFreshVars :: PatLhs Untyped ByteString
                    -> State (GroupState ByteString) (Map ByteString (Type ByteString))
-labelLeftFreshVars a =
-
-    case a of
-
-        App Untyped dc xs -> do
-            fdc <- labelLeftFreshVars dc
-            fxs <- mapM labelLeftFreshVars xs
-            pure $ mconcat (fdc:fxs)
-
-        Term Untyped DCons{} ->
-            pure mempty
-
-        Term Untyped LitBool{} ->
-            pure mempty
-
-        Term Untyped LitInt{} ->
-            pure mempty
-
-        Term Untyped LitString{} ->
-            pure mempty
-
-        Term Untyped (Var v) ->
+labelLeftFreshVars pat =
+    case pat of
+        PVar v ->
             M.singleton v <$> freshTVar
 
-        -- TODO - forbid BinPrimOp and others from here?
-        -- Need an EitherT for this?
+        PApp _ _ args ->
+            mconcat <$> mapM labelLeftFreshVarsTerm args
+
+    where
+    labelLeftFreshVarsTerm :: Term ByteString
+                           -> State (GroupState ByteString) (Map ByteString (Type ByteString))
+    labelLeftFreshVarsTerm (Var v) = M.singleton v <$> freshTVar
+    labelLeftFreshVarsTerm _       = pure mempty
 
 -- TODO dedupe?
 varsFrom :: Show s => [Expr Untyped s] -> [s]

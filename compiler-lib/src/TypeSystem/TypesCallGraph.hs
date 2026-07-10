@@ -41,4 +41,7 @@ buildGraph' = CallGraph . M.unions . map go
         fn scope (IfThenElse _ p t f) = mconcat $ map (fn scope) [p, t, f]
         fn scope (Case _ scrut ps)    = fn scope scrut <> mconcat (map (pt scope) ps)
 
-        pt scope (Pattern a b) = mempty -- TODO
+        pt scope (Pattern a b) = fn (addPatVars scope a) b
+
+        addPatVars s (PVar v)        = S.insert v s
+        addPatVars s (PApp _ _ args) = S.fromList [v | Var v <- args] `S.union` s

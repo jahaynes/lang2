@@ -2,7 +2,9 @@
 
 module Core.Expression ( Expr (..)
                        , Pattern (..)
+                       , PatLhs (..)
                        , mapType
+                       , patLhsType
                        , typeOf
                        ) where
 
@@ -20,8 +22,12 @@ data Expr t s = Term       t (Term s)
                   deriving (Eq, Functor, Ord, Show)
 
 data Pattern t s =
-    Pattern (Expr t s) (Expr t s)
+    Pattern (PatLhs t s) (Expr t s)
         deriving (Eq, Functor, Ord, Show)
+
+data PatLhs t s = PVar s
+                | PApp s t [Term s]
+                    deriving (Eq, Functor, Ord, Show)
 
 mapType :: (t -> t)
         -> Expr t s
@@ -38,7 +44,14 @@ mapType f expr =
         Case t scrut ps       -> Case (f t) (mapType f scrut) (map mapType' ps)
 
     where
-    mapType' (Pattern a b) = Pattern (mapType f a) (mapType f b)
+    mapType' (Pattern a b) = Pattern (mapType'' f a) (mapType f b)
+
+    mapType'' f (PVar v)     = PVar v
+    mapType'' f (PApp n t a) = PApp n (f t) a
+
+patLhsType :: PatLhs t s -> Maybe t
+patLhsType (PVar _)     = Nothing
+patLhsType (PApp _ t _) = Just t
 
 typeOf :: Expr t s -> t
 typeOf expr =

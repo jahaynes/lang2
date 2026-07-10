@@ -71,4 +71,4 @@ saturateExpr extraParams = go
         Case t (go scrut) (map goPat ps)
 
     goPat (Pattern a b) =
-        Pattern (go a) (go b)
+        Pattern a (go b)
