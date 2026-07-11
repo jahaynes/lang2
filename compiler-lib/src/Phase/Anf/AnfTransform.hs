@@ -28,9 +28,13 @@ anfModule :: Module (Type ByteString) ByteString
           -> Either ByteString (AnfModule ByteString)
 anfModule md = do
 
+    -- Collect the names of all top-level function definitions; these are
+    -- globally in scope and do not need to be captured in closure environments.
+    let topNames = S.fromList [n | FunDefn n _ _ <- getFunDefns md]
     let state = AnfState { getNum = 0
                          , lifted = mempty
                          , cloTracker = mempty
+                         , globals = topNames
                          }
     (fundefs, finalState) <- runStateT (mapM anfFunDefT (getFunDefns md)) state
 
@@ -56,6 +60,7 @@ data AnfState s =
     AnfState { getNum :: !Int
              , lifted :: !(Map s (FunDefAnfT s))
              , cloTracker :: !(Map s (s, AClosEnv s))
+             , globals :: !(S.Set s)     -- top-level names that are always in scope
              }
 
 genAnf :: Anf ByteString
@@ -66,12 +71,19 @@ genLam = genSym "ll_"
 
 genSym :: ByteString -> Anf ByteString
 genSym pre = do
-    AnfState n sg ct <- get
-    put $! AnfState (n+1) sg ct
+    AnfState n sg ct gl <- get
+    put $! AnfState (n+1) sg ct gl
     pure (pre <> (pack $ show n))
 
 norm :: Expr (Type ByteString) ByteString -> Anf (NExp ByteString)
 norm expr = asAnfExpr expr pure
+
+-- | Compute the variables that need to be captured in a closure environment.
+--   Top-level (global) names are always in scope and do not need to be captured.
+closureFreeVars :: [ByteString] -> NExp ByteString -> Anf [ByteString]
+closureFreeVars vs body = do
+    gl <- fmap globals get
+    pure $ S.toList $ functionFreeVars vs body `S.difference` gl
 
 asAnfExpr :: Expr (Type ByteString) ByteString
           -> (NExp ByteString -> Anf (NExp ByteString))
@@ -87,7 +99,7 @@ asAnfExpr expr k =
             name  <- genLam
             body' <- norm body
 
-            let free = S.toList $ functionFreeVars vs body'
+            free <- closureFreeVars vs body'
 
             if null free
 
@@ -110,7 +122,7 @@ asAnfExpr expr k =
             asAtomicExpr f $ \f' ->
                 case f' of
                     ATerm _ (Var name) -> do
-                        AnfState _ liftedMap cloTrackerMap <- get
+                        AnfState _ liftedMap cloTrackerMap _ <- get
                         case M.lookup name liftedMap of
                             Just (FunDefAnfT _ _ _ env _ _) | not (null env) ->
                                 asAtomicExprs xs $ \xs' ->
@@ -175,7 +187,7 @@ asAtomicExpr expr k =
             name  <- genLam
             body' <- norm body
 
-            let free = S.toList $ functionFreeVars vs body'
+            free <- closureFreeVars vs body'
 
             if null free
                 then do
@@ -194,7 +206,7 @@ asAtomicExpr expr k =
             asAtomicExpr f $ \f' ->
                 case f' of
                     ATerm _ (Var name) -> do
-                        AnfState _ liftedMap cloTrackerMap <- get
+                        AnfState _ liftedMap cloTrackerMap _ <- get
                         case M.lookup name liftedMap of
                             Just (FunDefAnfT _ _ _ env _ _) | not (null env) ->
                                 asAtomicExprs xs $ \xs' -> do

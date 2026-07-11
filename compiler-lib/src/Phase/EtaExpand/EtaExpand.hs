@@ -86,7 +86,15 @@ expandExpr e@(App t f xs) =
             let tf = typeOf f
             (at, t', vs, args) <- underAppliedToLambda tf xs
             pure $ Lam t' vs (App at f (xs ++ args))
-        _       -> pure e
+        _       -> do
+            let -- Recurse but don't expand Term references; they are being
+                -- used as values and may have arrow types (e.g. in function
+                -- position they receive the App's args; in arg position they
+                -- are just passed as-is).
+                expandSub e' = case e' of
+                    Term{} -> pure e'
+                    _      -> expandExpr e'
+            App t <$> expandSub f <*> mapM expandSub xs
 
 expandExpr (Let t a b c) =
     -- The outer type *should* still be the same

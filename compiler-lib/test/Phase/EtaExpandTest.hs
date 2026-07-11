@@ -81,8 +81,8 @@ expandLambdaBody =
         let funDefns = getFunDefns result
         -- f: nested lambdas should be merged, no crash from missing "y" in known types
         funDefns !! 0 === fDefnExpanded
-        -- main: fully applied, unchanged
-        funDefns !! 1 === mainDefn
+        -- main: (f 2) 3 expands inner (f 2) into \eta_0 -> f 2 eta_0
+        funDefns !! 1 === mainDefnExpanded
 
 -- f :: Int -> Int -> Int
 -- f x = \y. y + x
@@ -102,6 +102,7 @@ fDefnExpanded =
 
 -- main :: Int
 -- main = (f 2) 3
+-- After eta expansion: (\eta_0 -> f 2 eta_0) 3
 mainDefn :: FunDefn (Type ByteString) ByteString
 mainDefn =
     FunDefn "main" (Quant []) $
@@ -109,6 +110,17 @@ mainDefn =
             (App (int ->> int)
                  (Term (int ->> (int ->> int)) (Var "f"))
                  [Term int (LitInt 2)])
+            [Term int (LitInt 3)]
+
+mainDefnExpanded :: FunDefn (Type ByteString) ByteString
+mainDefnExpanded =
+    FunDefn "main" (Quant []) $
+        App int
+            (Lam (int ->> int) ["eta_0"]
+                (App int
+                    (Term (int ->> (int ->> int)) (Var "f"))
+                    [ Term int (LitInt 2)
+                    , Term int (Var "eta_0") ]))
             [Term int (LitInt 3)]
 
 int :: Type ByteString
