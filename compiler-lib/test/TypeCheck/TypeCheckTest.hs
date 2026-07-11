@@ -184,23 +184,29 @@ test_recursive_datatype = unitTest $ do
 
 {-
     f x = \y. y + x
+    main = (f 2) 3
 -}
 test_lambda_body :: Property
 test_lambda_body = unitTest $ do
 
-    let fundefn =
+    let f =
           FunDefn "f" Unquant $
               Lam Untyped ["x"] $
                   Lam Untyped ["y"] $
                       BinPrimOp Untyped AddI (Term Untyped (Var "y")) (Term Untyped (Var "x"))
 
+    let main =
+          FunDefn "main" Unquant $
+              App Untyped (App Untyped (Term Untyped (Var "f")) [Term Untyped (LitInt 2)]) [Term Untyped (LitInt 3)]
+
     let md = Module { getDataDefns = []
                     , getTypeSigs  = []
-                    , getFunDefns  = [ fundefn ] }
+                    , getFunDefns  = [ f, main ] }
 
     let r = map getPolyType . getFunDefns <$> inferModule md
 
-    r === Right [Forall [] (TyCon "Int" [] ->> (TyCon "Int" [] ->> TyCon "Int" []))]
+    r === Right [ Forall [] (TyCon "Int" [] ->> (TyCon "Int" [] ->> TyCon "Int" []))
+                , Forall [] (TyCon "Int" []) ]
 
 {-
     Pair a b = MkPair a b

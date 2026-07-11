@@ -12,7 +12,7 @@ import Phase.EtaExpand.EtaSaturate
 import           Data.ByteString.Char8 (ByteString, pack)
 import           Data.Functor          ((<&>))
 import           Data.List             ((\\))
-import           Data.Map.Strict       ((!), Map)
+import           Data.Map.Strict       (Map)
 import qualified Data.Map.Strict as M
 
 data EtaState =
@@ -31,25 +31,37 @@ etaExpand md =
     in etaSaturate (md { getFunDefns = funDefns' })
                    (getExtraParams st)
 
+-- This is sus.  Rewrite
 expandDefn :: FunDefn (Type ByteString) ByteString
            -> State EtaState (FunDefn (Type ByteString) ByteString)
 expandDefn (FunDefn n q e) = do
 
     e' <- expandExpr e
 
-    case (e, e') of
-        (Lam _ vs _, Lam _ vs' _) ->
-            case vs' \\ vs of
-                [] -> pure ()
-                vd ->
-                    modify' $ \st ->
-                        let kt  = getKnownTypes st
-                            -- TODO could prevent re-use of 'v' here (if alphabetisation needed)
-                            tvd = map (\v -> (v, kt ! v)) vd
-                        in st { getExtraParams = M.insert n tvd (getExtraParams st) }
-        _ -> pure ()
+    let vs  = lamVars e
+        vs' = lamVars e'
+
+    case vs' \\ vs of
+        [] -> pure ()
+        vd ->
+            modify' $ \st ->
+                let kt  = getKnownTypes st
+                    -- TODO could prevent re-use of 'v' here (if alphabetisation needed)
+                    tvd = map (\v -> (v, kt !!! v)) vd
+                in st { getExtraParams = M.insert n tvd (getExtraParams st) }
 
     pure $ FunDefn n q e'
+
+-- Collect all variables from nested top-level Lambdas
+lamVars :: Expr t s -> [s]
+lamVars (Lam _ vs body) = vs ++ lamVars body
+lamVars _ = []
+
+(!!!) :: (Ord a, Show a) => Map a b -> a -> b
+(!!!) m k =
+    case M.lookup k m of
+        Nothing -> error $ "Could not find " ++ show k ++ " in map"
+        Just v -> v -- Never used as far as I know
 
 expandExpr :: Expr (Type ByteString) ByteString
            -> State EtaState (Expr (Type ByteString) ByteString)
