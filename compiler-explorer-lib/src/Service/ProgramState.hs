@@ -10,6 +10,7 @@ import Phase.CodeGen.RegisterLang
 import Phase.Anf.Anf
 import Pretty.Anf
 import Pretty.Module
+import Pretty.RegisterLang
 import Pretty.TypedModule
 
 import           Data.Aeson
@@ -41,7 +42,7 @@ instance ToJSON ProgramState where
             txtInferredPretty         = either decodeUtf8 renderTypedModule (getInferred ps)
             txtEtaExpanded            = either decodeUtf8 renderTypedModule (getEtaExpanded ps)
             txtNormalised             = either decodeUtf8 renderAnfModule (getNormalised ps)
-            txtCodegen                = either (pack . show) (pack . show) (getRegisterLang ps)
+            txtCodegen                = either decodeUtf8 renderRegModule (getRegisterLang ps)
             txtOutput                 = decodeUtf8 $ getOutput ps
 
         object [ "tokens"                 .= String txtTokens
