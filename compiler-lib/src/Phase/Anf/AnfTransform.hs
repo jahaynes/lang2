@@ -84,13 +84,6 @@ closureFreeVars :: [ByteString] -> NExp ByteString -> Anf [ByteString]
 closureFreeVars vs body = do
     gl <- fmap globals get
     pure $ S.toList $ functionFreeVars vs body `S.difference` gl
--- | Flatten left-nested applications into head expression and accumulated arguments.
---   ((f a) b) c  →  (f, [a, b, c])
-flattenApp :: Expr t s -> (Expr t s, [Expr t s])
-flattenApp (App _ f xs) =
-    let (f', xs') = flattenApp f
-    in (f', xs' ++ xs)
-flattenApp e = (e, [])
 
 asAnfExpr :: Expr (Type ByteString) ByteString
           -> (NExp ByteString -> Anf (NExp ByteString))
@@ -126,25 +119,24 @@ asAnfExpr expr k =
 
 
         App t f xs ->
-            let (flatFn, allArgs) = flattenApp $ App t f xs
-            in asAtomicExpr flatFn $ \f' ->
+            asAtomicExpr f $ \f' ->
                 case f' of
                     ATerm _ (Var name) -> do
                         AnfState _ liftedMap cloTrackerMap _ <- get
                         case M.lookup name liftedMap of
                             Just (FunDefAnfT _ _ _ env _ _) | not (null env) ->
-                                asAtomicExprs allArgs $ \xs' ->
+                                asAtomicExprs xs $ \xs' ->
                                     k (CExp $ CAppClo t f' (AClosEnv env) xs')
                             _ ->
                                 case M.lookup name cloTrackerMap of
                                     Just (funcName, cloEnv) ->
-                                        asAtomicExprs allArgs $ \xs' ->
+                                        asAtomicExprs xs $ \xs' ->
                                             k (CExp $ CAppClo t (ATerm t (Var funcName)) cloEnv xs')
                                     Nothing ->
-                                        asAtomicExprs allArgs $ \xs' ->
+                                        asAtomicExprs xs $ \xs' ->
                                             k (CExp $ CApp t f' xs')
                     _ ->
-                        asAtomicExprs allArgs $ \xs' ->
+                        asAtomicExprs xs $ \xs' ->
                             k (CExp $ CApp t f' xs')
 
         Let t a b c ->
@@ -211,28 +203,27 @@ asAtomicExpr expr k =
                     NLet t s (CExp $ CAppClo t (ATerm t (Var name)) cloEnv []) <$> k (ATerm t (Var s))
 
         App t f xs ->
-            let (flatFn, allArgs) = flattenApp $ App t f xs
-            in asAtomicExpr flatFn $ \f' ->
+            asAtomicExpr f $ \f' ->
                 case f' of
                     ATerm _ (Var name) -> do
                         AnfState _ liftedMap cloTrackerMap _ <- get
                         case M.lookup name liftedMap of
                             Just (FunDefAnfT _ _ _ env _ _) | not (null env) ->
-                                asAtomicExprs allArgs $ \xs' -> do
+                                asAtomicExprs xs $ \xs' -> do
                                     s <- genAnf
                                     NLet t s (CExp $ CAppClo t f' (AClosEnv env) xs') <$> k (ATerm t (Var s))
                             _ ->
                                 case M.lookup name cloTrackerMap of
                                     Just (funcName, cloEnv) ->
-                                        asAtomicExprs allArgs $ \xs' -> do
+                                        asAtomicExprs xs $ \xs' -> do
                                             s <- genAnf
                                             NLet t s (CExp $ CAppClo t (ATerm t (Var funcName)) cloEnv xs') <$> k (ATerm t (Var s))
                                     Nothing ->
-                                        asAtomicExprs allArgs $ \xs' -> do
+                                        asAtomicExprs xs $ \xs' -> do
                                             s <- genAnf
                                             NLet t s (CExp $ CApp t f' xs') <$> k (ATerm t (Var s))
                     _ ->
-                        asAtomicExprs allArgs $ \xs' -> do
+                        asAtomicExprs xs $ \xs' -> do
                             s <- genAnf
                             NLet t s (CExp $ CApp t f' xs') <$> k (ATerm t (Var s))
 
