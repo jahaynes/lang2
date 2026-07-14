@@ -13,8 +13,7 @@ library
                     containers,
                     vector,
                     vector-builder
-  exposed-modules:  CodeGen.RegisterLang
-                    Common.CallGraph
+  exposed-modules:  Common.CallGraph
                     Common.EitherT
                     Common.State
                     Common.ReaderT
@@ -34,6 +33,8 @@ library
                     Phase.Anf.Anf
                     Phase.Anf.AnfTransform
                     Phase.Anf.FreeVars
+                    Phase.CodeGen.RegisterLang
+                    Phase.CodeGen.RegisterLangTransform
                     Phase.EtaExpand.EtaExpand
                     Phase.EtaExpand.EtaSaturate
                     TypeCheck.ConstraintSolver
