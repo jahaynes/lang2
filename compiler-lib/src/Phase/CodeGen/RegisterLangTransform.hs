@@ -145,7 +145,11 @@ compileNExp nexp mcont = go nexp
         (blocks1, _l1) <- compileNExpTo e1 r_s (Just midL)
         -- Compile e2: result goes to the final destination
         (blocks2, _l2) <- go e2
-        pure (blocks1 ++ blocks2, midL)
+        -- Re-label the first block of e2 to midL so the jump from e1 lands correctly
+        let blocks2' = case blocks2 of
+                []      -> [Block midL [] (Jump midL)]  -- should not happen
+                (b:bs)  -> Block midL (getInsts b) (getTerm b) : bs
+        pure (blocks1 ++ blocks2', midL)
 
     go (CExp c) = compileCExp c mcont
 -- | Like 'compileNExp', but the result register is predetermined.
@@ -170,7 +174,11 @@ compileNExpTo nexp rDest mcont = case nexp of
         midL <- freshLabel
         (blocks1, _l1) <- compileNExpTo e1 r_s (Just midL)
         (blocks2, _l2) <- compileNExpTo e2 rDest mcont
-        pure (blocks1 ++ blocks2, midL)
+        -- Re-label the first block of e2 to midL so the jump from e1 lands correctly
+        let blocks2' = case blocks2 of
+                []      -> [Block midL [] (Jump midL)]  -- should not happen
+                (b:bs)  -> Block midL (getInsts b) (getTerm b) : bs
+        pure (blocks1 ++ blocks2', midL)
 
     CExp c -> compileCExpTo c rDest mcont
 
