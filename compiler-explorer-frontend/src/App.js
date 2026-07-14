@@ -43,10 +43,11 @@ class App extends React.Component {
   lexAndParse() {
     const source = document.getElementById("text")
 
-    const prettyDefns            = this.getAndClearElement("prettyDefns")
-    const inferredPretty         = this.getAndClearElement("inferredPretty")
-    const etaExpanded            = this.getAndClearElement("etaExpanded")
-    const normalised             = this.getAndClearElement("normalised")
+    const prettyDefns    = this.getAndClearElement("prettyDefns")
+    const inferredPretty = this.getAndClearElement("inferredPretty")
+    const etaExpanded    = this.getAndClearElement("etaExpanded")
+    const normalised     = this.getAndClearElement("normalised")
+    const codegen        = this.getAndClearElement("codegen")
 
     const req = { getInput: source.value }
 
@@ -60,7 +61,8 @@ class App extends React.Component {
         prettyDefns.value            = ts.prettyDefns;
         inferredPretty.value         = ts.inferredPretty;
         etaExpanded.value            = ts.etaExpanded;
-        normalised.value             = ts.normalised; })
+        normalised.value             = ts.normalised;
+        codegen.value                = ts.codegen })
       .catch(exception => console.log(exception));
   }
 
@@ -79,6 +81,11 @@ class App extends React.Component {
         <label>Source</label>
         <div>
           <textarea id='text' className='double editor' spellCheck='false' rows={numRows} onChange={e => this.lexAndParse()}></textarea>
+        </div>
+
+        <label>Codegen</label>
+        <div>
+          <textarea id='codegen' className='double editor' spellCheck='false' rows={numRows}></textarea>
         </div>
 
         <div>

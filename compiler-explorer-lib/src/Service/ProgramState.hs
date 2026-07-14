@@ -6,6 +6,7 @@ import Core.Module
 import Core.Types
 import Parse.LexAndParse
 import Parse.Token
+import Phase.CodeGen.RegisterLang
 import Phase.Anf.Anf
 import Pretty.Anf
 import Pretty.Module
@@ -25,6 +26,7 @@ data ProgramState =
                  , getInferred         :: !(Either ByteString (Module (Type ByteString) ByteString))
                  , getEtaExpanded      :: !(Either ByteString (Module (Type ByteString) ByteString))
                  , getNormalised       :: !(Either ByteString (AnfModule ByteString))
+                 , getRegisterLang     :: !(Either ByteString (RegModule ByteString))
                  , getOutput           :: !ByteString
                  }
 
@@ -39,6 +41,7 @@ instance ToJSON ProgramState where
             txtInferredPretty         = either decodeUtf8 renderTypedModule (getInferred ps)
             txtEtaExpanded            = either decodeUtf8 renderTypedModule (getEtaExpanded ps)
             txtNormalised             = either decodeUtf8 renderAnfModule (getNormalised ps)
+            txtCodegen                = either (pack . show) (pack . show) (getRegisterLang ps)
             txtOutput                 = decodeUtf8 $ getOutput ps
 
         object [ "tokens"                 .= String txtTokens
@@ -48,10 +51,11 @@ instance ToJSON ProgramState where
                , "inferredPretty"         .= String txtInferredPretty
                , "etaExpanded"            .= String txtEtaExpanded
                , "normalised"             .= String txtNormalised
+               , "codegen"                .= String txtCodegen
                , "output"                 .= String txtOutput
                ]
 
 fromSource :: Text -> ProgramState
-fromSource txt = ProgramState (encodeUtf8 txt) na na na na na na ""
+fromSource txt = ProgramState (encodeUtf8 txt) na na na na na na na ""
     where
     na = Left "Not Available"

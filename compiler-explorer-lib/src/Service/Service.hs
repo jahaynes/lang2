@@ -7,6 +7,7 @@ import Parse.LexAndParse
 import Parse.Lexer
 import Parse.Module
 import Parse.Parser
+import Phase.CodeGen.RegisterLangTransform
 import Phase.EtaExpand.EtaExpand
 import Phase.Anf.AnfTransform
 import Service.ProgramState
@@ -19,6 +20,7 @@ pipe = do
     phaseTypeCheck
     phaseEtaExpand
     phaseNormalise
+    phaseCodeGen
 
     where
     phaseLexer :: State ProgramState ()
@@ -46,3 +48,7 @@ pipe = do
     phaseNormalise :: State ProgramState ()
     phaseNormalise = modify' $ \ps ->
         ps { getNormalised = anfModule =<< getEtaExpanded ps }
+
+    phaseCodeGen :: State ProgramState ()
+    phaseCodeGen = modify' $ \ps ->
+        ps { getRegisterLang = transformModule <$> getNormalised ps }
