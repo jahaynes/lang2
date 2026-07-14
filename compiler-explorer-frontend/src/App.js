@@ -97,14 +97,10 @@ class App extends React.Component {
           <textarea id='normalised' className='single editor' spellCheck='false' rows={numRows}></textarea>
         </div>
 
-        <label>Type Inference / Pretty</label>
-        <div>
-          <textarea id='inferredPretty' className='single editor' spellCheck='false' rows={numRows}></textarea>
-        </div>
-
-        <label>Tokens / Definitions</label>
+        <label>Definitions / Type Inference</label>
         <div>
           <textarea id='prettyDefns' className='single editor' spellCheck='false' rows={numRows}></textarea>
+          <textarea id='inferredPretty' className='single editor' spellCheck='false' rows={numRows}></textarea>
         </div>
       </div>
     );
