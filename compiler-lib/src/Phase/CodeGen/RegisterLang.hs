@@ -49,7 +49,7 @@ data Inst s = Move     !(Type s) !R !(ATerm s)   -- dest ← atomic value
               deriving Show
 
 -- | Atomic terms (representable in a single register load)
-data ATerm s = AVar s
+data ATerm s = AVar R
              | ADCons s
              | ALitInt  !Integer
              | ALitBool !Bool

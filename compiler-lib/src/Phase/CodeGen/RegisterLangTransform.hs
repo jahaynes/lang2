@@ -14,6 +14,7 @@ import Core.Term (Term (..))
 import Core.Types (Type)
 
 import Data.ByteString.Char8 (ByteString)
+import Data.List (zip3)
 import Data.Map (Map)
 import qualified Data.Map.Strict as M
 
@@ -63,12 +64,12 @@ bindVar v r = do
 -- Conversions between ANF and RegisterLang types
 ---------------------------------------------------------------
 
-aexpToATerm :: AExp ByteString -> ATerm ByteString
-aexpToATerm (ATerm _ (Var v))     = AVar v
-aexpToATerm (ATerm _ (DCons c))   = ADCons c
-aexpToATerm (ATerm _ (LitInt n))  = ALitInt n
-aexpToATerm (ATerm _ (LitBool b)) = ALitBool b
-aexpToATerm (ATerm _ (LitString s)) = ALitString s
+aexpToATerm :: AExp ByteString -> CompileM (ATerm ByteString)
+aexpToATerm (ATerm _ (Var v))     = AVar <$> lookupVar v
+aexpToATerm (ATerm _ (DCons c))   = pure (ADCons c)
+aexpToATerm (ATerm _ (LitInt n))  = pure (ALitInt n)
+aexpToATerm (ATerm _ (LitBool b)) = pure (ALitBool b)
+aexpToATerm (ATerm _ (LitString s)) = pure (ALitString s)
 
 aexpType :: AExp ByteString -> Type ByteString
 aexpType (ATerm t _) = t
@@ -131,7 +132,8 @@ compileNExp nexp mcont = go nexp
         let term = case mcont of
                 Nothing     -> Return t [r]
                 Just contL  -> Jump contL
-        pure ([Block lbl [Move t r (aexpToATerm a)] term], lbl)
+        aTerm <- aexpToATerm a
+        pure ([Block lbl [Move t r aTerm] term], lbl)
 
     go (NLet _ s e1 e2) = do
         -- Pre-allocate a register for the bound variable
@@ -157,7 +159,8 @@ compileNExpTo nexp rDest mcont = case nexp of
         let term = case mcont of
                 Nothing     -> Return t [rDest]
                 Just contL  -> Jump contL
-        pure ([Block lbl [Move t rDest (aexpToATerm a)] term], lbl)
+        aTerm <- aexpToATerm a
+        pure ([Block lbl [Move t rDest aTerm] term], lbl)
 
     NLet _ s e1 e2 -> do
         -- Pre-allocate a register for the bound variable
@@ -195,7 +198,8 @@ compileCExpTo cexp rDest mcont = case cexp of
         let term = case mcont of
                 Nothing     -> Return t [rDest]
                 Just contL  -> Jump contL
-        let insts = [ Move t r_a (aexpToATerm a)
+        aTerm <- aexpToATerm a
+        let insts = [ Move t r_a aTerm
                     , UnOp t rDest op r_a
                     ]
         pure ([Block lbl insts term], lbl)
@@ -210,8 +214,10 @@ compileCExpTo cexp rDest mcont = case cexp of
         let term = case mcont of
                 Nothing     -> Return t [rDest]
                 Just contL  -> Jump contL
-        let insts = [ Move t r1 (aexpToATerm a1)
-                    , Move t r2 (aexpToATerm a2)
+        a1Term <- aexpToATerm a1
+        a2Term <- aexpToATerm a2
+        let insts = [ Move t r1 a1Term
+                    , Move t r2 a2Term
                     , BinOp t rDest op r1 r2
                     ]
         pure ([Block lbl insts term], lbl)
@@ -225,10 +231,11 @@ compileCExpTo cexp rDest mcont = case cexp of
         l_then  <- freshLabel
         l_else  <- freshLabel
         l_join  <- freshLabel
+        cTerm   <- aexpToATerm c
 
         -- The condition block: load the condition and branch
         let condBlock = Block l_cond
-                            [Move t r_c (aexpToATerm c)]
+                            [Move t r_c cTerm]
                             (Branch t r_c l_then l_else)
 
         -- Compile the 'then' branch: result goes to rDest, then jump to l_join
@@ -256,11 +263,10 @@ compileCExpTo cexp rDest mcont = case cexp of
         l_call <- freshLabel
         l_ret  <- freshLabel
 
-        let argInsts = concat
-                [ let t_a = aexpType a
-                  in [Move t_a r (aexpToATerm a)]
-                | (a, r) <- zip args r_args
-                ]
+        argTerms <- mapM aexpToATerm args
+
+        let argInsts = [Move (aexpType a) r t
+                       | (a, r, t) <- zip3 args r_args argTerms]
 
         let retBlock = case mcont of
                 Nothing    -> Block l_ret [] (Return t [rDest])
@@ -287,12 +293,10 @@ compileCExpTo cexp rDest mcont = case cexp of
         l_call <- freshLabel
         l_ret  <- freshLabel
 
-        -- Load the arguments into registers
-        let argInsts = concat
-                [ let t_a = aexpType a
-                  in [Move t_a r (aexpToATerm a)]
-                | (a, r) <- zip args r_args
-                ]
+        argTerms <- mapM aexpToATerm args
+
+        let argInsts = [Move (aexpType a) r t
+                       | (a, r, t) <- zip3 args r_args argTerms]
 
         let retBlock = case mcont of
                 Nothing    -> Block l_ret [] (Return t [rDest])
@@ -311,13 +315,14 @@ compileCExpTo cexp rDest mcont = case cexp of
         r_s <- freshReg
         l_case <- freshLabel
         l_default <- freshLabel
+        scrutTerm <- aexpToATerm scrut
 
         -- Compile each alternative body and collect (pattern, label) pairs
         (altBlocks, altPats) <- compileAlts rDest mcont alts
 
         -- The scrutinee block: load the scrutinee and dispatch with Case
         let scrutBlock = Block l_case
-                            [Move t r_s (aexpToATerm scrut)]
+                            [Move t r_s scrutTerm]
                             (Case t r_s altPats l_default)
 
         -- Default block (unmatched pattern): just jump to the continuation

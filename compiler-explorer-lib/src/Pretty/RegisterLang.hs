@@ -82,7 +82,7 @@ printInst inst =
 printATerm :: ATerm ByteString -> TextBuilder
 printATerm aterm =
     case aterm of
-        AVar v       -> bytestring v
+        AVar r       -> printReg r
         ADCons c     -> bytestring c
         ALitInt  n   -> TB.decimal n
         ALitBool b   -> if b then "True" else "False"
