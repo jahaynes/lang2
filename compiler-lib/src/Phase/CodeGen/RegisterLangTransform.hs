@@ -2,22 +2,19 @@
 
 module Phase.CodeGen.RegisterLangTransform ( transformModule ) where
 
-import Phase.Anf.Anf
-import Phase.CodeGen.RegisterLang hiding (PPat, PVar, PApp)
-
+import           Common.EitherT (EitherT(..), left)
+import           Common.State (State, evalState, get, modify')
+import           Common.Trans (Trans(lift))
+import           Core.Term (Term (..))
+import           Core.Types (Type)
+import           Phase.Anf.Anf
+import           Phase.CodeGen.RegisterLang hiding (PPat, PVar, PApp)
 import qualified Phase.Anf.Anf as Anf (PPat(..))
 import qualified Phase.CodeGen.RegisterLang as Reg (PPat(..))
 
-import Common.EitherT (EitherT(..), left)
-import Common.State (State, evalState, get, modify')
-import Common.Trans (Trans(lift))
-
-import Core.Term (Term (..))
-import Core.Types (Type)
-
-import Data.ByteString.Char8 (ByteString, pack)
-import Data.List (zip3)
-import Data.Map (Map)
+import           Data.ByteString.Char8 (ByteString, pack)
+import           Data.List             (zip3)
+import           Data.Map              (Map)
 import qualified Data.Map.Strict as M
 
 ---------------------------------------------------------------
