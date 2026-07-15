@@ -8,12 +8,14 @@ import Phase.CodeGen.RegisterLang hiding (PPat, PVar, PApp)
 import qualified Phase.Anf.Anf as Anf (PPat(..))
 import qualified Phase.CodeGen.RegisterLang as Reg (PPat(..))
 
+import Common.EitherT (EitherT(..), left)
 import Common.State (State, evalState, get, modify')
+import Common.Trans (Trans(lift))
 
 import Core.Term (Term (..))
 import Core.Types (Type)
 
-import Data.ByteString.Char8 (ByteString)
+import Data.ByteString.Char8 (ByteString, pack)
 import Data.List (zip3)
 import Data.Map (Map)
 import qualified Data.Map.Strict as M
@@ -31,34 +33,34 @@ data CompileState =
 initState :: CompileState
 initState = CompileState 0 0 M.empty
 
-type CompileM = State CompileState
+type CompileM = EitherT ByteString (State CompileState)
 ---------------------------------------------------------------
 -- Fresh name generation
 ---------------------------------------------------------------
 
 freshReg :: CompileM R
 freshReg = do
-    n <- regCounter <$> get
-    modify' $ \s -> s { regCounter = n + 1 }
+    n <- lift (regCounter <$> get)
+    lift $ modify' $ \s -> s { regCounter = n + 1 }
     pure (R n)
 
 freshLabel :: CompileM L
 freshLabel = do
-    n <- labelCounter <$> get
-    modify' $ \s -> s { labelCounter = n + 1 }
+    n <- lift (labelCounter <$> get)
+    lift $ modify' $ \s -> s { labelCounter = n + 1 }
     pure (L n)
 
 lookupVar :: ByteString -> CompileM R
 lookupVar v = do
-    m <- varMap <$> get
+    m <- lift (varMap <$> get)
     case M.lookup v m of
         Just r  -> pure r
-        Nothing -> error $ "RegisterLangTransform: unbound variable " ++ show v
+        Nothing -> left $ pack $ "RegisterLangTransform: unbound variable " ++ show v
 
 bindVar :: ByteString -> R -> CompileM ()
 bindVar v r = do
-    m <- varMap <$> get
-    modify' $ \s -> s { varMap = M.insert v r m }
+    m <- lift (varMap <$> get)
+    lift $ modify' $ \s -> s { varMap = M.insert v r m }
 
 ---------------------------------------------------------------
 -- Conversions between ANF and RegisterLang types
@@ -81,18 +83,20 @@ anfPatToRegPat (Anf.PApp c t ps)  = Reg.PApp c t (map anfPatToRegPat ps)
 -- Top-level module transformation
 ---------------------------------------------------------------
 
-transformModule :: AnfModule ByteString -> RegModule ByteString
-transformModule (AnfModule dds fds) =
-    RegModule dds (map transformFunDef fds)
+transformModule :: AnfModule ByteString -> Either ByteString (RegModule ByteString)
+transformModule (AnfModule dds fds) = do
+    funDefs <- mapM transformFunDef fds
+    pure $ RegModule dds funDefs
 
 ---------------------------------------------------------------
 -- Function definition transformation
 ---------------------------------------------------------------
 
-transformFunDef :: FunDefAnfT ByteString -> RegFunDef ByteString
+transformFunDef :: FunDefAnfT ByteString -> Either ByteString (RegFunDef ByteString)
 transformFunDef (FunDefAnfT name quant ty envVars params body) =
-    let blocks = evalState (compileBody name envVars params body) initState
-    in RegFunDef name quant ty (length envVars) (length params) blocks
+    case evalState (runEitherT (compileBody name envVars params body)) initState of
+        Left err      -> Left err
+        Right blocks  -> Right $ RegFunDef name quant ty (length envVars) (length params) blocks
 
 -- | Compile the body of a function definition into basic blocks.
 --   The parameters are bound to registers, then the body is compiled.
@@ -263,9 +267,9 @@ compileCExpTo cexp rDest mcont = case cexp of
     ---------------------------------------------------------------
     CApp t f args -> do
         -- Extract the function name from the atomic expression
-        let funcName = case f of
-                ATerm _ (Var n) -> n
-                _ -> error "RegisterLangTransform.CApp: function must be a Var"
+        funcName <- case f of
+                ATerm _ (Var n) -> pure n
+                _ -> left $ pack "RegisterLangTransform.CApp: function must be a Var"
         -- Load arguments into registers
         r_args <- mapM (\_ -> freshReg) args
         l_call <- freshLabel
@@ -291,9 +295,9 @@ compileCExpTo cexp rDest mcont = case cexp of
     CAppClo t f (AClosEnv env) args -> do
         -- Extract the function name from the atomic expression.
         -- In the ANF, CAppClo always has a Var for the function.
-        let funcName = case f of
-                ATerm _ (Var n) -> n
-                _ -> error "RegisterLangTransform.CAppClo: function must be a Var"
+        funcName <- case f of
+                ATerm _ (Var n) -> pure n
+                _ -> left $ pack "RegisterLangTransform.CAppClo: function must be a Var"
         -- Look up the registers for the captured environment variables
         r_env <- mapM lookupVar env
         -- Load the arguments into registers

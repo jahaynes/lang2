@@ -51,4 +51,4 @@ pipe = do
 
     phaseCodeGen :: State ProgramState ()
     phaseCodeGen = modify' $ \ps ->
-        ps { getRegisterLang = transformModule <$> getNormalised ps }
+        ps { getRegisterLang = transformModule =<< getNormalised ps }
