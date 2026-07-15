@@ -35,6 +35,7 @@ anfModule md = do
                          , lifted = mempty
                          , cloTracker = mempty
                          , globals = topNames
+                         , selfName = Nothing
                          }
     (fundefs, finalState) <- runStateT (mapM anfFunDefT (getFunDefns md)) state
 
@@ -61,6 +62,7 @@ data AnfState s =
              , lifted :: !(Map s (FunDefAnfT s))
              , cloTracker :: !(Map s (s, AClosEnv s))
              , globals :: !(S.Set s)     -- top-level names that are always in scope
+             , selfName :: !(Maybe s)    -- original name to substitute in a lifted lambda body
              }
 
 genAnf :: Anf ByteString
@@ -71,8 +73,9 @@ genLam = genSym "ll_"
 
 genSym :: ByteString -> Anf ByteString
 genSym pre = do
-    AnfState n sg ct gl <- get
-    put $! AnfState (n+1) sg ct gl
+    s <- get
+    let n = getNum s
+    put $! s { getNum = n+1 }
     pure (pre <> (pack $ show n))
 
 norm :: Expr (Type ByteString) ByteString -> Anf (NExp ByteString)
@@ -99,21 +102,30 @@ asAnfExpr expr k =
             name  <- genLam
             body' <- norm body
 
-            free <- closureFreeVars vs body'
+            -- If there's a self-reference name set by an enclosing Let, substitute
+            -- the original name with the new lifted name in the body.
+            self <- fmap selfName get
+            let body'' = case self of
+                    Just orig -> substVar orig name body'
+                    Nothing   -> body'
 
-            if null free
+            free <- closureFreeVars vs body''
+            -- Exclude the function's own name from closure vars (self-reference)
+            let free' = filter (/= name) free
+
+            if null free'
 
                 then do
                     -- This is a lambda (no free vars)
-                    let ll = FunDefAnfT name QTodo t [] vs body'
+                    let ll = FunDefAnfT name QTodo t [] vs body''
                     modify $ \s -> s { lifted = M.insert name ll (lifted s) }
                     k (AExp $ ATerm t (Var name))
                 else do
                     -- This is a closure (has free vars)
-                    let ll = FunDefAnfT name QTodo t free vs body'
+                    let ll = FunDefAnfT name QTodo t free' vs body''
                     modify $ \s -> s { lifted = M.insert name ll (lifted s) }
                     s <- genAnf
-                    let cloEnv = AClosEnv free
+                    let cloEnv = AClosEnv free'
                     modify $ \st -> st { cloTracker = M.insert s (name, cloEnv) (cloTracker st) }
                     NLet t s (CExp $ CAppClo t (ATerm t (Var name)) cloEnv []) <$> k (AExp $ ATerm t (Var s))
 
@@ -122,7 +134,9 @@ asAnfExpr expr k =
             asAtomicExpr f $ \f' ->
                 case f' of
                     ATerm _ (Var name) -> do
-                        AnfState _ liftedMap cloTrackerMap _ <- get
+                        s' <- get
+                        let liftedMap = lifted s'
+                            cloTrackerMap = cloTracker s'
                         case M.lookup name liftedMap of
                             Just (FunDefAnfT _ _ _ env _ _) | not (null env) ->
                                 asAtomicExprs xs $ \xs' ->
@@ -140,8 +154,12 @@ asAnfExpr expr k =
                             k (CExp $ CApp t f' xs')
 
         Let t a b c ->
-            asAnfExpr b $ \b' ->
-                NLet t a b' <$> asAnfExpr c k
+            do
+                modify $ \st -> st { selfName = case b of { Lam _ _ _ -> Just a; _ -> Nothing } }
+                result <- asAnfExpr b $ \b' ->
+                    NLet t a b' <$> asAnfExpr c k
+                modify $ \st -> st { selfName = Nothing }
+                pure result
 
         UnPrimOp t op a ->
             asAtomicExpr a $ \a' ->
@@ -173,6 +191,33 @@ asAnfLhs :: PatLhsExpr (Type ByteString) ByteString -> Anf.PPat ByteString
 asAnfLhs (PVar _ v)                = Anf.PVar v
 asAnfLhs (PDCons ty dc pats)       = Anf.PApp dc ty (map asAnfLhs pats)
 
+-- | Substitute all occurrences of variable @old@ with variable @new@ in an NExp.
+substVar :: ByteString -> ByteString -> NExp ByteString -> NExp ByteString
+substVar old new = go
+  where
+    go (AExp (ATerm t (Var v)))
+        | v == old  = AExp (ATerm t (Var new))
+    go (AExp a)               = AExp a
+    go (CExp (CUnPrimOp t op a))
+                              = CExp (CUnPrimOp t op (goA a))
+    go (CExp (CBinPrimOp t op a b))
+                              = CExp (CBinPrimOp t op (goA a) (goA b))
+    go (CExp (CIfThenElse t p a b))
+                              = CExp (CIfThenElse t (goA p) (go a) (go b))
+    go (CExp (CApp t f xs))   = CExp (CApp t (goA f) (map goA xs))
+    go (CExp (CAppClo t f e xs))
+                              = CExp (CAppClo t (goA f) e (map goA xs))
+    go (CExp (CCase t s ps))  = CExp (CCase t (goA s) (map goP ps))
+    go (NLet t v b c)         = NLet t v (go b) (go c)
+
+    goA (ATerm t term)        = ATerm t (substTerm term)
+
+    substTerm (Var v)
+        | v == old            = Var new
+    substTerm t               = t
+
+    goP (PExp pat body)       = PExp pat (go body)
+
 asAtomicExpr :: Expr (Type ByteString) ByteString
              -> (AExp ByteString -> Anf (NExp ByteString))
              -> Anf (NExp ByteString)
@@ -187,18 +232,27 @@ asAtomicExpr expr k =
             name  <- genLam
             body' <- norm body
 
-            free <- closureFreeVars vs body'
+            -- If there's a self-reference name set by an enclosing Let, substitute
+            -- the original name with the new lifted name in the body.
+            self <- fmap selfName get
+            let body'' = case self of
+                    Just orig -> substVar orig name body'
+                    Nothing   -> body'
 
-            if null free
+            free <- closureFreeVars vs body''
+            -- Exclude the function's own name from closure vars (self-reference)
+            let free' = filter (/= name) free
+
+            if null free'
                 then do
-                    let ll = FunDefAnfT name QTodo t [] vs body'
+                    let ll = FunDefAnfT name QTodo t [] vs body''
                     modify $ \s -> s { lifted = M.insert name ll (lifted s) }
                     k (ATerm t (Var name))
                 else do
-                    let ll = FunDefAnfT name QTodo t free vs body'
+                    let ll = FunDefAnfT name QTodo t free' vs body''
                     modify $ \s -> s { lifted = M.insert name ll (lifted s) }
                     s <- genAnf
-                    let cloEnv = AClosEnv free
+                    let cloEnv = AClosEnv free'
                     modify $ \st -> st { cloTracker = M.insert s (name, cloEnv) (cloTracker st) }
                     NLet t s (CExp $ CAppClo t (ATerm t (Var name)) cloEnv []) <$> k (ATerm t (Var s))
 
@@ -206,7 +260,9 @@ asAtomicExpr expr k =
             asAtomicExpr f $ \f' ->
                 case f' of
                     ATerm _ (Var name) -> do
-                        AnfState _ liftedMap cloTrackerMap _ <- get
+                        s' <- get
+                        let liftedMap = lifted s'
+                            cloTrackerMap = cloTracker s'
                         case M.lookup name liftedMap of
                             Just (FunDefAnfT _ _ _ env _ _) | not (null env) ->
                                 asAtomicExprs xs $ \xs' -> do
@@ -228,8 +284,12 @@ asAtomicExpr expr k =
                             NLet t s (CExp $ CApp t f' xs') <$> k (ATerm t (Var s))
 
         Let t a b c ->
-            asAnfExpr b $ \b' ->
-                NLet t a b' <$> asAtomicExpr c k
+            do
+                modify $ \st -> st { selfName = case b of { Lam _ _ _ -> Just a; _ -> Nothing } }
+                result <- asAnfExpr b $ \b' ->
+                    NLet t a b' <$> asAtomicExpr c k
+                modify $ \st -> st { selfName = Nothing }
+                pure result
 
         UnPrimOp t op a ->
             asAtomicExpr a $ \a' -> do
