@@ -1,5 +1,6 @@
 module Common.ReaderT ( ReaderT
                       , ask
+                      , local
                       , runReaderT
                       , runReaderT'
                       ) where
@@ -39,3 +40,8 @@ ask = ReaderT pure
 
 runReaderT' :: r -> ReaderT r m a -> m a
 runReaderT' = flip runReaderT
+
+local :: (r -> r) -> ReaderT r m a -> ReaderT r m a
+local f (ReaderT g) =
+    ReaderT $ \r ->
+        g (f r)

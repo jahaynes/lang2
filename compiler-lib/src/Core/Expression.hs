@@ -3,13 +3,14 @@
 module Core.Expression ( Expr (..)
                        , Pattern (..)
                        , PatLhsExpr (..)
+                       , alphaSubstitute
                        , mapType
                        , patLhsType
                        , typeOf
                        ) where
 
 import Core.Operator (BinOp, UnOp)
-import Core.Term     (Term)
+import Core.Term     (Term (..))
 
 data Expr t s = Term       t (Term s)
               | Lam        t [s] (Expr t s)
@@ -29,6 +30,37 @@ data PatLhsExpr t s = PVar t s
                     | PDCons t s [PatLhsExpr t s]
                         deriving (Eq, Functor, Ord, Show)
 
+alphaSubstitute :: Eq p => p -> p -> Expr t p -> Expr t p
+alphaSubstitute from to = go
+    where
+    go expr =
+        case expr of
+            Term t term -> Term t (go' term)
+            Lam t vs body
+                | from `elem` vs -> expr
+                | otherwise      -> Lam t vs (go body)
+            App t x xs -> App t (go x) (map go xs)
+            Let t a b c -- recursive? should a block the b-subst?
+                | from == a -> expr
+                | otherwise -> Let t a (go b) (go c)
+            UnPrimOp t o a -> UnPrimOp t o (go a)
+            BinPrimOp t o a b -> BinPrimOp t o (go a) (go b)
+            IfThenElse t pr tr fl -> IfThenElse t (go pr) (go tr) (go fl)
+            Case t scrut ps -> Case t (go scrut) (map go'' ps)
+
+    go' (Var s) | s == from = Var to
+    --  DCons?
+    go'      v              = v
+
+    go'' p@(Pattern lhs rhs)
+
+        | boundBy lhs = p
+        | otherwise   = Pattern lhs (go rhs)
+
+        where
+        boundBy (PVar _ s) = s == from
+        boundBy _ = error "handle other cases"
+
 mapType :: (t -> t)
         -> Expr t s
         -> Expr t s
@@ -46,7 +78,7 @@ mapType f expr =
     where
     mapType' (Pattern a b) = Pattern (mapType'' a) (mapType f b)
 
-    mapType'' (PVar t v)       = PVar (f t) v
+    mapType'' (PVar t v)        = PVar (f t) v
     mapType'' (PDCons t n pats) = PDCons (f t) n (map mapType'' pats)
 
 patLhsType :: PatLhsExpr t s -> t
