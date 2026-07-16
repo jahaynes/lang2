@@ -1,9 +1,7 @@
-{-# LANGUAGE LambdaCase,
-             OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Phase.Anf.AnfTransform ( anfModule ) where
 
-import           Common.ReaderT
 import           Common.StateT
 import           Common.Trans
 import           Core.Expression
@@ -12,87 +10,138 @@ import           Core.Term
 import           Core.Types
 import           Phase.Anf.Anf hiding (PPat(..))
 import qualified Phase.Anf.Anf as Anf (PPat(..))
-import           Phase.Anf.FreeVars
 
 import           Control.Monad         (forM)
 import           Data.ByteString.Char8 (ByteString, pack)
-import           Data.Map              (Map)
-import qualified Data.Map.Strict as M
-import           Data.Set              (Set)
-import qualified Data.Set as S
 
 type Anf a =
-    ReaderT (Env ByteString) (
-        StateT (AnfState ByteString) (
-            Either ByteString)) a
+    StateT (AnfState ByteString) (
+        Either ByteString) a
+
+type Ll a =
+    StateT (LlState ByteString) (
+        Either ByteString) a
 
 -- May be able to make this infallible
 anfModule :: Module (Type ByteString) ByteString
           -> Either ByteString (AnfModule ByteString)
 anfModule md = do
-    let state0 = AnfState { getNum = 0
-                          , lifted = (mempty :: Map ByteString (FunDefAnfT ByteString))
-                          }
-    let work = mapM anfFunDefT (getFunDefns md)
-    (fundefs, finalState) <- runStateT work state0
-    let liftedFundefs = map snd . M.toList $ lifted finalState
-    pure $ AnfModule (getDataDefns md) (liftedFundefs <> fundefs)
 
--- anfFunDefT :: FunDefn (Type ByteString) ByteString -> Anf (FunDefAnfT ByteString)
+    -- Lambda pass
+    (topLevelFunDevs, lambdaState) <- runStateT (mapM liftFun (getFunDefns md)) (LlState 0 mempty)
+
+    -- Anf pass
+    (anfDefns, _) <- runStateT (mapM anfFunDefT (topLevelFunDevs <> lifted lambdaState)) (AnfState 0)
+
+    pure $ AnfModule (getDataDefns md) anfDefns
+
+anfFunDefT :: FunDefn (Type ByteString) ByteString
+           -> Anf (FunDefAnfT ByteString)
 anfFunDefT (FunDefn n pt expr) =
 
-    runReaderT' (Env n mempty) $
+    -- The top level is the only place we hit lambdas now
+    case expr of
 
-      case expr of
+        Lam _t vs body ->
+            FunDefAnfT n pt (typeOf expr) [] vs <$> norm body -- TODO q vars
 
-        -- Avoid lambda-lifting functions already on the top-level
-        Lam t vs body -> do
-            body' <- norm body
-            pure $ FunDefAnfT n pt t [] vs body'   -- TODO q vars
+        _nonLambda ->
+            FunDefAnfT n pt (typeOf expr) [] [] <$> norm expr -- TODO q vars
 
-        _nonlambda -> do
-            expr' <- norm expr
-            pure $ FunDefAnfT n pt (typeOf expr) [] [] expr' -- TODO q vars
-
-data AnfState s =
-    AnfState { getNum :: !Int
-             , lifted :: !(Map s (FunDefAnfT s))
+newtype AnfState s =
+    AnfState { getAnfNum :: Int
              }
 
+data LlState s =
+    LlState { getLamNum :: !Int
+            , lifted    :: ![FunDefn (Type s) s]
+            }
+
+genLam :: Ll ByteString
+genLam = do
+    s <- get
+    let n = getLamNum s
+    put $! s { getLamNum = n+1 }
+    pure ("ll_" <> (pack $ show n))
+
 genAnf :: Anf ByteString
-genAnf = genSym "anf_"
+genAnf = do
+    s <- get
+    let n = getAnfNum s
+    put $! s { getAnfNum = n+1 }
+    pure ("anf_" <> (pack $ show n))
 
-genLam ::  Anf ByteString
-genLam = genSym "ll_"
+liftFun :: FunDefn (Type ByteString) ByteString
+        -> Ll (FunDefn (Type ByteString) ByteString)
 
-genSym :: ByteString -> Anf ByteString
-genSym pre = do
-    s <- lift get
-    let n = getNum s
-    lift . put $! s { getNum = n+1 }
-    pure (pre <> (pack $ show n))
+liftFun (FunDefn name q expr) =
+    FunDefn name q <$> liftLambdas expr
+
+liftLambdas :: Expr (Type ByteString) ByteString
+            -> Ll (Expr (Type ByteString) ByteString)
+liftLambdas expr =
+
+    case expr of
+
+        Term{} ->
+            pure expr
+
+        Lam t vs body ->
+            Lam t vs <$> liftLambdas body
+
+        App t f xs ->
+            App t <$> liftLambdas f
+                  <*> traverse liftLambdas xs
+
+        Let t a b c -> do
+
+            b' <- case b of
+                      Lam t' vs body -> bLam a t' vs body
+                      _nonLambda     -> liftLambdas b
+
+            c' <- case c of
+                      Lam t' vs body -> cLam t' vs body
+                      _nonLambda     -> liftLambdas c
+
+            pure $ Let t a b' c'
+
+        UnPrimOp t op a ->
+            UnPrimOp t op <$> liftLambdas a
+
+        BinPrimOp t op a b ->
+            BinPrimOp t op <$> liftLambdas a
+                           <*> liftLambdas b
+
+        IfThenElse t pr tr fl ->
+            IfThenElse t <$> liftLambdas pr
+                         <*> liftLambdas tr
+                         <*> liftLambdas fl
+
+        Case t scr ps ->
+            let liftLambdasPattern (Pattern lhs rhs) = Pattern lhs <$> liftLambdas rhs in
+            Case t <$> liftLambdas scr
+                   <*> traverse liftLambdasPattern ps
+
+    where
+    -- A lambda in 'b' position needs its references to 'a' updated
+    bLam from t' vs body = do
+        to    <- genLam
+        body' <- alphaSubstitute from to <$> liftLambdas body
+        let ll = FunDefn to QTodo (Lam t' vs body')
+        modify $ \s -> s { lifted = ll : lifted s }
+        pure (Term t' (Var to))
+
+    -- A lambda in 'c' position -- probably no need to rename from 'a'?
+    -- Because it's already called from a (reified) Let, which will execute the renaming at runtime
+    cLam t' vs body = do
+        to    <- genLam
+        body' <- liftLambdas body
+        let ll = FunDefn to QTodo (Lam t' vs body')
+        modify $ \s -> s { lifted = ll : lifted s }
+        pure (Term t' (Var to))
 
 norm :: Expr (Type ByteString) ByteString -> Anf (NExp ByteString)
 norm expr = asAnfExpr expr pure
-
-
-data Env s =
-    Env { binder :: !s
-       -- , scope  :: !(Set s)  don't need scope. just subtract local vs (and let?) from the rebinds
-        , rebinds :: !(Map s s)
-        }
-
---named :: s -> ReaderT (Env s) m a -> ReaderT (Env s) m a
---named n = local $ \env -> env { binder = Just n }
-
-{-
-
-    Encountering a lambda
-        - Need only the current name (binder)
-        - Need *all* substitutions that should happen below
-
-
--}
 
 asAnfExpr :: Expr (Type ByteString) ByteString
           -> (NExp ByteString -> Anf (NExp ByteString))
@@ -104,19 +153,15 @@ asAnfExpr expr k =
         Term t term ->
             k (AExp $ ATerm t term)
 
-        Lam t vs body -> do
-            name  <- genLam
-            body' <- norm body
-            let ll = FunDefAnfT name QTodo t [] vs body'
-            lift . modify $ \s -> s { lifted = M.insert name ll (lifted s) }
-            k (AExp $ ATerm t (Var name))
+        Lam{} ->
+            lift $ Left "asAnfExpr: Cannot construct lambdas in outgoing language"
 
         App t f xs ->
             asAtomicExpr f $ \f' ->
                 asAtomicExprs xs $ \xs' ->
                     k (CExp $ CApp t f' xs')
 
-        Let t a b c -> do 
+        Let t a b c ->
             asAnfExpr b $ \b' ->
                 NLet t a b' <$> asAnfExpr c k
 
@@ -160,12 +205,8 @@ asAtomicExpr expr k =
         Term t term ->
             k (ATerm t term)
 
-        Lam t vs body -> do
-            name  <- genLam
-            body' <- norm body
-            let ll = FunDefAnfT name QTodo t [] vs body'
-            lift . modify $ \s -> s { lifted = M.insert name ll (lifted s) }
-            k (ATerm t (Var name))
+        Lam{} ->
+            lift $ Left "asAtomicExpr: Cannot construct lambdas in outgoing language"
 
         App t f xs ->
             asAtomicExpr f $ \f' ->
