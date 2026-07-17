@@ -104,7 +104,7 @@ liftLambdas = go Nothing
 
             App t f xs ->
                 App t <$> go Nothing f
-                    <*> traverse (go Nothing) xs
+                      <*> traverse (go Nothing) xs
 
             Let t a b c ->
                 Let t a <$> go (Just a) b -- Pass a through so lambda self-references can be updated
