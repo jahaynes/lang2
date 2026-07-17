@@ -2,7 +2,10 @@
 
 module Phase.Anf.AnfTransform ( anfModule ) where
 
-import           Common.StateT
+import           Common.State  (State (runState), modify')
+import qualified Common.State as State (get, put)
+import           Common.StateT (StateT (runStateT))
+import qualified Common.StateT as StateT (get, put)
 import           Common.Trans
 import           Core.Expression
 import           Core.Module
@@ -19,8 +22,7 @@ type Anf a =
         Either ByteString) a
 
 type Ll a =
-    StateT (LlState ByteString) (
-        Either ByteString) a
+    State (LlState ByteString) a
 
 -- May be able to make this infallible
 anfModule :: Module (Type ByteString) ByteString
@@ -28,7 +30,7 @@ anfModule :: Module (Type ByteString) ByteString
 anfModule md = do
 
     -- Lambda pass
-    (topLevelFunDevs, lambdaState) <- runStateT (mapM liftFun (getFunDefns md)) (LlState 0 mempty)
+    let (topLevelFunDevs, lambdaState) = runState (mapM liftFun (getFunDefns md)) (LlState 0 mempty)
 
     -- Anf pass
     (anfDefns, _) <- runStateT (mapM anfFunDefT (topLevelFunDevs <> lifted lambdaState)) (AnfState 0)
@@ -59,16 +61,16 @@ data LlState s =
 
 genLam :: Ll ByteString
 genLam = do
-    s <- get
+    s <- State.get
     let n = getLamNum s
-    put $! s { getLamNum = n+1 }
+    State.put $! s { getLamNum = n+1 }
     pure ("ll_" <> (pack $ show n))
 
 genAnf :: Anf ByteString
 genAnf = do
-    s <- get
+    s <- StateT.get
     let n = getAnfNum s
-    put $! s { getAnfNum = n+1 }
+    StateT.put $! s { getAnfNum = n+1 }
     pure ("anf_" <> (pack $ show n))
 
 liftFun :: FunDefn (Type ByteString) ByteString
@@ -97,7 +99,7 @@ liftLambdas = go Nothing
                             Just n | not (n `elem` vs) -> alphaSubstitute n to body
                             _                          -> body
                 body'' <- go Nothing body'
-                modify $ \s -> s { lifted = FunDefn to QTodo (Lam t vs body'') : lifted s }
+                modify' $ \s -> s { lifted = FunDefn to QTodo (Lam t vs body'') : lifted s }
                 pure (Term t (Var to))
 
             App t f xs ->
