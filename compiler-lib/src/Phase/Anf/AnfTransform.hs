@@ -21,8 +21,8 @@ type Anf a =
     StateT (AnfState ByteString) (
         Either ByteString) a
 
-type Ll a =
-    State (LlState ByteString) a
+type Ll s a =
+    State (LlState s) a
 
 -- May be able to make this infallible
 anfModule :: Module (Type ByteString) ByteString
@@ -59,13 +59,6 @@ data LlState s =
             , lifted    :: ![FunDefn (Type s) s]
             }
 
-genLam :: Ll ByteString
-genLam = do
-    s <- State.get
-    let n = getLamNum s
-    State.put $! s { getLamNum = n+1 }
-    pure ("ll_" <> (pack $ show n))
-
 genAnf :: Anf ByteString
 genAnf = do
     s <- StateT.get
@@ -74,14 +67,22 @@ genAnf = do
     pure ("anf_" <> (pack $ show n))
 
 liftFun :: FunDefn (Type ByteString) ByteString
-        -> Ll (FunDefn (Type ByteString) ByteString)
+        -> Ll ByteString (FunDefn (Type ByteString) ByteString)
 
 liftFun (FunDefn name q expr) =
-    FunDefn name q <$> liftLambdas expr
 
-liftLambdas :: Expr (Type ByteString) ByteString
-            -> Ll (Expr (Type ByteString) ByteString)
-liftLambdas = go Nothing
+    let genLam = do
+            s <- State.get
+            let n = getLamNum s
+            State.put $! s { getLamNum = n+1 }
+            pure ("ll_" <> (pack $ show n))
+
+    in FunDefn name q <$> liftLambdas genLam expr
+
+liftLambdas :: Eq s => Ll s s
+                    -> Expr (Type s) s
+                    -> Ll s (Expr (Type s) s)
+liftLambdas genLam = go Nothing
 
     where
     go mName expr =
