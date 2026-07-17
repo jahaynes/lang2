@@ -87,66 +87,56 @@ liftLambdas expr =
             pure expr
 
         Lam t vs body ->
-            Lam t vs <$> liftLambdas body
+            Lam t vs <$> go Nothing body
 
-        App t f xs -> do
+        App t f xs ->
+            App t <$> go Nothing f
+                  <*> traverse (go Nothing) xs
 
-            f'  <- case f of
-                      Lam t' vs body -> cLam t' vs body
-                      _nonLambda     -> liftLambdas f
-
-            xs' <- traverse (\x -> case x of
-                                       Lam t' vs body -> cLam t' vs body
-                                       _nonLambda     -> liftLambdas x) xs
-
-            pure $ App t f' xs'
-
-        Let t a b c -> do
-
-            b' <- case b of
-                      Lam t' vs body -> bLam a t' vs body
-                      _nonLambda     -> liftLambdas b
-
-            c' <- case c of
-                      Lam t' vs body -> cLam t' vs body
-                      _nonLambda     -> liftLambdas c
-
-            pure $ Let t a b' c'
+        Let t a b c ->
+            Let t a <$> go (Just a) b
+                    <*> go Nothing c
 
         UnPrimOp t op a ->
-            UnPrimOp t op <$> liftLambdas a
+            UnPrimOp t op <$> go Nothing a
 
         BinPrimOp t op a b ->
-            BinPrimOp t op <$> liftLambdas a
-                           <*> liftLambdas b
+            BinPrimOp t op <$> go Nothing a
+                           <*> go Nothing b
 
         IfThenElse t pr tr fl ->
-            IfThenElse t <$> liftLambdas pr
-                         <*> liftLambdas tr
-                         <*> liftLambdas fl
+            IfThenElse t <$> go Nothing pr
+                         <*> go Nothing tr
+                         <*> go Nothing fl
 
         Case t scr ps ->
-            let liftLambdasPattern (Pattern lhs rhs) = Pattern lhs <$> liftLambdas rhs in
-            Case t <$> liftLambdas scr
+            let liftLambdasPattern (Pattern lhs rhs) = Pattern lhs <$> go Nothing rhs in
+            Case t <$> go Nothing scr
                    <*> traverse liftLambdasPattern ps
 
     where
-    -- A lambda in 'b' position needs its references to 'a' updated
-    bLam from t' vs body = do
-        to    <- genLam
-        body' <- alphaSubstitute from to <$> liftLambdas body
-        let ll = FunDefn to QTodo (Lam t' vs body')
-        modify $ \s -> s { lifted = ll : lifted s }
-        pure (Term t' (Var to))
+    go mName expr =
 
-    -- A lambda in 'c' position -- probably no need to rename from 'a'?
-    -- Because it's already called from a (reified) Let, which will execute the renaming at runtime
-    cLam t' vs body = do
-        to    <- genLam
-        body' <- liftLambdas body
-        let ll = FunDefn to QTodo (Lam t' vs body')
-        modify $ \s -> s { lifted = ll : lifted s }
-        pure (Term t' (Var to))
+        case expr of
+
+            Lam t vs body -> do
+
+                to <- genLam
+
+                -- alpha-rename any variables within the lambda to the fresh name (unless shadowed by vs)
+                let body' =
+                        case mName of
+                            Just n | not (n `elem` vs) -> alphaSubstitute n to body
+                            _                          -> body
+
+                -- The actual lift
+                body'' <- liftLambdas body'
+
+                modify $ \s -> s { lifted = FunDefn to QTodo (Lam t vs body'') : lifted s }
+                pure (Term t (Var to))
+
+            _nonLambda -> liftLambdas expr
+
 
 norm :: Expr (Type ByteString) ByteString -> Anf (NExp ByteString)
 norm expr = asAnfExpr expr pure
