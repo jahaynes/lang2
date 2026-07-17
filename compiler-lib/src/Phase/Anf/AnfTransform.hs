@@ -79,64 +79,51 @@ liftFun (FunDefn name q expr) =
 
 liftLambdas :: Expr (Type ByteString) ByteString
             -> Ll (Expr (Type ByteString) ByteString)
-liftLambdas expr =
-
-    case expr of
-
-        Term{} ->
-            pure expr
-
-        Lam t vs body ->
-            Lam t vs <$> go Nothing body
-
-        App t f xs ->
-            App t <$> go Nothing f
-                  <*> traverse (go Nothing) xs
-
-        Let t a b c ->
-            Let t a <$> go (Just a) b
-                    <*> go Nothing c
-
-        UnPrimOp t op a ->
-            UnPrimOp t op <$> go Nothing a
-
-        BinPrimOp t op a b ->
-            BinPrimOp t op <$> go Nothing a
-                           <*> go Nothing b
-
-        IfThenElse t pr tr fl ->
-            IfThenElse t <$> go Nothing pr
-                         <*> go Nothing tr
-                         <*> go Nothing fl
-
-        Case t scr ps ->
-            let liftLambdasPattern (Pattern lhs rhs) = Pattern lhs <$> go Nothing rhs in
-            Case t <$> go Nothing scr
-                   <*> traverse liftLambdasPattern ps
+liftLambdas = go Nothing
 
     where
     go mName expr =
 
         case expr of
 
+            Term{} ->
+                pure expr
+
             Lam t vs body -> do
-
                 to <- genLam
-
                 -- alpha-rename any variables within the lambda to the fresh name (unless shadowed by vs)
                 let body' =
                         case mName of
                             Just n | not (n `elem` vs) -> alphaSubstitute n to body
                             _                          -> body
-
-                -- The actual lift
-                body'' <- liftLambdas body'
-
+                body'' <- go Nothing body'
                 modify $ \s -> s { lifted = FunDefn to QTodo (Lam t vs body'') : lifted s }
                 pure (Term t (Var to))
 
-            _nonLambda -> liftLambdas expr
+            App t f xs ->
+                App t <$> go Nothing f
+                    <*> traverse (go Nothing) xs
 
+            Let t a b c ->
+                Let t a <$> go (Just a) b -- Pass a through so lambda self-references can be updated
+                        <*> go Nothing c  -- Renaming not needed in c, because the 'Let' stmt does it at runtime
+
+            UnPrimOp t op a ->
+                UnPrimOp t op <$> go Nothing a
+
+            BinPrimOp t op a b ->
+                BinPrimOp t op <$> go Nothing a
+                               <*> go Nothing b
+
+            IfThenElse t pr tr fl ->
+                IfThenElse t <$> go Nothing pr
+                             <*> go Nothing tr
+                             <*> go Nothing fl
+
+            Case t scr ps ->
+                let liftLambdasPattern (Pattern lhs rhs) = Pattern lhs <$> go Nothing rhs in
+                Case t <$> go Nothing scr
+                       <*> traverse liftLambdasPattern ps
 
 norm :: Expr (Type ByteString) ByteString -> Anf (NExp ByteString)
 norm expr = asAnfExpr expr pure
