@@ -89,9 +89,17 @@ liftLambdas expr =
         Lam t vs body ->
             Lam t vs <$> liftLambdas body
 
-        App t f xs ->
-            App t <$> liftLambdas f
-                  <*> traverse liftLambdas xs
+        App t f xs -> do
+
+            f'  <- case f of
+                      Lam t' vs body -> cLam t' vs body
+                      _nonLambda     -> liftLambdas f
+
+            xs' <- traverse (\x -> case x of
+                                       Lam t' vs body -> cLam t' vs body
+                                       _nonLambda     -> liftLambdas x) xs
+
+            pure $ App t f' xs'
 
         Let t a b c -> do
 
