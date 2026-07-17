@@ -13,9 +13,12 @@ import           Core.Term
 import           Core.Types
 import           Phase.Anf.Anf hiding (PPat(..))
 import qualified Phase.Anf.Anf as Anf (PPat(..))
+import           Phase.Anf.FreeVars (functionFreeVars)
 
 import           Control.Monad         (forM)
 import           Data.ByteString.Char8 (ByteString, pack)
+import           Data.Set ((\\), Set)
+import qualified Data.Set as S
 
 type Anf a =
     StateT (AnfState ByteString) (
@@ -32,23 +35,31 @@ anfModule md = do
     -- Lambda pass
     let (topLevelFunDevs, lambdaState) = runState (mapM liftFun (getFunDefns md)) (LlState 0 mempty)
 
+    let funs = topLevelFunDevs <> lifted lambdaState
+    let topLevelNames = S.fromList $ map (\(FunDefn name _ _) -> name) funs
+
     -- Anf pass
-    (anfDefns, _) <- runStateT (mapM anfFunDefT (topLevelFunDevs <> lifted lambdaState)) (AnfState 0)
+    (anfDefns, _) <- runStateT (mapM (anfFunDefT topLevelNames) funs) (AnfState 0)
 
     pure $ AnfModule (getDataDefns md) anfDefns
 
-anfFunDefT :: FunDefn (Type ByteString) ByteString
+anfFunDefT :: Set ByteString
+           -> FunDefn (Type ByteString) ByteString
            -> Anf (FunDefAnfT ByteString)
-anfFunDefT (FunDefn n pt expr) =
+anfFunDefT topLevelNames (FunDefn n pt expr) =
 
     -- The top level is the only place we hit lambdas now
     case expr of
 
-        Lam _t vs body ->
-            FunDefAnfT n pt (typeOf expr) [] vs <$> norm body -- TODO q vars
+        Lam _t vs body -> do
+            body' <- norm body
+            let free = functionFreeVars vs body' \\ topLevelNames
+            pure $ if null free
+                       then FunDefAnfT n pt (typeOf expr) [] vs body'
+                       else FunDefAnfT n pt (typeOf expr) (S.toList free) vs body'
 
         _nonLambda ->
-            FunDefAnfT n pt (typeOf expr) [] [] <$> norm expr -- TODO q vars
+            FunDefAnfT n pt (typeOf expr) [] [] <$> norm expr
 
 newtype AnfState s =
     AnfState { getAnfNum :: Int
