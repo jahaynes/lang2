@@ -50,10 +50,12 @@ anfFunDefT topLevelNames (FunDefn n pt expr) =
 
     -- The top level is the only place we hit lambdas now
     case expr of
-
         Lam _t vs body -> do
             body' <- norm body
             let free = functionFreeVars vs body' \\ topLevelNames
+            {- TODO: This is a bad way to detect closures
+               No way to distinguish between genuine free variables and top-levels
+            -}
             pure $ if null free
                        then FunDefAnfT n pt (typeOf expr) [] vs body'
                        else FunDefAnfT n pt (typeOf expr) (S.toList free) vs body'
