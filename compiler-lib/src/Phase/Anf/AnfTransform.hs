@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, TupleSections #-}
 
 module Phase.Anf.AnfTransform ( anfModule ) where
 
@@ -8,6 +8,7 @@ import           Common.StateT (StateT (runStateT))
 import qualified Common.StateT as StateT (get, put)
 import           Common.Trans
 import           Core.Expression
+import           Core.Expression.FreeVars ( Free (..) )
 import           Core.Module
 import           Core.Term
 import           Core.Types
@@ -31,26 +32,31 @@ anfModule :: Module (Type ByteString) ByteString
           -> Either ByteString (AnfModule ByteString)
 anfModule md = do
 
+    let funDefs = getFunDefns md
+
+    let topLevels = S.fromList $ map (\(FunDefn n _ _) -> n) funDefs
+
     -- Lambda pass
-    let (topLevelFunDevs, lambdaState) = runState (mapM liftFun (getFunDefns md)) (LlState 0 mempty)
+    let (topLevelFunDevs, lambdaState) = runState (mapM (liftFun topLevels) funDefs) (LlState 0 mempty)
 
     -- Anf pass
-    (anfDefns, _) <- runStateT (mapM anfFunDefT (topLevelFunDevs <> lifted lambdaState)) (AnfState 0)
+    (anfDefns, _) <- runStateT (mapM anfFunDefT (fmap (S.empty,) topLevelFunDevs <> lifted lambdaState)) (AnfState 0)
 
     pure $ AnfModule (getDataDefns md) anfDefns
 
-anfFunDefT :: FunDefn (Type ByteString) ByteString
+anfFunDefT :: (Set ByteString, FunDefn (Type ByteString) ByteString)
            -> Anf (FunDefAnfT ByteString)
-anfFunDefT (FunDefn n pt expr) =
+anfFunDefT (free, FunDefn n pt expr) = do
 
     -- The top level is the only place we hit lambdas now
     case expr of
 
         Lam _t vs body ->
-            FunDefAnfT n pt (typeOf expr) [] vs <$> norm body -- TODO q vars
+            FunDefAnfT n pt (typeOf expr) (S.toList free) vs <$> norm body
 
         _nonLambda ->
-            FunDefAnfT n pt (typeOf expr) [] [] <$> norm expr -- TODO q vars
+            FunDefAnfT n pt (typeOf expr) [] [] <$> norm expr
+            -- TODO - guard against free variables in non-lambdas?
 
 newtype AnfState s =
     AnfState { getAnfNum :: Int
@@ -58,7 +64,7 @@ newtype AnfState s =
 
 data LlState s =
     LlState { getLamNum :: !Int
-            , lifted    :: ![FunDefn (Type s) s]
+            , lifted    :: ![(Set s, FunDefn (Type s) s)]
             }
 
 genAnf :: Anf ByteString
@@ -68,10 +74,11 @@ genAnf = do
     StateT.put $! s { getAnfNum = n+1 }
     pure ("anf_" <> (pack $ show n))
 
-liftFun :: FunDefn (Type ByteString) ByteString
+liftFun :: Set ByteString
+        -> FunDefn (Type ByteString) ByteString
         -> Ll ByteString (FunDefn (Type ByteString) ByteString)
 
-liftFun (FunDefn name q expr) =
+liftFun topLevels (FunDefn name q expr) =
 
     let genLam = do
             s <- State.get
@@ -79,12 +86,12 @@ liftFun (FunDefn name q expr) =
             State.put $! s { getLamNum = n+1 }
             pure ("ll_" <> (pack $ show n))
 
-    in FunDefn name q <$> liftLambdas genLam expr
+    in FunDefn name q <$> (liftLambdas topLevels) genLam expr
 
-liftLambdas :: Eq s => Ll s s
+liftLambdas :: (Eq s, Ord s, Show s) => Set s -> Ll s s
                     -> Expr (Type s) s
                     -> Ll s (Expr (Type s) s)
-liftLambdas genLam = go Nothing
+liftLambdas topLevels genLam = go Nothing
 
     where
     go mName expr =
@@ -94,20 +101,28 @@ liftLambdas genLam = go Nothing
             Term{} ->
                 pure expr
 
-            Lam t vs body -> do
+            l@(Lam t vs body) -> do
+
+                -- Look for free vars
+                let free = case mName of
+                           Nothing -> S.fromList (              freeVars l)  \\ topLevels
+                           Just n  -> S.fromList (filter (/=n) (freeVars l)) \\ topLevels
+
                 to <- genLam
                 -- alpha-rename any variables within the lambda to the fresh name (unless shadowed by vs)
                 let body' =
                         case mName of
                             Just n | not (n `elem` vs) -> alphaSubstitute n to body
                             _                          -> body
+
                 body'' <- go Nothing body'
-                modify' $ \s -> s { lifted = FunDefn to QTodo (Lam t vs body'') : lifted s }
+                modify' $ \s -> s { lifted = (free, FunDefn to QTodo (Lam t vs body'')) : lifted s }
                 pure (Term t (Var to))
 
             App t f xs ->
                 App t <$> go Nothing f
                       <*> traverse (go Nothing) xs
+                -- TODO: check for AppClo on the way out?
 
             Let t a b c ->
                 Let t a <$> go (Just a) b -- Pass a through so lambda self-references can be updated

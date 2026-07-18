@@ -20,6 +20,7 @@ library
                     Common.StateT
                     Common.Trans
                     Core.Expression
+                    Core.Expression.FreeVars
                     Core.Module
                     Core.Operator
                     Core.Term
