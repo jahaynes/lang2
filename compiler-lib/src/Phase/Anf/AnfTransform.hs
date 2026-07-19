@@ -2,6 +2,7 @@
 
 module Phase.Anf.AnfTransform ( anfModule ) where
 
+import           Common.ReaderT (ReaderT (runReaderT), ask)
 import           Common.State  (State (runState), modify')
 import qualified Common.State as State (get, put)
 import           Common.StateT (StateT (runStateT))
@@ -17,12 +18,20 @@ import qualified Phase.Anf.Anf as Anf (PPat(..))
 
 import           Control.Monad         (forM)
 import           Data.ByteString.Char8 (ByteString, pack)
+import           Data.Map (Map)
+import qualified Data.Map.Strict as M
 import           Data.Set ((\\), Set)
 import qualified Data.Set as S
 
+import Debug.Trace (trace)
+
+newtype Env s =
+    Env (Map s (Set s))
+
 type Anf a =
-    StateT (AnfState ByteString) (
-        Either ByteString) a
+    ReaderT (Env ByteString) (
+        StateT (AnfState ByteString) (
+            Either ByteString)) a
 
 type Ll s a =
     State (LlState s) a
@@ -39,8 +48,13 @@ anfModule md = do
     -- Lambda pass
     let (topLevelFunDevs, lambdaState) = runState (mapM (liftFun topLevels) funDefs) (LlState 0 mempty)
 
+    let funs =  fmap (S.empty,) topLevelFunDevs
+             <> map snd (M.toList (lifted lambdaState))
+
+    let clos = fst <$> (lifted lambdaState) :: Map ByteString (Set ByteString)
+
     -- Anf pass
-    (anfDefns, _) <- runStateT (mapM anfFunDefT (fmap (S.empty,) topLevelFunDevs <> lifted lambdaState)) (AnfState 0)
+    (anfDefns, _) <- runStateT (runReaderT (mapM anfFunDefT funs) (Env clos) ) (AnfState 0)
 
     pure $ AnfModule (getDataDefns md) anfDefns
 
@@ -64,14 +78,14 @@ newtype AnfState s =
 
 data LlState s =
     LlState { getLamNum :: !Int
-            , lifted    :: ![(Set s, FunDefn (Type s) s)]
+            , lifted    :: !(Map s (Set s, FunDefn (Type s) s))
             }
 
 genAnf :: Anf ByteString
 genAnf = do
-    s <- StateT.get
+    s <- lift StateT.get
     let n = getAnfNum s
-    StateT.put $! s { getAnfNum = n+1 }
+    lift . StateT.put $! s { getAnfNum = n+1 }
     pure ("anf_" <> (pack $ show n))
 
 liftFun :: Set ByteString
@@ -91,58 +105,62 @@ liftFun topLevels (FunDefn name q expr) =
 liftLambdas :: (Eq s, Ord s, Show s) => Set s -> Ll s s
                     -> Expr (Type s) s
                     -> Ll s (Expr (Type s) s)
-liftLambdas topLevels genLam = go Nothing
+liftLambdas topLevels genLam = go True Nothing
 
     where
-    go mName expr =
+    go topLevel mName expr =
 
         case expr of
 
             Term{} ->
                 pure expr
 
-            l@(Lam t vs body) -> do
+            l@(Lam t vs body)
 
-                -- Look for free vars
-                let free = case mName of
-                           Nothing -> S.fromList (              freeVars l)  \\ topLevels
-                           Just n  -> S.fromList (filter (/=n) (freeVars l)) \\ topLevels
+                | topLevel -> Lam t vs <$> go False Nothing body
 
-                to <- genLam
-                -- alpha-rename any variables within the lambda to the fresh name (unless shadowed by vs)
-                let body' =
-                        case mName of
-                            Just n | not (n `elem` vs) -> alphaSubstitute n to body
-                            _                          -> body
+                | otherwise -> do
 
-                body'' <- go Nothing body'
-                modify' $ \s -> s { lifted = (free, FunDefn to QTodo (Lam t vs body'')) : lifted s }
-                pure (Term t (Var to))
+                    -- Look for free vars
+                    let free = case mName of
+                            Nothing -> S.fromList (              freeVars l)  \\ topLevels
+                            Just n  -> S.fromList (filter (/=n) (freeVars l)) \\ topLevels
+
+                    to <- genLam
+                    -- alpha-rename any variables within the lambda to the fresh name (unless shadowed by vs)
+                    let body' =
+                            case mName of
+                                Just n | not (n `elem` vs) -> alphaSubstitute n to body
+                                _                          -> body
+
+                    body'' <- go False Nothing body'
+                    modify' $ \s -> s { lifted = M.insert to (free, FunDefn to QTodo (Lam t vs body'')) (lifted s) }
+                    pure (Term t (Var to))
 
             App t f xs ->
-                App t <$> go Nothing f
-                      <*> traverse (go Nothing) xs
+                App t <$> go False Nothing f
+                      <*> traverse (go False Nothing) xs
                 -- TODO: check for AppClo on the way out?
 
             Let t a b c ->
-                Let t a <$> go (Just a) b -- Pass a through so lambda self-references can be updated
-                        <*> go Nothing c  -- Renaming not needed in c, because the 'Let' stmt does it at runtime
+                Let t a <$> go False (Just a) b -- Pass a through so lambda self-references can be updated
+                        <*> go False Nothing c  -- Renaming not needed in c, because the 'Let' stmt does it at runtime
 
             UnPrimOp t op a ->
-                UnPrimOp t op <$> go Nothing a
+                UnPrimOp t op <$> go False Nothing a
 
             BinPrimOp t op a b ->
-                BinPrimOp t op <$> go Nothing a
-                               <*> go Nothing b
+                BinPrimOp t op <$> go False Nothing a
+                               <*> go False Nothing b
 
             IfThenElse t pr tr fl ->
-                IfThenElse t <$> go Nothing pr
-                             <*> go Nothing tr
-                             <*> go Nothing fl
+                IfThenElse t <$> go False Nothing pr
+                             <*> go False Nothing tr
+                             <*> go False Nothing fl
 
             Case t scr ps ->
-                let liftLambdasPattern (Pattern lhs rhs) = Pattern lhs <$> go Nothing rhs in
-                Case t <$> go Nothing scr
+                let liftLambdasPattern (Pattern lhs rhs) = Pattern lhs <$> go False Nothing rhs in
+                Case t <$> go False Nothing scr
                        <*> traverse liftLambdasPattern ps
 
 norm :: Expr (Type ByteString) ByteString -> Anf (NExp ByteString)
@@ -159,12 +177,28 @@ asAnfExpr expr k =
             k (AExp $ ATerm t term)
 
         Lam{} ->
-            lift $ Left "asAnfExpr: Cannot construct lambdas in outgoing language"
+            lift . lift $ Left "asAnfExpr: Cannot construct lambdas in outgoing language"
 
         App t f xs ->
             asAtomicExpr f $ \f' ->
                 asAtomicExprs xs $ \xs' ->
-                    k (CExp $ CApp t f' xs')
+
+                    case f' of
+                        (ATerm _ (Var var)) -> do
+                            Env clos <- ask
+                            case M.lookup var clos of
+                                Just fvs | not (S.null fvs) ->
+                                    k (CExp $ CAppClo t f' (AClosEnv (S.toList fvs)) xs')
+                                otherwise ->
+                                    k (CExp $ CApp t f' xs')
+
+                    -- Check if f is a top-level with free vars
+                    -- then adjust the CApp into a CAppClo
+
+                -- This could be a good place to force a Capp into
+                    -- CFunCall
+                    -- CCloCall
+                    -- CDCCons
 
         Let t a b c ->
             asAnfExpr b $ \b' ->
@@ -211,7 +245,7 @@ asAtomicExpr expr k =
             k (ATerm t term)
 
         Lam{} ->
-            lift $ Left "asAtomicExpr: Cannot construct lambdas in outgoing language"
+            lift . lift $ Left "asAtomicExpr: Cannot construct lambdas in outgoing language"
 
         App t f xs ->
             asAtomicExpr f $ \f' ->
