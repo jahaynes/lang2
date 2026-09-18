@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveFunctor #-}
 
-module Core.Expression ( Expr (..)
+module Core.Expression ( ClosEnv (..)
+                       , Expr (..)
                        , Pattern (..)
                        , PatLhsExpr (..)
                        , alphaSubstitute
@@ -13,6 +14,8 @@ import Core.Operator (BinOp, UnOp)
 import Core.Term     (Term (..))
 
 data Expr t s = Term       t (Term s)
+              | Clo        t s
+              | CreateClosure t s (ClosEnv s)
               | Lam        t [s] (Expr t s)
               | App        t (Expr t s) [Expr t s]
               | Let        t s (Expr t s) (Expr t s)
@@ -21,6 +24,10 @@ data Expr t s = Term       t (Term s)
               | IfThenElse t (Expr t s) (Expr t s) (Expr t s)
               | Case       t (Expr t s) [Pattern t s]
                   deriving (Eq, Functor, Ord, Show)
+
+newtype ClosEnv s = 
+    ClosEnv [s]
+        deriving (Eq, Functor, Ord, Show)
 
 data Pattern t s =
     Pattern (PatLhsExpr t s) (Expr t s)

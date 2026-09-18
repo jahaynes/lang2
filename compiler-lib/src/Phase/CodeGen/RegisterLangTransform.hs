@@ -17,6 +17,8 @@ import           Data.List             (zip3)
 import           Data.Map              (Map)
 import qualified Data.Map.Strict as M
 
+import Debug.Trace (trace)
+
 ---------------------------------------------------------------
 -- Compilation state
 ---------------------------------------------------------------
@@ -65,6 +67,7 @@ bindVar v r = do
 
 aexpToATerm :: AExp ByteString -> CompileM (ATerm ByteString)
 aexpToATerm (ATerm _ (Var v))     = AVar <$> lookupVar v
+aexpToATerm (AClo _ v)            = AVar <$> lookupVar v -- TODO FIXME
 aexpToATerm (ATerm _ (DCons c))   = pure (ADCons c)
 aexpToATerm (ATerm _ (LitInt n))  = pure (ALitInt n)
 aexpToATerm (ATerm _ (LitBool b)) = pure (ALitBool b)
@@ -341,6 +344,10 @@ compileCExpTo cexp rDest mcont = case cexp of
         let defaultBlock = Block l_default [] defaultTerm
 
         pure (scrutBlock : altBlocks ++ [defaultBlock], l_case)
+
+    _ -> trace "unknown code" $ do
+        l <- freshLabel
+        pure ([], l)
 
 ---------------------------------------------------------------
 -- Case alternative compilation

@@ -18,7 +18,7 @@ pipe = do
     phaseLexer
     phaseParser
     phaseTypeCheck
-    phaseEtaExpand
+    -- phaseEtaExpand
     phaseNormalise
     phaseCodeGen
 
@@ -41,13 +41,13 @@ pipe = do
     phaseTypeCheck = modify' $ \ps ->
         ps { getInferred = inferModule =<< getModule ps }
 
-    phaseEtaExpand :: State ProgramState ()
-    phaseEtaExpand = modify' $ \ps ->
-        ps { getEtaExpanded = etaExpand <$> getInferred ps }
+    --phaseEtaExpand :: State ProgramState ()
+    --phaseEtaExpand = modify' $ \ps ->
+    --    ps { getEtaExpanded = etaExpand <$> getInferred ps }
 
     phaseNormalise :: State ProgramState ()
     phaseNormalise = modify' $ \ps ->
-        ps { getNormalised = anfModule =<< getEtaExpanded ps }
+        ps { getNormalised = anfModule =<< getInferred ps }
 
     phaseCodeGen :: State ProgramState ()
     phaseCodeGen = modify' $ \ps ->

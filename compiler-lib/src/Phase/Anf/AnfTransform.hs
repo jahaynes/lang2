@@ -54,7 +54,7 @@ anfModule md = do
     let clos = fst <$> (lifted lambdaState) :: Map ByteString (Set ByteString)
 
     -- Anf pass
-    (anfDefns, _) <- runStateT (runReaderT (mapM anfFunDefT funs) (Env clos) ) (AnfState 0)
+    (anfDefns, _) <- runStateT (runReaderT (mapM anfFunDefT funs) (Env clos) ) (AnfState 0 0)
 
     pure $ AnfModule (getDataDefns md) anfDefns
 
@@ -72,8 +72,9 @@ anfFunDefT (free, FunDefn n pt expr) = do
             FunDefAnfT n pt (typeOf expr) [] [] <$> norm expr
             -- TODO - guard against free variables in non-lambdas?
 
-newtype AnfState s =
-    AnfState { getAnfNum :: Int
+data AnfState s =
+    AnfState { getAnfNum :: !Int
+             , getCloNum :: !Int
              }
 
 data LlState s =
@@ -87,6 +88,13 @@ genAnf = do
     let n = getAnfNum s
     lift . StateT.put $! s { getAnfNum = n+1 }
     pure ("anf_" <> (pack $ show n))
+
+genClo :: Anf ByteString
+genClo = do
+    s <- lift StateT.get
+    let n = getCloNum s
+    lift . StateT.put $! s { getCloNum = n+1 }
+    pure ("clo_" <> (pack $ show n))
 
 liftFun :: Set ByteString
         -> FunDefn (Type ByteString) ByteString
@@ -117,7 +125,8 @@ liftLambdas topLevels genLam = go True Nothing
 
             l@(Lam t vs body)
 
-                | topLevel -> Lam t vs <$> go False Nothing body
+                | topLevel ->
+                    Lam t vs <$> go False Nothing body
 
                 | otherwise -> do
 
@@ -135,7 +144,10 @@ liftLambdas topLevels genLam = go True Nothing
 
                     body'' <- go False Nothing body'
                     modify' $ \s -> s { lifted = M.insert to (free, FunDefn to QTodo (Lam t vs body'')) (lifted s) }
-                    pure (Term t (Var to))
+                    
+                    pure $ if null free
+                        then Term t (Var to)
+                        else CreateClosure t to (ClosEnv $ S.toList free)
 
             App t f xs ->
                 App t <$> go False Nothing f
@@ -176,6 +188,29 @@ asAnfExpr expr k =
         Term t term ->
             k (AExp $ ATerm t term)
 
+        Clo t v ->
+            k (AExp $ AClo t v)
+
+        CreateClosure t v (ClosEnv e) -> do
+
+            env <- genClo
+
+            -- These are bad 't' types.
+            let nlet = NLet t env (AClo t)
+
+            k (CExp $ CCreateClosure t v (AClosEnv e) ) -- the env should be a binder!
+
+{-
+ IfThenElse t pr tr fl ->
+            asAtomicExpr pr $ \pr' -> do
+                v    <- genAnf
+                tr'  <- norm tr
+                fl'  <- norm fl
+                rest <- k (AExp $ ATerm t $ Var v)
+                pure $ NLet t v (CExp $ CIfThenElse t pr' tr' fl') rest
+-}
+
+
         Lam{} ->
             lift . lift $ Left "asAnfExpr: Cannot construct lambdas in outgoing language"
 
@@ -186,7 +221,8 @@ asAnfExpr expr k =
                     case f' of
                         (ATerm _ (Var var)) -> do
                             Env clos <- ask
-                            case M.lookup var clos of
+                            trace (show ("looking up", var, "in", clos)) $
+                              case M.lookup var clos of
                                 Just fvs | not (S.null fvs) ->
                                     k (CExp $ CAppClo t f' (AClosEnv (S.toList fvs)) xs')
                                 otherwise ->

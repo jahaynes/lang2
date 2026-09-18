@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Pretty.Anf where
+module Pretty.Anf ( renderAnfModule ) where
 
 import Common.State
 import Core.Term
@@ -77,6 +77,9 @@ printAExp aexp =
         ATerm _ term ->
             printTerm term
 
+        AClo _ v ->
+            pure ("~" <> bytestring v)
+
 printCExp :: CExp ByteString -> State Int TextBuilder
 printCExp cexp =
 
@@ -118,6 +121,9 @@ printCExp cexp =
             pexps'  <- mapM printPExp pexps
             pexps'' <- mapM (withIndent . indentSt) pexps'
             pure $ TB.intercalate "\n" (case':pexps'')
+
+        CCreateClosure _ v env ->
+            pure "createclosure"
 
 printPExp :: PExp ByteString -> State Int TextBuilder
 printPExp (PExp lhs rhs) = do
